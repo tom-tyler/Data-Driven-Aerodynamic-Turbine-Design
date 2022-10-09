@@ -1,2 +1,2 @@
 # Data-Driven-Aerodynamic-Turbine-Design
-A data-driven design tool for turbines
+A data-driven design tool for turbines.
