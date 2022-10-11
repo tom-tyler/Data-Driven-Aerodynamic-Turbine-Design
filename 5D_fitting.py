@@ -18,6 +18,7 @@ training_data = pd.read_csv(training_file_path, names=["phi", "psi", "Lambda", "
 # Uppercase represents matrix, lowercase represents vector
 X_train = training_data[['phi','psi','Lambda','M','Co']] #two brackets are needed so that the array is 2D
 y_train = training_data['eta_lost']
+print(X_train.to_numpy())
 
 smoothness_kernel = 1*RBF(length_scale = (1,1,1,1,1), length_scale_bounds=(1e-6,1e6))
 
