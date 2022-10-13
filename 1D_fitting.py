@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF
 from scipy.stats.qmc import LatinHypercube
+from sklearn.metrics import mean_squared_error
 
 def f(x):
     return 0.5*X**3 - X**2 - 20*X
@@ -16,6 +17,8 @@ training_data_size = 2
 grid_range = 10
 grid_size = 1000
 kernel = 1.0 * RBF(length_scale=1.0,length_scale_bounds=(1e-5,400))
+alpha_value = 0.1
+hyperparameter_iterations = 30
 
 for ax in [ax1,ax2,ax3,ax4]:
 
@@ -30,14 +33,14 @@ for ax in [ax1,ax2,ax3,ax4]:
     X_train, y_train = X[training_indices], y[training_indices]
 
     #max and min length scale bounds should be considered very appropriately based on grid size
-    gaussian_process = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=30,alpha=0.1)
+    gaussian_process = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=hyperparameter_iterations,alpha=alpha_value)
     gaussian_process.fit(X_train, y_train)
     
     mean_prediction, std_prediction = gaussian_process.predict(X, return_std=True)
     upper_confidence_interval = mean_prediction - 1.96 * std_prediction
     lower_confidence_interval = mean_prediction + 1.96 * std_prediction
 
-
+    RMSE = np.sqrt(mean_squared_error(y,mean_prediction))
 
     ax.plot(X, y, label=r"$f(x)$", linestyle="dotted")
     ax.scatter(X_train,y_train, label=r"$Samples$", marker="x")
@@ -52,7 +55,7 @@ for ax in [ax1,ax2,ax3,ax4]:
     ax.legend()
     #ax.set_xlabel("$x$")
     #ax.set_ylabel("$f(x)$")
-    ax.set_title(f'n={training_data_size}')
+    ax.set_title(f'n={training_data_size}, RMSE={RMSE:.2f}')
     
 fig.suptitle("Gaussian process regression on 1D function")
 plt.show()
