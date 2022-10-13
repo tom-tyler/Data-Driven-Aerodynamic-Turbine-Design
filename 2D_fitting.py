@@ -18,7 +18,7 @@ P = np.column_stack((X_vector,Y_vector))
 Q = P[:,0]**2 - P[:,1]**2
 Z = X**2 - Y**2
 
-training_indices = np.random.randint(low=len(Q),size=20)
+training_indices = np.random.randint(low=len(Q),size=10)
 P_train, Q_train = P[training_indices], Q[training_indices]
 
 kernel = 1.0 * RBF(length_scale=(1.0,1.0))
@@ -30,8 +30,8 @@ testing_indices = np.random.randint(low=len(Q),size=20)
 P_train = P[testing_indices]
 
 mean_prediction, std_prediction = gaussian_process.predict(P, return_std=True)
-upper_confidence_interval = mean_prediction - 1.96 * std_prediction
-lower_confidence_interval = mean_prediction + 1.96 * std_prediction
+upper_confidence_interval = mean_prediction + 1.96 * std_prediction
+lower_confidence_interval = mean_prediction - 1.96 * std_prediction
 mean_prediction_grid = mean_prediction.reshape(grid_size,grid_size)
 std_prediction_grid = std_prediction.reshape(grid_size,grid_size)
 upper_confidence_interval_grid = upper_confidence_interval.reshape(grid_size,grid_size)
@@ -46,31 +46,27 @@ predicted_plot = ax.contour(X, Y, mean_prediction_grid,colors='blue',levels=cont
 confidence_plot_upper = ax.contour(X, Y, upper_confidence_interval_grid,levels=contour_levels,colors='green')
 confidence_plot_lower = ax.contour(X, Y, lower_confidence_interval_grid,levels=contour_levels,colors='green')
 
+for contour_level in contour_levels:
+    confidence_array = (upper_confidence_interval_grid>=contour_level) & (lower_confidence_interval_grid<=contour_level)
+    ax.contourf(X,Y,confidence_array, levels=[0.5, 2], cmap=ListedColormap(['green']), alpha=0.3)
 
-for contour_level in range(len(contour_levels)):
+
+
+# for contour_level in range(len(contour_levels)):
     
-    contour_lines_upper = confidence_plot_upper.allsegs[contour_level]
-    contour_lines_lower = confidence_plot_lower.allsegs[contour_level]
+#     contour_lines_upper = confidence_plot_upper.allsegs[contour_level]
+#     contour_lines_lower = confidence_plot_lower.allsegs[contour_level]
+#     #plot when between level and std
     
-    for contour_line in range(len(contour_lines_upper)):
+#     for contour_line in range(len(contour_lines_upper)):
         
-        upper_contour = contour_lines_upper[contour_line][:,1]
-        old_indices = np.arange(0,len(upper_contour))
-        new_indices = np.linspace(0,len(upper_contour)-1,grid_size)
-        spl = UnivariateSpline(old_indices,upper_contour,k=3,s=0)
-        upper_contour = spl(new_indices)
+#         upper_contour_x = contour_lines_upper[contour_line][:,1]
+
         
-        lower_contour = contour_lines_lower[contour_line][:,1]
-        old_indices = np.arange(0,len(lower_contour))
-        new_indices = np.linspace(0,len(lower_contour)-1,grid_size)
-        spl = UnivariateSpline(old_indices,lower_contour,k=3,s=0)
-        lower_contour = spl(new_indices)
+#         lower_contour_x = contour_lines_lower[contour_line][:,1]
         
-        plt.fill_between(x=x,
-                        y1=lower_contour,
-                        y2=upper_contour,
-                        alpha=0.5,
-                        color='green')
+        
+        
 
 # ax.scatter(P_train[:,0],P_train[:,1],marker='x')
 # (zzmax <= 1) & (zzmin >= 1)
