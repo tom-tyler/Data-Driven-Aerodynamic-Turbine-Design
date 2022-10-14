@@ -40,8 +40,8 @@ y = testing_data['eta_lost']
 mean_prediction, std_prediction = gaussian_process.predict(X, return_std=True)
 
 x_axis = np.arange(28)
-plt.plot(x_axis,mean_prediction)
-plt.plot(x_axis,y)
+plt.scatter(y,mean_prediction)
+# plt.plot(x_axis,y)
 # # plt.scatter(X, y, label='testing')
 # # plt.scatter(X_train, y_train, label="training")
 # #plt.plot(X, mean_prediction, label="Mean prediction")
