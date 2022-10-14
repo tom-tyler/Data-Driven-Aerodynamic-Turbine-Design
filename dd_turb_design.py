@@ -66,18 +66,48 @@ Functions Required:
 """
 
 from sklearn.gaussian_process import GaussianProcessRegressor
+import numpy as np
+import pandas as pd
+from sklearn.metrics import mean_squared_error
 
 class fit_data:
    def __init__(self,kernel_form,training_dataframe,number_of_restarts=30,alpha=0,output_key='eta_lost'):
       
       self.number_of_restarts = number_of_restarts
       self.alpha = alpha
+      self.output_key = output_key
       
-      self.input_array = training_dataframe.drop(columns=[output_key])
-      self.output_array = training_dataframe[output_key]
+      self.input_array_train = training_dataframe.drop(columns=[self.output_key])
+      self.output_array_train = training_dataframe[self.output_key]
       
       gaussian_process = GaussianProcessRegressor(kernel=kernel_form, n_restarts_optimizer=number_of_restarts,alpha=alpha)
-      gaussian_process.fit(self.input_array, self.output_array)
+      gaussian_process.fit(self.input_array_train, self.output_array_train)
       
       self.optimised_kernel = gaussian_process.kernel_
       self.fitted_function = gaussian_process
+      
+   def predict(self,testing_dataframe):
+      
+      self.input_array_test = testing_dataframe.drop(columns=[self.output_key])
+      self.output_array_test = testing_dataframe[self.output_key]
+      
+      self.mean_prediction, self.std_prediction = self.fitted_function.predict(self.input_array_test, return_std=True)
+      self.upper_confidence_interval = self.mean_prediction + 1.96 * self.std_prediction
+      self.lower_confidence_interval = self.mean_prediction - 1.96 * self.std_prediction
+      
+      self.RMSE = np.sqrt(mean_squared_error(self.output_array_test,self.mean_prediction))
+      
+      return self.mean_prediction
+   
+   def plot1D(self,phi='vary',psi=0.5,Lambda=0.5,M=0.6,Co=0.5,xmin=0,xmax=2,num_points=20):
+      
+      var_dict = {'phi':phi,'psi':psi,'Lambda':Lambda,'M':M,'Co':Co}
+      plot_dataframe = pd.Dataframe({})
+      
+      for key in var_dict:
+         if var_dict[key] == 'vary':
+            plot_dataframe[key] = np.linspace(start=xmin, stop=xmax, num=num_points)
+         else:
+            plot_dataframe[key] = var_dict[key]*np.ones(num_points)
+            
+      print(plot_dataframe)
