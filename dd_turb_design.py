@@ -25,7 +25,7 @@ Functions Required:
 
 1.) Fit data:
  - inputs:
-    - kernel
+    - kernel_form
     - num restarts
     - alpha(noise)
     - training matrix:
@@ -58,6 +58,26 @@ Functions Required:
         - upper_confidence_interval = mean_prediction + number * std_prediction
         - lower_confidence_interval = mean_prediction - number * std_prediction
  
-3.)
-
+3.) plot graphs
+ - inputs:
+    - x1
+    - x2 (if you want a 2d plot, else none)
+    - y
 """
+
+from sklearn.gaussian_process import GaussianProcessRegressor
+
+class fit_data:
+   def __init__(self,kernel_form,training_dataframe,number_of_restarts=30,alpha=0,output_key='eta_lost'):
+      
+      self.number_of_restarts = number_of_restarts
+      self.alpha = alpha
+      
+      self.input_array = training_dataframe.drop(columns=[output_key])
+      self.output_array = training_dataframe[output_key]
+      
+      gaussian_process = GaussianProcessRegressor(kernel=kernel_form, n_restarts_optimizer=number_of_restarts,alpha=alpha)
+      gaussian_process.fit(self.input_array, self.output_array)
+      
+      self.optimised_kernel = gaussian_process.kernel_
+      self.fitted_function = gaussian_process
