@@ -12,6 +12,8 @@ testing_data = pd.read_csv(testing_file_path, names=["phi", "psi", "Lambda", "M"
 
 kernel = 0.05 * RBF(length_scale = (1.0,1.0,1.0,1.0,1.0), length_scale_bounds=(1e-4,1e2))
 
-fit = fit_data(kernel_form=kernel,training_dataframe=training_data)
+fit = fit_data(kernel_form=kernel,training_dataframe=training_data,confidence_scalar=1)
 
-mean_prediction = fit.predict(testing_dataframe=testing_data)
+fig,(ax1) = plt.subplots(1,1,sharex=True,sharey=True)
+fit.plot_vars(ax1,phi='vary',psi='vary',Lambda=0.5,M=0.6,Co=0.85,num_points=100,num_contours=6)
+plt.show()
