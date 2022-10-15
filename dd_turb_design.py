@@ -73,14 +73,16 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from operator import countOf
 from matplotlib.colors import ListedColormap
+import scipy.stats as st
 
 class fit_data:
-   def __init__(self,kernel_form,training_dataframe,number_of_restarts=30,alpha=0,output_key='eta_lost',confidence_scalar=1.96):
+   def __init__(self,kernel_form,training_dataframe,number_of_restarts=30,alpha=0,output_key='eta_lost',CI_percent=95):
       
       self.number_of_restarts = number_of_restarts
       self.alpha = alpha
       self.output_key = output_key
-      self.confidence_scalar = confidence_scalar
+      self.CI_percent = CI_percent
+      self.confidence_scalar = st.norm.ppf(1 - ((1 - (CI_percent / 100)) / 2))
       
       self.input_array_train = training_dataframe.drop(columns=[self.output_key])
       self.output_array_train = training_dataframe[self.output_key]
@@ -158,15 +160,19 @@ class fit_data:
             y1=self.upper_confidence_interval,
             y2=self.lower_confidence_interval,
             alpha=opacity,                       
-            label=r"95% confidence interval",
+            label=fr"{self.CI_percent}% confidence interval",
             color='blue'
          )
-         axis.legend()
+         leg = axis.legend()
+         leg.set_draggable(state=True)
+         
          if (plot_key1 == 'M') or (plot_key1 == 'Co'):
-            axis.set_xlabel(f"${plot_key1}$")
+            axis.set_xlabel(fr"${plot_key1}$")
          else:
-            axis.set_xlabel(f"${plot_key1}$")
-         axis.set_ylabel('$eta$')
+            xlabel_string = '\\'+plot_key1
+            axis.set_xlabel(fr"$ {xlabel_string} $")
+            
+         axis.set_ylabel(r'$ \\eta $')
          axis.set_xlim(limit_dict[plot_key1][0],limit_dict[plot_key1][1])
    
       elif dimensions == 2:
@@ -192,10 +198,12 @@ class fit_data:
             self.mean_prediction = (np.ones(len(self.mean_prediction)) - self.mean_prediction)*100
             self.upper_confidence_interval = (np.ones(len(self.upper_confidence_interval)) - self.upper_confidence_interval)*100
             self.lower_confidence_interval = (np.ones(len(self.lower_confidence_interval)) - self.lower_confidence_interval)*100
+            contour_textlabel = '\\eta'
          else:
             self.mean_prediction = (self.mean_prediction)*100
             self.upper_confidence_interval = (self.upper_confidence_interval)*100
             self.lower_confidence_interval = (self.lower_confidence_interval)*100
+            contour_textlabel = '\\eta_{lost}'
          
          min_level = np.round(np.amin(self.mean_prediction))
          max_eta = np.amax(self.mean_prediction)
@@ -211,6 +219,7 @@ class fit_data:
             xvar,yvar=X1,X2
          elif swap_axis == True:
             yvar,xvar=X1,X2
+            plot_key1,plot_key2=plot_key2,plot_key1
          
          xvar_max,yvar_max=[],[]
          for index in max_eta_indices:
@@ -231,17 +240,20 @@ class fit_data:
 
          h1,_ = predicted_plot.legend_elements()
          h2,_ = confidence_plot.legend_elements()
-         axis.legend([h1[0], h2[0]], ['$eta$',r"95% confidence interval"])
+         leg = axis.legend([h1[0], h2[0]], [fr'$ {contour_textlabel} $, Mean prediction',fr"{self.CI_percent}% confidence interval"])
+         leg.set_draggable(state=True)
          
          if (plot_key1 == 'M') or (plot_key1 == 'Co'):
             axis.set_xlabel(f"${plot_key1}$")
          else:
-            axis.set_xlabel(f"${plot_key1}$")
+            xlabel_string1 = '\\'+plot_key1
+            axis.set_xlabel(fr"$ {xlabel_string1} $")
             
          if (plot_key2 == 'M') or (plot_key2 == 'Co'):
             axis.set_ylabel(f"${plot_key2}$")
          else:
-            axis.set_ylabel(f"${plot_key2}$")
+            xlabel_string2 = '\\'+plot_key2
+            axis.set_ylabel(fr"$ {xlabel_string2} $")
          
          axis.set_xlim(limit_dict[plot_key1][0],limit_dict[plot_key1][1])
          axis.set_ylim(limit_dict[plot_key2][0],limit_dict[plot_key2][1])
