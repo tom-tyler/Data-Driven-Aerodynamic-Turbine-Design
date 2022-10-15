@@ -70,6 +70,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 from operator import countOf
 from matplotlib.colors import ListedColormap
 
@@ -107,10 +108,10 @@ class fit_data:
       
       return self.mean_prediction,self.upper_confidence_interval,self.lower_confidence_interval
    
-   def plot_vars(self,axis,phi='vary',psi=0.5,Lambda=0.5,M=0.6,Co=0.5,num_points=100,num_contours=1,opacity=0.3,contour_variable=2):
+   def plot_vars(self,axis,phi='vary',psi=0.5,Lambda=0.5,M=0.6,Co=0.5,num_points=100,efficiency_step=0.5,opacity=0.3,swap_axis=False,display_efficiency=True):
       
       var_dict = {'phi':phi,'psi':psi,'Lambda':Lambda,'M':M,'Co':Co}
-      limit_dict = {'phi':(0,1.5),'psi':(0,2),'Lambda':(0,1),'M':(0,2),'Co':(0,1)}
+      limit_dict = {'phi':(0,1.5),'psi':(0,3),'Lambda':(0,1),'M':(0,0.85),'Co':(0,1)}
       
       dimensions = countOf(var_dict.values(), 'vary')
       plot_dataframe = pd.DataFrame({})
@@ -133,6 +134,17 @@ class fit_data:
 
          self.predict(plot_dataframe,include_output=False)
          
+         if display_efficiency == True:
+            self.mean_prediction = (np.ones(len(self.mean_prediction)) - self.mean_prediction)*100
+            self.upper_confidence_interval = (np.ones(len(self.upper_confidence_interval)) - self.upper_confidence_interval)*100
+            self.lower_confidence_interval = (np.ones(len(self.lower_confidence_interval)) - self.lower_confidence_interval)*100
+            axis.set_ylim(bottom=None,top=100,auto=True)
+         else:
+            self.mean_prediction = (self.mean_prediction)*100
+            self.upper_confidence_interval = (self.upper_confidence_interval)*100
+            self.lower_confidence_interval = (self.lower_confidence_interval)*100
+            axis.set_ylim(bottom=0,top=None,auto=True)
+         
          axis.plot(x1, self.mean_prediction, label=r"Mean prediction", color='blue')
          axis.fill_between(
             x=x1,
@@ -146,9 +158,8 @@ class fit_data:
          if (plot_key1 == 'M') or (plot_key1 == 'Co'):
             axis.set_xlabel(f"${plot_key1}$")
          else:
-            axis.set_xlabel(f"$\{plot_key1}$")
-         axis.set_ylabel(r'$\eta_{lost}$')
-         axis.set_ylim(0)
+            axis.set_xlabel(f"${plot_key1}$")
+         axis.set_ylabel('$eta$')
          axis.set_xlim(limit_dict[plot_key1][0],limit_dict[plot_key1][1])
    
       elif dimensions == 2:
@@ -167,62 +178,66 @@ class fit_data:
                plot_dataframe[key] = X2_vector
             else:
                plot_dataframe[key] = var_dict[key]*np.ones(num_points**2)
-               
-         print(plot_dataframe)
+         
          self.predict(plot_dataframe,include_output=False)
+         
+         if display_efficiency == True:
+            self.mean_prediction = (np.ones(len(self.mean_prediction)) - self.mean_prediction)*100
+            self.upper_confidence_interval = (np.ones(len(self.upper_confidence_interval)) - self.upper_confidence_interval)*100
+            self.lower_confidence_interval = (np.ones(len(self.lower_confidence_interval)) - self.lower_confidence_interval)*100
+         else:
+            self.mean_prediction = (self.mean_prediction)*100
+            self.upper_confidence_interval = (self.upper_confidence_interval)*100
+            self.lower_confidence_interval = (self.lower_confidence_interval)*100
+         
+         min_level = np.round(np.amin(self.mean_prediction))
+         max_eta = np.amax(self.mean_prediction)
+         max_eta_indices = np.where(self.mean_prediction == max_eta)
+         max_level = np.round(max_eta)
+         contour_levels = np.arange(min_level,max_level,efficiency_step)
          
          mean_prediction_grid = self.mean_prediction.reshape(num_points,num_points)
          upper_confidence_interval_grid = self.upper_confidence_interval.reshape(num_points,num_points)
          lower_confidence_interval_grid = self.lower_confidence_interval.reshape(num_points,num_points)
 
+         if swap_axis == False:
+            xvar,yvar=X1,X2
+         elif swap_axis == True:
+            yvar,xvar=X1,X2
          
-         # 2D plotting from now
-         ETA = mean_prediction_grid
-         yvar = ETA
-         upper_var = upper_confidence_interval_grid
-         lower_var = lower_confidence_interval_grid
-         if contour_variable == 1:
-            xvar = X2
-            cvar = X1
-         elif contour_variable == 2:
-            xvar = X1
-            cvar = X2
+         xvar_max,yvar_max=[],[]
+         for index in max_eta_indices:
+            xvar_max.append(xvar.ravel()[index])
+            yvar_max.append(yvar.ravel()[index])
+            axis.text(xvar.ravel()[index], yvar.ravel()[index], f'{max_eta:.2f}', size=12, color='green')
          
-         lowest_contour = np.amin(cvar.ravel())
-         highest_contour = np.amax(cvar.ravel())
-         contour_max_range = highest_contour - lowest_contour
+         predicted_plot = axis.contour(xvar, yvar, mean_prediction_grid,levels=contour_levels,cmap='winter',vmin=min_level,vmax=max_level)
+         axis.clabel(predicted_plot, inline=1, fontsize=14)
+         axis.scatter(xvar_max,yvar_max,color='green',marker='x')
 
-         contour_levels = np.linspace((lowest_contour-0.1*abs(contour_max_range)),(highest_contour+0.1*abs(contour_max_range)),(num_contours+2))
+         for contour_level_index,contour_level in enumerate(contour_levels):
+            if display_efficiency == True:
+               confidence_array = (upper_confidence_interval_grid<=contour_level) & (lower_confidence_interval_grid>=contour_level)
+            else:
+               confidence_array = (upper_confidence_interval_grid>=contour_level) & (lower_confidence_interval_grid<=contour_level)
+            confidence_plot = axis.contourf(xvar,yvar,confidence_array, levels=[0.5, 2], alpha=opacity,cmap = ListedColormap(['orange'])) # cmap=ListedColormap([cm.jet((contour_level-min_level)/(max_level-min_level))]
 
-         predicted_plot = axis.contour(xvar, yvar, cvar,colors='blue',levels=contour_levels)
-         upper_plot = axis.contour(xvar,upper_var,cvar,colors='green',levels=contour_levels)
-         lower_plot = axis.contour(xvar,lower_var,cvar,colors='red',levels=contour_levels)
-
-         # for contour_level_index, contour_level in enumerate(contour_levels):
-         #    eta_contour_level
-         #    predicted_plot.allsegs[contour_level_index][j]
-         #    # confidence_array = (upper_confidence_interval_grid>=contour_level) & (lower_confidence_interval_grid<=contour_level)
-         #    confidence_array = 
-         #    confidence_plot = axis.contourf(X1,X2,confidence_array, levels=[0.5, 2], cmap=ListedColormap(['blue']), alpha=opacity)
-
-         # h1,_ = predicted_plot.legend_elements()
-         # h2,_ = confidence_plot.legend_elements()
-         # axis.legend([h1[0], h2[0]], ["Mean prediction",r"95% confidence interval"])
+         h1,_ = predicted_plot.legend_elements()
+         h2,_ = confidence_plot.legend_elements()
+         axis.legend([h1[0], h2[0]], ['$eta$',r"95% confidence interval"])
          
          if (plot_key1 == 'M') or (plot_key1 == 'Co'):
             axis.set_xlabel(f"${plot_key1}$")
          else:
-            axis.set_xlabel(f"$\{plot_key1}$")
+            axis.set_xlabel(f"${plot_key1}$")
             
-         # if (plot_key2 == 'M') or (plot_key2 == 'Co'):
-         #    axis.set_ylabel(f"${plot_key2}$")
-         # else:
-         #    axis.set_ylabel(f"$\{plot_key2}$")
-
-         axis.set_xlim(limit_dict[plot_key1][0],limit_dict[plot_key1][1])
+         if (plot_key2 == 'M') or (plot_key2 == 'Co'):
+            axis.set_ylabel(f"${plot_key2}$")
+         else:
+            axis.set_ylabel(f"${plot_key2}$")
          
-         axis.set_ylabel(r'$\eta_{lost}$')
-         #axis.set_ylim(0,0.1)
+         axis.set_xlim(limit_dict[plot_key1][0],limit_dict[plot_key1][1])
+         axis.set_ylim(limit_dict[plot_key2][0],limit_dict[plot_key2][1])
          
       else:
          print('INVALID')
