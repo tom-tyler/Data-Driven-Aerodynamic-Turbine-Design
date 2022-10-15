@@ -108,10 +108,9 @@ class fit_data:
       
       return self.mean_prediction,self.upper_confidence_interval,self.lower_confidence_interval
    
-   def plot_vars(self,axis,phi='vary',psi=0.5,Lambda=0.5,M=0.6,Co=0.5,num_points=100,efficiency_step=0.5,opacity=0.3,swap_axis=False,display_efficiency=True):
+   def plot_vars(self,limit_dict,axis,phi='vary',psi=0.5,Lambda=0.5,M=0.6,Co=0.5,num_points=100,efficiency_step=0.5,opacity=0.3,swap_axis=False,display_efficiency=True):
       
       var_dict = {'phi':phi,'psi':psi,'Lambda':Lambda,'M':M,'Co':Co}
-      limit_dict = {'phi':(0,1.5),'psi':(0,3),'Lambda':(0,1),'M':(0,0.85),'Co':(0,1)}
       
       dimensions = countOf(var_dict.values(), 'vary')
       plot_dataframe = pd.DataFrame({})
@@ -144,6 +143,14 @@ class fit_data:
             self.upper_confidence_interval = (self.upper_confidence_interval)*100
             self.lower_confidence_interval = (self.lower_confidence_interval)*100
             axis.set_ylim(bottom=0,top=None,auto=True)
+            
+         max_eta = np.amax(self.mean_prediction)
+         max_eta_indices = np.where(self.mean_prediction == max_eta)
+         
+         xvar_max = []
+         for index in max_eta_indices:
+            xvar_max.append(x1[index])
+            axis.text(x1[index], self.mean_prediction[index], f'{max_eta:.2f}', size=12, color='darkblue')
          
          axis.plot(x1, self.mean_prediction, label=r"Mean prediction", color='blue')
          axis.fill_between(

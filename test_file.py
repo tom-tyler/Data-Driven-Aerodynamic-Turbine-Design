@@ -13,18 +13,22 @@ testing_data = pd.read_csv(testing_file_path, names=["phi", "psi", "Lambda", "M"
 kernel = 0.05 * RBF(length_scale = (1.0,1.0,1.0,1.0,1.0), 
                     length_scale_bounds=(1e-4,1e2))
 
+#values chosen to avoid exprapolation
+limit_dict = {'phi':(0.4,1.2),'psi':(1,2.6),'Lambda':(0.4,0.6),'M':(0.54,0.93),'Co':(0.53,0.8)}
+
 fit = fit_data(kernel_form=kernel,
                training_dataframe=training_data,
-               confidence_scalar=0.3)
+               confidence_scalar=1.96)
 
 fig,(ax1) = plt.subplots(1,1,sharex=True,sharey=True)
-fit.plot_vars(ax1,
-              phi='vary',
+fit.plot_vars(limit_dict,
+              ax1,
+              phi=0.63,
               psi='vary',
-              Lambda=0.5,
-              M=0.8,
-              Co=0.6,
-              num_points=100,
+              Lambda=0.4,
+              M=0.84,
+              Co=0.55,
+              num_points=200,
               display_efficiency=True,
               efficiency_step=0.5
               )
