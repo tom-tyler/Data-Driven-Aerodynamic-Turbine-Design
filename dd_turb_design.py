@@ -280,5 +280,5 @@ class fit_data:
       axis.scatter(self.output_array_test,self.mean_prediction)
       axis.plot(self.output_array_test,self.output_array_test)
       axis.set_title(fr'RMSE = {self.RMSE:.2e}     kernel = {kernel_text}')
-      axis.set_xlabel(r' \\eta (actual)')
-      axis.set_ylabel(r' \\eta (prediction)')
+      axis.set_xlabel(r'$ \\eta $ (actual)')
+      axis.set_ylabel(r'$ \\eta $ (prediction)')
