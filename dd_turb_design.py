@@ -110,13 +110,15 @@ class fit_data:
       
       return self.mean_prediction,self.upper_confidence_interval,self.lower_confidence_interval
    
-   def plot_vars(self,limit_dict,axis,phi='vary',psi=0.5,Lambda=0.5,M=0.6,Co=0.5,num_points=100,efficiency_step=0.5,opacity=0.3,swap_axis=False,display_efficiency=True):
+   def plot_vars(self,limit_dict,axis,phi='vary',psi=0.5,Lambda=0.5,M=0.6,Co=0.5,num_points=100,efficiency_step=0.5,opacity=0.3,swap_axis=False,display_efficiency=True,title_variable_spacing=5):
       
       var_dict = {'phi':phi,'psi':psi,'Lambda':Lambda,'M':M,'Co':Co}
       
       dimensions = countOf(var_dict.values(), 'vary')
       plot_dataframe = pd.DataFrame({})
       vary_counter = 0
+      
+      plot_title = ' '
       
       for key in var_dict:
          if (var_dict[key] == 'vary') and (vary_counter == 0):
@@ -130,6 +132,13 @@ class fit_data:
             plot_dataframe[key] = x2
          else:
             plot_dataframe[key] = var_dict[key]*np.ones(num_points)
+            
+            if (key == 'M') or (key == 'Co'):
+               plot_title += f'{key} = {var_dict[key]}'
+               plot_title += '\; '*title_variable_spacing
+            else:
+               plot_title += '\\' + f'{key} = {var_dict[key]}'
+               plot_title += '\; '*title_variable_spacing
       
       if dimensions == 1:
 
@@ -257,6 +266,19 @@ class fit_data:
          
          axis.set_xlim(limit_dict[plot_key1][0],limit_dict[plot_key1][1])
          axis.set_ylim(limit_dict[plot_key2][0],limit_dict[plot_key2][1])
-         
+          
       else:
          print('INVALID')
+         
+      axis.set_title(fr'$ {plot_title} $')
+      
+   def plot_accuracy(self,axis):
+
+      kernel_text = str(self.optimised_kernel)
+
+
+      axis.scatter(self.output_array_test,self.mean_prediction)
+      axis.plot(self.output_array_test,self.output_array_test)
+      axis.set_title(fr'RMSE = {self.RMSE:.2e}     kernel = {kernel_text}')
+      axis.set_xlabel(r' \\eta (actual)')
+      axis.set_ylabel(r' \\eta (prediction)')
