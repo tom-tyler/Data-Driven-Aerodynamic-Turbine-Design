@@ -147,7 +147,7 @@ class fit_data:
                  opacity=0.3,
                  swap_axis=False,
                  display_efficiency=True,
-                 title_variable_spacing=5,
+                 title_variable_spacing=3,
                  plotting_grid_value=[0,0],
                  grid_height=1
                  ):
@@ -216,18 +216,22 @@ class fit_data:
             y2=self.lower_confidence_interval,
             alpha=opacity,                       
             label=fr"{self.CI_percent}% confidence interval",
-            color='blue'
+            color='orange'
          )
-         leg = axis.legend()
-         leg.set_draggable(state=True)
+         if plotting_grid_value==[0,0]:
+            leg = axis.legend()
+            leg.set_draggable(state=True)
          
-         if (plot_key1 == 'M') or (plot_key1 == 'Co'):
-            axis.set_xlabel(fr"${plot_key1}$")
-         else:
-            xlabel_string = '\\'+plot_key1
-            axis.set_xlabel(fr"$ {xlabel_string} $")
+         if plotting_grid_value[0] == (grid_height-1):
+            if (plot_key1 == 'M') or (plot_key1 == 'Co'):
+               axis.set_xlabel(fr"${plot_key1}$")
+            else:
+               xlabel_string = '\\'+plot_key1
+               axis.set_xlabel(fr"$ {xlabel_string} $")
+               
+         if plotting_grid_value[1] == 0:
+            axis.set_ylabel('$ \\eta $')
             
-         axis.set_ylabel(r'$ \\eta $')
          axis.set_xlim(limit_dict[plot_key1][0],limit_dict[plot_key1][1])
    
       elif dimensions == 2:
@@ -319,7 +323,7 @@ class fit_data:
       else:
          print('INVALID')
          
-      axis.set_title(fr'$ {plot_title} $')
+      axis.set_title(fr'$ {plot_title} $',size=10)
       
       if axis == None:
          fig.suptitle("Data-driven turbine design")
@@ -349,28 +353,34 @@ class fit_data:
       
    def plot_grid_vars(self,
                       vary_var_1,
-                      vary_var_2,
+                      vary_or_constant_2,
                       column_var,
                       column_var_array,
                       row_var,
                       row_var_array,
                       constant_var,
                       constant_var_value,
+                      constant_var_value_2=None,
                       limit_dict=None,
                       num_points=100,
                       efficiency_step=0.5,
                       opacity=0.3,
                       swap_axis=False,
                       display_efficiency=True,
-                      title_variable_spacing=5
+                      title_variable_spacing=3
                       ):
       
       var_dict = {'phi':None,'psi':None,'Lambda':None,'M':None,'Co':None}
 
       for key in var_dict:
          
-         if (key == vary_var_1) or (key == vary_var_2):
+         if (key == vary_var_1):
             var_dict[key] = 'vary'
+         elif (key == vary_or_constant_2):
+            if constant_var_value_2 == None:
+               var_dict[key] = 'vary'
+            else:
+               var_dict[key] = constant_var_value_2
          elif key == column_var:
             var_dict[key] = column_var_array
          elif key == row_var:
