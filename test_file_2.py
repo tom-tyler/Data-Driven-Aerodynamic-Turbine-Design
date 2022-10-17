@@ -35,14 +35,21 @@ fit = fit_data(kernel_form=kernel,
             CI_percent=95,
             number_of_restarts=20)
 
-fit.plot_grid_vars(vary_var_1='phi',
-                   vary_or_constant_2='psi',
-                   column_var='Lambda',
-                   column_var_array=[0.45,0.5,0.55,0.6],
-                   row_var='Co',
-                   row_var_array=[0.6,0.7],
-                   constant_var='M',
-                   constant_var_value = 0.6,
-                   constant_var_value_2=0.5,
-                   num_points=500
-                   )
+# fit.plot_grid_vars(vary_var_1='phi',
+#                    vary_or_constant_2='psi',
+#                    column_var='Lambda',
+#                    column_var_array=[0.45,0.5,0.55,0.6],
+#                    row_var='Co',
+#                    row_var_array=[0.6,0.7],
+#                    constant_var='M',
+#                    constant_var_value = 0.6,
+#                    constant_var_value_2=0.5,
+#                    num_points=500
+#                    )
+
+fit.plot_vars(phi='vary',
+              psi=1.3,
+              Lambda=0.5,
+              M='vary',
+              Co=0.6
+              )

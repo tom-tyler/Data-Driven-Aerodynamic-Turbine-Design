@@ -92,7 +92,13 @@ constant_kernel_2 = kernels.ConstantKernel(constant_value=1,
 default_kernel = constant_kernel_1 * matern_kernel + constant_kernel_2
 
 class fit_data:
-   def __init__(self,training_dataframe,kernel_form=default_kernel,number_of_restarts=30,alpha=0,output_key='eta_lost',CI_percent=95):
+   def __init__(self,
+                training_dataframe,
+                kernel_form=default_kernel,
+                number_of_restarts=30,
+                alpha=0,
+                output_key='eta_lost',
+                CI_percent=95):
       
       self.number_of_restarts = number_of_restarts
       self.alpha = alpha
@@ -117,7 +123,10 @@ class fit_data:
       self.optimised_kernel = gaussian_process.kernel_
       self.fitted_function = gaussian_process
       
-   def predict(self,dataframe,include_output=True):
+   def predict(self,
+               dataframe,
+               include_output=True
+               ):
       
       if include_output == True:
          self.input_array_test = dataframe.drop(columns=[self.output_key])
@@ -135,13 +144,13 @@ class fit_data:
       return self.mean_prediction,self.upper_confidence_interval,self.lower_confidence_interval
    
    def plot_vars(self,
+                 phi,
+                 psi,
+                 Lambda,
+                 M,
+                 Co,
                  limit_dict=None,
                  axis=None,
-                 phi='vary',
-                 psi=0.5,
-                 Lambda=0.5,
-                 M=0.6,
-                 Co=0.5,
                  num_points=100,
                  efficiency_step=0.5,
                  opacity=0.3,
@@ -154,6 +163,9 @@ class fit_data:
       
       if axis == None:
          fig,axis = plt.subplots(1,1,sharex=True,sharey=True)
+         plot_now = True
+      else:
+         plot_now = False
       
       var_dict = {'phi':phi,'psi':psi,'Lambda':Lambda,'M':M,'Co':Co}
       
@@ -325,11 +337,14 @@ class fit_data:
          
       axis.set_title(fr'$ {plot_title} $',size=10)
       
-      if axis == None:
+      if plot_now == True:
          fig.suptitle("Data-driven turbine design")
          plt.show()
       
-   def plot_accuracy(self,testing_dataframe,axis=None):
+   def plot_accuracy(self,
+                     testing_dataframe,
+                     axis=None
+                     ):
       
       self.predict(testing_dataframe)
       
