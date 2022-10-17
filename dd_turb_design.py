@@ -74,9 +74,25 @@ import matplotlib.cm as cm
 from operator import countOf
 from matplotlib.colors import ListedColormap
 import scipy.stats as st
+from sklearn.gaussian_process import kernels
+
+matern_kernel = kernels.Matern(length_scale = (1,1,1,1,1),
+                         length_scale_bounds=(1e-3,1e3),
+                         nu=1.5
+                         )
+
+constant_kernel_1 = kernels.ConstantKernel(constant_value=1,
+                                           constant_value_bounds=(1e-7,1e2)
+                                           )
+
+constant_kernel_2 = kernels.ConstantKernel(constant_value=1,
+                                           constant_value_bounds=(1e-7,1e2)
+                                           )
+
+default_kernel = constant_kernel_1 * matern_kernel + constant_kernel_2
 
 class fit_data:
-   def __init__(self,kernel_form,training_dataframe,number_of_restarts=30,alpha=0,output_key='eta_lost',CI_percent=95):
+   def __init__(self,training_dataframe,kernel_form=default_kernel,number_of_restarts=30,alpha=0,output_key='eta_lost',CI_percent=95):
       
       self.number_of_restarts = number_of_restarts
       self.alpha = alpha
@@ -86,6 +102,14 @@ class fit_data:
       
       self.input_array_train = training_dataframe.drop(columns=[self.output_key])
       self.output_array_train = training_dataframe[self.output_key]
+      
+      self.limit_dict = {'phi':(np.around(training_dataframe['phi'].min(),decimals=1),np.around(training_dataframe['phi'].max(),decimals=1)),
+                    'psi':(np.around(training_dataframe['psi'].min(),decimals=1),np.around(training_dataframe['psi'].max(),decimals=1)),
+                    'Lambda':(np.around(training_dataframe['Lambda'].min(),decimals=1),np.around(training_dataframe['Lambda'].max(),decimals=1)),
+                    'M':(np.around(training_dataframe['M'].min(),decimals=1),np.around(training_dataframe['M'].max(),decimals=1)),
+                    'Co':(np.around(training_dataframe['Co'].min(),decimals=1),np.around(training_dataframe['Co'].max(),decimals=1))
+                    }
+
       
       gaussian_process = GaussianProcessRegressor(kernel=kernel_form, n_restarts_optimizer=number_of_restarts,alpha=alpha)
       gaussian_process.fit(self.input_array_train, self.output_array_train)
@@ -110,13 +134,35 @@ class fit_data:
       
       return self.mean_prediction,self.upper_confidence_interval,self.lower_confidence_interval
    
-   def plot_vars(self,limit_dict,axis,phi='vary',psi=0.5,Lambda=0.5,M=0.6,Co=0.5,num_points=100,efficiency_step=0.5,opacity=0.3,swap_axis=False,display_efficiency=True,title_variable_spacing=5):
+   def plot_vars(self,
+                 limit_dict=None,
+                 axis=None,
+                 phi='vary',
+                 psi=0.5,
+                 Lambda=0.5,
+                 M=0.6,
+                 Co=0.5,
+                 num_points=100,
+                 efficiency_step=0.5,
+                 opacity=0.3,
+                 swap_axis=False,
+                 display_efficiency=True,
+                 title_variable_spacing=5,
+                 plotting_grid_value=[0,0],
+                 grid_height=1
+                 ):
+      
+      if axis == None:
+         fig,axis = plt.subplots(1,1,sharex=True,sharey=True)
       
       var_dict = {'phi':phi,'psi':psi,'Lambda':Lambda,'M':M,'Co':Co}
       
       dimensions = countOf(var_dict.values(), 'vary')
       plot_dataframe = pd.DataFrame({})
       vary_counter = 0
+      
+      if limit_dict == None:
+         limit_dict = self.limit_dict
       
       plot_title = ' '
       
@@ -247,22 +293,25 @@ class fit_data:
                confidence_array = (upper_confidence_interval_grid>=contour_level) & (lower_confidence_interval_grid<=contour_level)
             confidence_plot = axis.contourf(xvar,yvar,confidence_array, levels=[0.5, 2], alpha=opacity,cmap = ListedColormap(['orange'])) # cmap=ListedColormap([cm.jet((contour_level-min_level)/(max_level-min_level))]
 
-         h1,_ = predicted_plot.legend_elements()
-         h2,_ = confidence_plot.legend_elements()
-         leg = axis.legend([h1[0], h2[0]], [fr'$ {contour_textlabel} $, Mean prediction',fr"{self.CI_percent}% confidence interval"])
-         leg.set_draggable(state=True)
+         if plotting_grid_value==[0,0]:
+            h1,_ = predicted_plot.legend_elements()
+            h2,_ = confidence_plot.legend_elements()
+            leg = axis.legend([h1[0], h2[0]], [fr'$ {contour_textlabel} $, Mean prediction',fr"{self.CI_percent}% confidence interval"])
+            leg.set_draggable(state=True)
          
-         if (plot_key1 == 'M') or (plot_key1 == 'Co'):
-            axis.set_xlabel(f"${plot_key1}$")
-         else:
-            xlabel_string1 = '\\'+plot_key1
-            axis.set_xlabel(fr"$ {xlabel_string1} $")
-            
-         if (plot_key2 == 'M') or (plot_key2 == 'Co'):
-            axis.set_ylabel(f"${plot_key2}$")
-         else:
-            xlabel_string2 = '\\'+plot_key2
-            axis.set_ylabel(fr"$ {xlabel_string2} $")
+         if plotting_grid_value[0] == (grid_height-1):
+            if (plot_key1 == 'M') or (plot_key1 == 'Co'):
+               axis.set_xlabel(f"${plot_key1}$")
+            else:
+               xlabel_string1 = '\\'+plot_key1
+               axis.set_xlabel(fr"$ {xlabel_string1} $")
+         
+         if plotting_grid_value[1] == 0:
+            if (plot_key2 == 'M') or (plot_key2 == 'Co'):
+               axis.set_ylabel(f"${plot_key2}$")
+            else:
+               xlabel_string2 = '\\'+plot_key2
+               axis.set_ylabel(fr"$ {xlabel_string2} $")
          
          axis.set_xlim(limit_dict[plot_key1][0],limit_dict[plot_key1][1])
          axis.set_ylim(limit_dict[plot_key2][0],limit_dict[plot_key2][1])
@@ -272,13 +321,109 @@ class fit_data:
          
       axis.set_title(fr'$ {plot_title} $')
       
-   def plot_accuracy(self,axis):
+      if axis == None:
+         fig.suptitle("Data-driven turbine design")
+         plt.show()
+      
+   def plot_accuracy(self,testing_dataframe,axis=None):
+      
+      self.predict(testing_dataframe)
+      
+      if axis == None:
+         fig,axis = plt.subplots(1,1,sharex=True,sharey=True)
+      
+      limits_array = np.linspace(self.output_array_test.min(),self.output_array_test.max(),1000)
+      axis.scatter(self.output_array_test,self.mean_prediction,marker='x',label='Testing data points')
+      axis.plot(limits_array,limits_array,linestyle='dotted',color='red',label = r'$f(x)=x$')
+      axis.set_title(fr'RMSE = {self.RMSE:.2e}')
+      axis.set_xlabel('$ \\eta $ (actual)')
+      axis.set_ylabel('$ \\eta $ (prediction)')
+      # axis.set_xlim(limits_array[0],limits_array[-1])
+      # axis.set_ylim(limits_array[0],limits_array[-1])
+      leg = axis.legend()
+      leg.set_draggable(state=True)
+      
+      if axis == None:
+         fig.suptitle("Data-driven turbine design")
+         plt.show()
+      
+   def plot_grid_vars(self,
+                      vary_var_1,
+                      vary_var_2,
+                      column_var,
+                      column_var_array,
+                      row_var,
+                      row_var_array,
+                      constant_var,
+                      constant_var_value,
+                      limit_dict=None,
+                      num_points=100,
+                      efficiency_step=0.5,
+                      opacity=0.3,
+                      swap_axis=False,
+                      display_efficiency=True,
+                      title_variable_spacing=5
+                      ):
+      
+      var_dict = {'phi':None,'psi':None,'Lambda':None,'M':None,'Co':None}
 
-      kernel_text = str(self.optimised_kernel)
+      for key in var_dict:
+         
+         if (key == vary_var_1) or (key == vary_var_2):
+            var_dict[key] = 'vary'
+         elif key == column_var:
+            var_dict[key] = column_var_array
+         elif key == row_var:
+            var_dict[key] = row_var_array
+         elif key == constant_var:
+            var_dict[key] = constant_var_value
+      
+      num_columns = len(column_var_array)
+      num_rows = len(row_var_array)
+      
+      fig, axes = plt.subplots(nrows=num_rows,
+                               ncols=num_columns,
+                               sharex=True,
+                               sharey=True
+                               )
 
+      for (i,j), axis in np.ndenumerate(axes):
 
-      axis.scatter(self.output_array_test,self.mean_prediction)
-      axis.plot(self.output_array_test,self.output_array_test)
-      axis.set_title(fr'RMSE = {self.RMSE:.2e}     kernel = {kernel_text}')
-      axis.set_xlabel(r'$ \\eta $ (actual)')
-      axis.set_ylabel(r'$ \\eta $ (prediction)')
+         for key in var_dict:
+            if column_var == key:
+               var_dict[key] = column_var_array[j]
+            elif row_var == key:
+               var_dict[key] = row_var_array[i]
+         
+         self.plot_vars(axis=axis,
+                        phi=var_dict['phi'],
+                        psi=var_dict['psi'],
+                        Lambda=var_dict['Lambda'],
+                        M=var_dict['M'],
+                        Co=var_dict['Co'],
+                        num_points=num_points,
+                        efficiency_step=efficiency_step,
+                        swap_axis=swap_axis,
+                        limit_dict=limit_dict,
+                        display_efficiency=display_efficiency,
+                        title_variable_spacing=title_variable_spacing,
+                        opacity=opacity,
+                        plotting_grid_value=[i,j],
+                        grid_height=num_rows
+                        )
+
+      fig.suptitle("Data-driven turbine design")
+      
+      if (column_var == 'M') or (column_var == 'Co'):
+         fig.supxlabel(f"${column_var}$")
+      else:
+         xlabel_string1 = '\\'+column_var
+         fig.supxlabel(fr"$ {xlabel_string1} $")
+         
+      if (row_var == 'M') or (row_var == 'Co'):
+         fig.supylabel(f"${row_var}$")
+      else:
+         xlabel_string2 = '\\'+row_var
+         fig.supylabel(fr"$ {xlabel_string2} $")
+
+      plt.show()

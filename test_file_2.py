@@ -15,50 +15,33 @@ testing_data = pd.read_csv(testing_file_path,
                            names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
                            )
 
-kernel1 = kernels.Matern(length_scale = (1,1,1,1,1),
-                         length_scale_bounds=(1e-4,1e4),
+matern_kernel = kernels.Matern(length_scale = (1,1,1,1,1),
+                         length_scale_bounds=(1e-2,1e2),
                          nu=1.5
                          )
 
-kernel = 0.025 * kernel1 + 0.1
+constant_kernel_1 = kernels.ConstantKernel(constant_value=1,
+                                           constant_value_bounds=(1e-6,1e1)
+                                           )
+
+constant_kernel_2 = kernels.ConstantKernel(constant_value=1,
+                                           constant_value_bounds=(1e-6,1e1)
+                                           )
+
+kernel = constant_kernel_1 * matern_kernel + constant_kernel_2
 
 fit = fit_data(kernel_form=kernel,
             training_dataframe=training_data,
             CI_percent=20,
             number_of_restarts=20)
 
-fit.predict(testing_data)
-
-fig,ax = plt.subplots(1,1,sharex=True,sharey=True)
-
-fit.plot_accuracy(ax)
-
-# fig, axes = plt.subplots(3,3,sharex=True,sharey=True)
-
-# M_array = [0.6,0.7,0.8]
-# Co_array = [0.6,0.7,0.8]
-
-#values chosen to avoid extrapolation
-# limit_dict = {'phi':(np.around(training_data['phi'].min(),decimals=1),np.around(training_data['phi'].max(),decimals=1)),
-#             'psi':(np.around(training_data['psi'].min(),decimals=1),np.around(training_data['psi'].max(),decimals=1)),
-#             'Lambda':(np.around(training_data['Lambda'].min(),decimals=1),np.around(training_data['Lambda'].max(),decimals=1)),
-#             'M':(np.around(training_data['M'].min(),decimals=1),np.around(training_data['M'].max(),decimals=1)),
-#             'Co':(np.around(training_data['Co'].min(),decimals=1),np.around(training_data['Co'].max(),decimals=1))}
-
-# for (i,j), ax in np.ndenumerate(axes):
-
-#     fit.plot_vars(limit_dict,
-#                   ax,
-#                   phi='vary',
-#                   psi='vary',
-#                   Lambda=0.5,
-#                   M=M_array[i],
-#                   Co=Co_array[j],
-#                   num_points=1000,
-#                   display_efficiency=True,
-#                   efficiency_step=0.25,
-#                   swap_axis=False
-#                   )
-
-fig.suptitle("Data-driven turbine design")
-plt.show()
+fit.plot_grid_vars('Lambda',
+                   'psi',
+                   'phi',
+                   [0.5,0.7,0.9,1.1],
+                   'M',
+                   [0.6,0.7],
+                   'Co',
+                   0.6,
+                   num_points=500
+                   )
