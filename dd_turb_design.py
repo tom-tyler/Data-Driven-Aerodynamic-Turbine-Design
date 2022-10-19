@@ -159,11 +159,11 @@ class fit_data:
       return self.predicted_dataframe
       
    def find_global_max_min_values(self,
-                           num_points_interpolate_max=20,
-                           limit_dict=None):
+                                  num_points_interpolate_max=20,
+                                  limit_dict=None):
          
-      if limit_dict == None:
-         limit_dict = self.limit_dict
+      if limit_dict != None:
+         self.limit_dict = limit_dict
       
       vars_dict = OrderedDict()
       for key in self.limit_dict:
@@ -300,8 +300,8 @@ class fit_data:
          else:
             contour_textlabel = '\\eta_{lost}'
          
-         min_level = np.round(self.min_output)
-         max_level = np.round(self.max_output)
+         min_level = np.round(self.min_output/efficiency_step)*efficiency_step
+         max_level = np.round(self.max_output/efficiency_step)*efficiency_step
          contour_levels = np.arange(min_level,max_level,efficiency_step)
          
          mean_prediction_grid = self.mean_prediction.reshape(num_points,num_points)
