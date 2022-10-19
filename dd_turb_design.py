@@ -404,7 +404,8 @@ class fit_data:
                       opacity=0.3,
                       swap_axis=False,
                       display_efficiency=True,
-                      title_variable_spacing=3
+                      title_variable_spacing=3,
+                      with_arrows=False
                       ):
       
       var_dict = {'phi':None,'psi':None,'Lambda':None,'M':None,'Co':None}
@@ -461,16 +462,29 @@ class fit_data:
 
       fig.suptitle("Data-driven turbine design")
       
-      if (column_var == 'M') or (column_var == 'Co'):
-         fig.supxlabel(f"${column_var} \\rightarrow $")
+      if with_arrows==True:
+         if (column_var == 'M') or (column_var == 'Co'):
+            fig.supxlabel(f"${column_var} \\rightarrow $")
+         else:
+            xlabel_string1 = '\\'+column_var+' \\rightarrow'
+            fig.supxlabel(fr"$ {xlabel_string1} $")
+            
+         if (row_var == 'M') or (row_var == 'Co'):
+            fig.supylabel(f"$\\leftarrow {row_var} $")
+         else:
+            xlabel_string2 = '\\leftarrow \\'+row_var
+            fig.supylabel(fr"$ {xlabel_string2} $")
       else:
-         xlabel_string1 = '\\'+column_var+' \\rightarrow'
-         fig.supxlabel(fr"$ {xlabel_string1} $")
-         
-      if (row_var == 'M') or (row_var == 'Co'):
-         fig.supylabel(f"$\\leftarrow {row_var} $")
-      else:
-         xlabel_string2 = '\\leftarrow \\'+row_var
-         fig.supylabel(fr"$ {xlabel_string2} $")
+         if (column_var == 'M') or (column_var == 'Co'):
+            fig.supxlabel(f"${column_var} $")
+         else:
+            xlabel_string1 = '\\'+column_var
+            fig.supxlabel(fr"$ {xlabel_string1} $")
+            
+         if (row_var == 'M') or (row_var == 'Co'):
+            fig.supylabel(f"${row_var} $")
+         else:
+            xlabel_string2 = '\\'+row_var
+            fig.supylabel(fr"$ {xlabel_string2} $")
 
       plt.show()
