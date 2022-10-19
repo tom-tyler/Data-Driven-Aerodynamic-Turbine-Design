@@ -35,6 +35,15 @@ fit = fit_data(kernel_form=kernel,
             CI_percent=10,
             number_of_restarts=20)
 
+example_datapoint = pd.DataFrame({'phi':[0.8],
+                                  'psi':[1.4],
+                                  'Lambda':[0.5],
+                                  'M':[0.6],
+                                  'Co':[0.7]
+                                  })
+
+print(fit.predict(example_datapoint))
+
 # limit_dict = {'phi':(0.5,0.7),
 #               'psi':(1.3,1.5),
 #               'Lambda':(0.5,0.58),
@@ -42,8 +51,8 @@ fit = fit_data(kernel_form=kernel,
 #               'Co':(0.7,0.8)
 #               }
 
-fit.find_global_max_min_values()
-print(fit.max_output_row)
+# fit.find_global_max_min_values()
+# print(fit.max_output_row)
 
 # fit.plot_accuracy(testing_data)
 
@@ -58,11 +67,11 @@ print(fit.max_output_row)
 #                    num_points=500
 #                    )
 
-fit.plot_vars(phi=0.5,
-              psi=1.0,
-              Lambda='vary',
-              M='vary',
-              Co=0.6,
-              num_points=500,
-              efficiency_step=0.2
-              )
+# fit.plot_vars(phi=0.5,
+#               psi=1.0,
+#               Lambda='vary',
+#               M='vary',
+#               Co=0.6,
+#               num_points=500,
+#               efficiency_step=0.2
+#               )
