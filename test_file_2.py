@@ -35,12 +35,11 @@ fit = fit_data(kernel_form=kernel,
             CI_percent=20,
             number_of_restarts=20)
 
-fit.plot_accuracy(testing_data)
 fit.find_global_max_min_values()
-print(fit.var_max_dict)
-print(fit.max_output)
 print(fit.limit_dict)
 print(fit.max_output_row)
+
+# fit.plot_accuracy(testing_data)
 
 # fit.plot_grid_vars(vary_var_1='phi',
 #                    vary_or_constant_2='psi',
@@ -53,9 +52,9 @@ print(fit.max_output_row)
 #                    num_points=500
 #                    )
 
-fit.plot_vars(phi='vary',
-              psi=1.3,
-              Lambda=0.5,
-              M=0.7,
-              Co=0.6
-              )
+# fit.plot_vars(phi='vary',
+#               psi=1.3,
+#               Lambda=0.5,
+#               M=0.7,
+#               Co=0.6
+#               )

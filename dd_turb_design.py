@@ -152,16 +152,14 @@ class fit_data:
       
       self.min_output = np.amin(self.mean_prediction)
       self.min_output_indices = np.where(self.mean_prediction == self.min_output)
-      self.min_output_row = self.predicted_dataframe.iloc[self.min_output_indices]
       
       self.max_output = np.amax(self.mean_prediction)
       self.max_output_indices = np.where(self.mean_prediction == self.max_output)
-      self.max_output_row = self.predicted_dataframe.iloc[self.max_output_indices]
       
-      return self.mean_prediction,self.upper_confidence_interval,self.lower_confidence_interval
+      return self.predicted_dataframe
       
    def find_global_max_min_values(self,
-                           num_points_interpolate_max=3,
+                           num_points_interpolate_max=20,
                            limit_dict=None):
          
       if limit_dict == None:
@@ -179,7 +177,10 @@ class fit_data:
          var_vector = vars_dict[key].ravel()
          min_max_dataframe[key] = var_vector
 
-      self.predict(min_max_dataframe)
+      min_max_dataframe = self.predict(min_max_dataframe)
+      
+      self.min_output_row = min_max_dataframe.iloc[self.min_output_indices]
+      self.max_output_row = min_max_dataframe.iloc[self.max_output_indices]
          
       return self.max_output_row,self.min_output_row
         
