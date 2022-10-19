@@ -35,14 +35,14 @@ fit = fit_data(kernel_form=kernel,
             CI_percent=10,
             number_of_restarts=20)
 
-example_datapoint = pd.DataFrame({'phi':[0.8],
-                                  'psi':[1.4],
-                                  'Lambda':[0.5],
-                                  'M':[0.6],
-                                  'Co':[0.7]
-                                  })
+# example_datapoint = pd.DataFrame({'phi':[0.8],
+#                                   'psi':[1.4],
+#                                   'Lambda':[0.5],
+#                                   'M':[0.6],
+#                                   'Co':[0.7]
+#                                   })
 
-print(fit.predict(example_datapoint))
+# print(fit.predict(example_datapoint))
 
 # limit_dict = {'phi':(0.5,0.7),
 #               'psi':(1.3,1.5),
@@ -56,20 +56,21 @@ print(fit.predict(example_datapoint))
 
 # fit.plot_accuracy(testing_data)
 
-# fit.plot_grid_vars(vary_var_1='phi',
-#                    vary_or_constant_2='psi',
-#                    column_var='Lambda',
-#                    column_var_array=[0.45,0.5,0.55,0.6],
-#                    row_var='Co',
-#                    row_var_array=[0.6,0.7],
-#                    constant_var='M',
-#                    constant_var_value = 0.6,
-#                    num_points=500
-#                    )
+fit.plot_grid_vars(vary_var_1='phi',
+                   vary_or_constant_2='Lambda',
+                   column_var='psi',
+                   column_var_array=[1.0,1.5,2.0,2.5],
+                   row_var='M',
+                   row_var_array=[0.65,0.7,0.75],
+                   constant_var='Co',
+                   constant_var_value = 0.7,
+                   num_points=500,
+                   efficiency_step=0.5
+                   )
 
-# fit.plot_vars(phi=0.5,
-#               psi=1.0,
-#               Lambda='vary',
+# fit.plot_vars(phi=0.6,
+#               psi=1.4,
+#               Lambda=0.5,
 #               M='vary',
 #               Co=0.6,
 #               num_points=500,

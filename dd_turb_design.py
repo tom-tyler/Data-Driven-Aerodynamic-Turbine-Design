@@ -159,7 +159,7 @@ class fit_data:
       return self.predicted_dataframe
       
    def find_global_max_min_values(self,
-                                  num_points_interpolate_max=20,
+                                  num_points_interpolate=20,
                                   limit_dict=None):
          
       if limit_dict != None:
@@ -167,7 +167,7 @@ class fit_data:
       
       vars_dict = OrderedDict()
       for key in self.limit_dict:
-         vars_dict[key] = np.linspace(start=self.limit_dict[key][0], stop=self.limit_dict[key][1], num=num_points_interpolate_max)
+         vars_dict[key] = np.linspace(start=self.limit_dict[key][0], stop=self.limit_dict[key][1], num=num_points_interpolate)
 
       vars_grid_array = np.meshgrid(*vars_dict.values())
       min_max_dataframe = pd.DataFrame({})
@@ -371,17 +371,17 @@ class fit_data:
       self.predict(testing_dataframe,include_output=True)
       
       if axis == None:
-         fig,axis = plt.subplots(1,1,sharex=True,sharey=True)
+         fig,ax = plt.subplots(1,1,sharex=True,sharey=True)
       
       limits_array = np.linspace(self.output_array_test.min(),self.output_array_test.max(),1000)
-      axis.scatter(self.output_array_test,self.mean_prediction,marker='x',label='Testing data points')
-      axis.plot(limits_array,limits_array,linestyle='dotted',color='red',label = r'$f(x)=x$')
-      axis.set_title(fr'RMSE = {self.RMSE:.2e}')
-      axis.set_xlabel('$ \\eta $ (actual)')
-      axis.set_ylabel('$ \\eta $ (prediction)')
+      ax.scatter(self.output_array_test,self.mean_prediction,marker='x',label='Testing data points')
+      ax.plot(limits_array,limits_array,linestyle='dotted',color='red',label = r'$f(x)=x$')
+      ax.set_title(fr'RMSE = {self.RMSE:.2e}')
+      ax.set_xlabel('$ \\eta $ (actual)')
+      ax.set_ylabel('$ \\eta $ (prediction)')
       # axis.set_xlim(limits_array[0],limits_array[-1])
       # axis.set_ylim(limits_array[0],limits_array[-1])
-      leg = axis.legend()
+      leg = ax.legend()
       leg.set_draggable(state=True)
       
       if axis == None:
@@ -462,15 +462,15 @@ class fit_data:
       fig.suptitle("Data-driven turbine design")
       
       if (column_var == 'M') or (column_var == 'Co'):
-         fig.supxlabel(f"${column_var}$")
+         fig.supxlabel(f"${column_var} \\rightarrow $")
       else:
-         xlabel_string1 = '\\'+column_var
+         xlabel_string1 = '\\'+column_var+' \\rightarrow'
          fig.supxlabel(fr"$ {xlabel_string1} $")
          
       if (row_var == 'M') or (row_var == 'Co'):
-         fig.supylabel(f"${row_var}$")
+         fig.supylabel(f"$\\leftarrow {row_var} $")
       else:
-         xlabel_string2 = '\\'+row_var
+         xlabel_string2 = '\\leftarrow \\'+row_var
          fig.supylabel(fr"$ {xlabel_string2} $")
 
       plt.show()
