@@ -98,7 +98,8 @@ class fit_data:
                 number_of_restarts=30,
                 alpha=0,
                 output_key='eta_lost',
-                CI_percent=95):
+                CI_percent=95
+                ):
       
       self.number_of_restarts = number_of_restarts
       self.alpha = alpha
@@ -125,7 +126,9 @@ class fit_data:
       
    def predict(self,
                dataframe,
-               include_output=True
+               include_output=True,
+               find_maximum=True,
+               num_points_interpolate_max=10
                ):
       
       if include_output == True:
@@ -140,6 +143,34 @@ class fit_data:
       
       if include_output == True:
          self.RMSE = np.sqrt(mean_squared_error(self.output_array_test,self.mean_prediction))
+      
+      if find_maximum == True:
+         self.min_eta = np.amin(self.mean_prediction)
+         self.min_eta_indices = np.where(self.mean_prediction == self.min_eta)
+         
+         self.max_eta = np.amax(self.mean_prediction)
+         self.max_eta_indices = np.where(self.mean_prediction == self.max_eta)
+
+         
+         # vars_array = []
+         # for key in self.limit_dict:
+         #    var = np.linspace(start=self.limit_dict[key][0], stop=self.limit_dict[key][1], num=num_points_interpolate_max)
+         #    vars_array.append(var)
+         # vars_array = tuple(vars_array)
+         
+         # # dict= {'v1':np.array([1,2,3,4,5]), 'v2':np.array([5,6,7,8,9])}
+
+         # vars_grid_array = np.meshgrid(*vars_array)
+         
+         # # vars_grid_array = np.meshgrid(vars_array)
+         
+         # var_max_params = []
+         # for var_grid in vars_grid_array:
+         #    var_max=[]
+         #    for index in self.max_eta_indices:
+         #       var_max.append(var_grid.ravel()[index])
+         #    var_max_params.append(var_max)
+         # self.max_eta_array = var_max_params
       
       return self.mean_prediction,self.upper_confidence_interval,self.lower_confidence_interval
    
@@ -212,14 +243,11 @@ class fit_data:
             self.upper_confidence_interval = (self.upper_confidence_interval)*100
             self.lower_confidence_interval = (self.lower_confidence_interval)*100
             axis.set_ylim(bottom=0,top=None,auto=True)
-            
-         max_eta = np.amax(self.mean_prediction)
-         max_eta_indices = np.where(self.mean_prediction == max_eta)
          
          xvar_max = []
-         for index in max_eta_indices:
+         for index in self.max_eta_indices:
             xvar_max.append(x1[index])
-            axis.text(x1[index], self.mean_prediction[index], f'{max_eta:.2f}', size=12, color='darkblue')
+            axis.text(x1[index], self.mean_prediction[index], f'{self.max_eta:.2f}', size=12, color='darkblue')
          
          axis.plot(x1, self.mean_prediction, label=r"Mean prediction", color='blue')
          axis.fill_between(
@@ -276,10 +304,8 @@ class fit_data:
             self.lower_confidence_interval = (self.lower_confidence_interval)*100
             contour_textlabel = '\\eta_{lost}'
          
-         min_level = np.round(np.amin(self.mean_prediction))
-         max_eta = np.amax(self.mean_prediction)
-         max_eta_indices = np.where(self.mean_prediction == max_eta)
-         max_level = np.round(max_eta)
+         min_level = np.round(self.min_eta)
+         max_level = np.round(self.max_eta)
          contour_levels = np.arange(min_level,max_level,efficiency_step)
          
          mean_prediction_grid = self.mean_prediction.reshape(num_points,num_points)
@@ -293,10 +319,10 @@ class fit_data:
             plot_key1,plot_key2=plot_key2,plot_key1
          
          xvar_max,yvar_max=[],[]
-         for index in max_eta_indices:
+         for index in self.max_eta_indices:
             xvar_max.append(xvar.ravel()[index])
             yvar_max.append(yvar.ravel()[index])
-            axis.text(xvar.ravel()[index], yvar.ravel()[index], f'{max_eta:.2f}', size=12, color='green')
+            axis.text(xvar.ravel()[index], yvar.ravel()[index], f'{self.max_eta:.2f}', size=12, color='green')
          
          predicted_plot = axis.contour(xvar, yvar, mean_prediction_grid,levels=contour_levels,cmap='winter',vmin=min_level,vmax=max_level)
          axis.clabel(predicted_plot, inline=1, fontsize=14)

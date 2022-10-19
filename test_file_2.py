@@ -32,8 +32,12 @@ kernel = constant_kernel_1 * matern_kernel + constant_kernel_2
 
 fit = fit_data(kernel_form=kernel,
             training_dataframe=training_data,
-            CI_percent=95,
+            CI_percent=20,
             number_of_restarts=20)
+
+fit.plot_accuracy(testing_data)
+print(fit.max_eta)
+print(fit.max_eta_array)
 
 # fit.plot_grid_vars(vary_var_1='phi',
 #                    vary_or_constant_2='psi',
@@ -43,13 +47,12 @@ fit = fit_data(kernel_form=kernel,
 #                    row_var_array=[0.6,0.7],
 #                    constant_var='M',
 #                    constant_var_value = 0.6,
-#                    constant_var_value_2=0.5,
 #                    num_points=500
 #                    )
 
 fit.plot_vars(phi='vary',
               psi=1.3,
               Lambda=0.5,
-              M='vary',
+              M=0.7,
               Co=0.6
               )
