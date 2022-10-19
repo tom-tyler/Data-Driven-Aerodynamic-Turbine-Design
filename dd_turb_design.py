@@ -180,28 +180,8 @@ class fit_data:
          min_max_dataframe[key] = var_vector
 
       self.predict(min_max_dataframe)
-
-      
-      self.var_max_dict,self.var_min_dict = {},{}
-
-      for key in vars_dict:
-         if len(self.max_output_indices) == 1:
-            self.var_max_dict[key] = var_vector[self.max_output_indices[0]]
-         else:
-            var_max=[]
-            for index in self.max_output_indices:
-               var_max.append(var_vector[index])
-            self.var_max_dict[key] = var_max
-            
-         if len(self.min_output_indices) == 1:
-            self.var_min_dict[key] = var_vector[self.min_output_indices[0]]
-         else:
-            var_min=[]
-            for index in self.min_output_indices:
-               var_min.append(var_vector[index])
-            self.var_min_dict[key] = var_min
          
-      return self.var_max_dict,self.var_min_dict
+      return self.max_output_row,self.min_output_row
         
    def plot_vars(self,
                  phi,
