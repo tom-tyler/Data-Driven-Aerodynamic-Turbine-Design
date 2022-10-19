@@ -75,6 +75,7 @@ from operator import countOf
 from matplotlib.colors import ListedColormap
 import scipy.stats as st
 from sklearn.gaussian_process import kernels
+from collections import OrderedDict
 
 matern_kernel = kernels.Matern(length_scale = (1,1,1,1,1),
                          length_scale_bounds=(1e-3,1e3),
@@ -95,9 +96,9 @@ class fit_data:
    def __init__(self,
                 training_dataframe,
                 kernel_form=default_kernel,
+                output_key='eta_lost',
                 number_of_restarts=30,
                 alpha=0,
-                output_key='eta_lost',
                 CI_percent=95
                 ):
       
@@ -110,13 +111,9 @@ class fit_data:
       self.input_array_train = training_dataframe.drop(columns=[self.output_key])
       self.output_array_train = training_dataframe[self.output_key]
       
-      self.limit_dict = {'phi':(np.around(training_dataframe['phi'].min(),decimals=1),np.around(training_dataframe['phi'].max(),decimals=1)),
-                    'psi':(np.around(training_dataframe['psi'].min(),decimals=1),np.around(training_dataframe['psi'].max(),decimals=1)),
-                    'Lambda':(np.around(training_dataframe['Lambda'].min(),decimals=1),np.around(training_dataframe['Lambda'].max(),decimals=1)),
-                    'M':(np.around(training_dataframe['M'].min(),decimals=1),np.around(training_dataframe['M'].max(),decimals=1)),
-                    'Co':(np.around(training_dataframe['Co'].min(),decimals=1),np.around(training_dataframe['Co'].max(),decimals=1))
-                    }
-
+      self.limit_dict = {}
+      for column in self.input_array_train:
+         self.limit_dict[column] = (np.around(training_dataframe[column].min(),decimals=1),np.around(training_dataframe[column].max(),decimals=1))
       
       gaussian_process = GaussianProcessRegressor(kernel=kernel_form, n_restarts_optimizer=number_of_restarts,alpha=alpha)
       gaussian_process.fit(self.input_array_train, self.output_array_train)
@@ -126,9 +123,8 @@ class fit_data:
       
    def predict(self,
                dataframe,
-               include_output=True,
-               find_maximum=True,
-               num_points_interpolate_max=10
+               include_output=False,
+               display_efficiency=True
                ):
       
       if include_output == True:
@@ -141,39 +137,72 @@ class fit_data:
       self.upper_confidence_interval = self.mean_prediction + self.confidence_scalar * self.std_prediction
       self.lower_confidence_interval = self.mean_prediction - self.confidence_scalar * self.std_prediction
       
+      if display_efficiency == True:
+         self.mean_prediction = (np.ones(len(self.mean_prediction)) - self.mean_prediction)*100
+         self.upper_confidence_interval = (np.ones(len(self.upper_confidence_interval)) - self.upper_confidence_interval)*100
+         self.lower_confidence_interval = (np.ones(len(self.lower_confidence_interval)) - self.lower_confidence_interval)*100
+         if include_output == True:
+            self.output_array_test = (np.ones(len(self.output_array_test)) - self.output_array_test)*100
+            
       if include_output == True:
          self.RMSE = np.sqrt(mean_squared_error(self.output_array_test,self.mean_prediction))
+         
+      self.predicted_dataframe = self.input_array_test
+      self.predicted_dataframe['output'] = self.mean_prediction
       
-      if find_maximum == True:
-         self.min_eta = np.amin(self.mean_prediction)
-         self.min_eta_indices = np.where(self.mean_prediction == self.min_eta)
-         
-         self.max_eta = np.amax(self.mean_prediction)
-         self.max_eta_indices = np.where(self.mean_prediction == self.max_eta)
-
-         
-         # vars_array = []
-         # for key in self.limit_dict:
-         #    var = np.linspace(start=self.limit_dict[key][0], stop=self.limit_dict[key][1], num=num_points_interpolate_max)
-         #    vars_array.append(var)
-         # vars_array = tuple(vars_array)
-         
-         # # dict= {'v1':np.array([1,2,3,4,5]), 'v2':np.array([5,6,7,8,9])}
-
-         # vars_grid_array = np.meshgrid(*vars_array)
-         
-         # # vars_grid_array = np.meshgrid(vars_array)
-         
-         # var_max_params = []
-         # for var_grid in vars_grid_array:
-         #    var_max=[]
-         #    for index in self.max_eta_indices:
-         #       var_max.append(var_grid.ravel()[index])
-         #    var_max_params.append(var_max)
-         # self.max_eta_array = var_max_params
+      self.min_output = np.amin(self.mean_prediction)
+      self.min_output_indices = np.where(self.mean_prediction == self.min_output)
+      self.min_output_row = self.predicted_dataframe.iloc[self.min_output_indices]
+      
+      self.max_output = np.amax(self.mean_prediction)
+      self.max_output_indices = np.where(self.mean_prediction == self.max_output)
+      self.max_output_row = self.predicted_dataframe.iloc[self.max_output_indices]
       
       return self.mean_prediction,self.upper_confidence_interval,self.lower_confidence_interval
-   
+      
+   def find_global_max_min_values(self,
+                           num_points_interpolate_max=3,
+                           limit_dict=None):
+         
+      if limit_dict == None:
+         limit_dict = self.limit_dict
+      
+      vars_dict = OrderedDict()
+      for key in self.limit_dict:
+         vars_dict[key] = np.linspace(start=self.limit_dict[key][0], stop=self.limit_dict[key][1], num=num_points_interpolate_max)
+
+      vars_grid_array = np.meshgrid(*vars_dict.values())
+      min_max_dataframe = pd.DataFrame({})
+
+      for index,key in enumerate(vars_dict.keys()):
+         vars_dict[key] = vars_grid_array[index]
+         var_vector = vars_dict[key].ravel()
+         min_max_dataframe[key] = var_vector
+
+      self.predict(min_max_dataframe)
+
+      
+      self.var_max_dict,self.var_min_dict = {},{}
+
+      for key in vars_dict:
+         if len(self.max_output_indices) == 1:
+            self.var_max_dict[key] = var_vector[self.max_output_indices[0]]
+         else:
+            var_max=[]
+            for index in self.max_output_indices:
+               var_max.append(var_vector[index])
+            self.var_max_dict[key] = var_max
+            
+         if len(self.min_output_indices) == 1:
+            self.var_min_dict[key] = var_vector[self.min_output_indices[0]]
+         else:
+            var_min=[]
+            for index in self.min_output_indices:
+               var_min.append(var_vector[index])
+            self.var_min_dict[key] = var_min
+         
+      return self.var_max_dict,self.var_min_dict
+        
    def plot_vars(self,
                  phi,
                  psi,
@@ -231,23 +260,17 @@ class fit_data:
       
       if dimensions == 1:
 
-         self.predict(plot_dataframe,include_output=False)
+         self.predict(plot_dataframe,display_efficiency=display_efficiency)
          
          if display_efficiency == True:
-            self.mean_prediction = (np.ones(len(self.mean_prediction)) - self.mean_prediction)*100
-            self.upper_confidence_interval = (np.ones(len(self.upper_confidence_interval)) - self.upper_confidence_interval)*100
-            self.lower_confidence_interval = (np.ones(len(self.lower_confidence_interval)) - self.lower_confidence_interval)*100
             axis.set_ylim(bottom=None,top=100,auto=True)
          else:
-            self.mean_prediction = (self.mean_prediction)*100
-            self.upper_confidence_interval = (self.upper_confidence_interval)*100
-            self.lower_confidence_interval = (self.lower_confidence_interval)*100
             axis.set_ylim(bottom=0,top=None,auto=True)
          
          xvar_max = []
-         for index in self.max_eta_indices:
+         for index in self.max_output_indices:
             xvar_max.append(x1[index])
-            axis.text(x1[index], self.mean_prediction[index], f'{self.max_eta:.2f}', size=12, color='darkblue')
+            axis.text(x1[index], self.mean_prediction[index], f'{self.max_output:.2f}', size=12, color='darkblue')
          
          axis.plot(x1, self.mean_prediction, label=r"Mean prediction", color='blue')
          axis.fill_between(
@@ -276,8 +299,6 @@ class fit_data:
    
       elif dimensions == 2:
 
-         # x1_grid = np.linspace(start=limit_dict[plot_key1][0], stop=limit_dict[plot_key1][1], num=num_points)
-         # x2_grid = np.linspace(start=limit_dict[plot_key2][0], stop=limit_dict[plot_key2][1], num=num_points)
          X1,X2 = np.meshgrid(x1,x2) # creates two matrices which vary across in x and y
          X1_vector = X1.ravel() #vector of "all" x coordinates from meshgrid
          X2_vector = X2.ravel() #vector of "all" y coordinates from meshgrid
@@ -291,21 +312,15 @@ class fit_data:
             else:
                plot_dataframe[key] = var_dict[key]*np.ones(num_points**2)
          
-         self.predict(plot_dataframe,include_output=False)
+         self.predict(plot_dataframe,display_efficiency=display_efficiency)
          
          if display_efficiency == True:
-            self.mean_prediction = (np.ones(len(self.mean_prediction)) - self.mean_prediction)*100
-            self.upper_confidence_interval = (np.ones(len(self.upper_confidence_interval)) - self.upper_confidence_interval)*100
-            self.lower_confidence_interval = (np.ones(len(self.lower_confidence_interval)) - self.lower_confidence_interval)*100
             contour_textlabel = '\\eta'
          else:
-            self.mean_prediction = (self.mean_prediction)*100
-            self.upper_confidence_interval = (self.upper_confidence_interval)*100
-            self.lower_confidence_interval = (self.lower_confidence_interval)*100
             contour_textlabel = '\\eta_{lost}'
          
-         min_level = np.round(self.min_eta)
-         max_level = np.round(self.max_eta)
+         min_level = np.round(self.min_output)
+         max_level = np.round(self.max_output)
          contour_levels = np.arange(min_level,max_level,efficiency_step)
          
          mean_prediction_grid = self.mean_prediction.reshape(num_points,num_points)
@@ -319,10 +334,10 @@ class fit_data:
             plot_key1,plot_key2=plot_key2,plot_key1
          
          xvar_max,yvar_max=[],[]
-         for index in self.max_eta_indices:
+         for index in self.max_output_indices:
             xvar_max.append(xvar.ravel()[index])
             yvar_max.append(yvar.ravel()[index])
-            axis.text(xvar.ravel()[index], yvar.ravel()[index], f'{self.max_eta:.2f}', size=12, color='green')
+            axis.text(xvar.ravel()[index], yvar.ravel()[index], f'{self.max_output:.2f}', size=12, color='green')
          
          predicted_plot = axis.contour(xvar, yvar, mean_prediction_grid,levels=contour_levels,cmap='winter',vmin=min_level,vmax=max_level)
          axis.clabel(predicted_plot, inline=1, fontsize=14)
@@ -372,7 +387,7 @@ class fit_data:
                      axis=None
                      ):
       
-      self.predict(testing_dataframe)
+      self.predict(testing_dataframe,include_output=True)
       
       if axis == None:
          fig,axis = plt.subplots(1,1,sharex=True,sharey=True)

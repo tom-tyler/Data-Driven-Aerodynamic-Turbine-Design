@@ -36,8 +36,11 @@ fit = fit_data(kernel_form=kernel,
             number_of_restarts=20)
 
 fit.plot_accuracy(testing_data)
-print(fit.max_eta)
-print(fit.max_eta_array)
+fit.find_global_max_min_values()
+print(fit.var_max_dict)
+print(fit.max_output)
+print(fit.limit_dict)
+print(fit.max_output_row)
 
 # fit.plot_grid_vars(vary_var_1='phi',
 #                    vary_or_constant_2='psi',
