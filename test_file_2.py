@@ -5,19 +5,21 @@ from sklearn.gaussian_process import kernels
 import matplotlib.pyplot as plt
 import numpy as np
 
-# training_file_path = 'Data-Driven-Aerodynamic-Turbine-Design\data-B for training.csv'
-training_file_path = 'Data-Driven-Aerodynamic-Turbine-Design\data-C.csv'
-training_data = pd.read_csv(training_file_path, 
-                            names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
-                            )
-# training_data = training_data.iloc[0:13]
+data_A = pd.read_csv('Data-Driven-Aerodynamic-Turbine-Design\data-A for testing.csv',
+                     names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
+                     )
+data_B = pd.read_csv('Data-Driven-Aerodynamic-Turbine-Design\data-B for training.csv', 
+                     names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
+                     )
+data_C = pd.read_csv('Data-Driven-Aerodynamic-Turbine-Design\data-C.csv', 
+                     names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
+                     )
 
-# testing_file_path = 'Data-Driven-Aerodynamic-Turbine-Design\data-A for testing.csv'
-testing_file_path = 'Data-Driven-Aerodynamic-Turbine-Design\data-C.csv'
-testing_data = pd.read_csv(testing_file_path, 
-                           names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
-                           )
-# testing_data = testing_data.iloc[14:25]
+data = pd.concat([data_A,data_B,data_C],ignore_index=True)
+data=data_C
+round_dict = {'phi': 2, 'psi': 2, 'Lambda': 2, 'M': 2, 'Co': 2, 'eta_lost':4}
+training_data = data.sample(frac=1.0,random_state=2)
+testing_data = data.loc[~data.index.isin(training_data.index)]
 
 matern_kernel = kernels.Matern(length_scale = (1,1,1,1,1),
                          length_scale_bounds=(1e-2,1e2),
@@ -46,13 +48,13 @@ fit = fit_data(kernel_form=kernel,
             number_of_restarts=20)
 
 
-example_datapoint = pd.DataFrame({'phi':[0.8],
-                                  'psi':[1.4],
-                                  'Lambda':[0.5],
-                                  'M':[0.6],
-                                  'Co':[0.7]
-                                  })
-print(fit.predict(example_datapoint))
+# example_datapoint = pd.DataFrame({'phi':[0.8],
+#                                   'psi':[1.4],
+#                                   'Lambda':[0.5],
+#                                   'M':[0.6],
+#                                   'Co':[0.7]
+#                                   })
+# print(fit.predict(example_datapoint))
 
 # limit_dict = {'phi':(0.5,0.7),
 #               'psi':(1.3,1.5),
@@ -65,8 +67,9 @@ print(fit.predict(example_datapoint))
 # print(fit.max_output_row)
 
 # fit.plot_accuracy(testing_data,
-#                   line_error_percent=0.15,
-#                   CI_percent=95)
+#                   line_error_percent=1,
+#                   CI_percent=95,
+#                   display_efficiency=True)
 
 # fit.plot_grid_vars(vary_var_1='phi',
 #                    vary_or_constant_2='Lambda',
@@ -82,13 +85,27 @@ print(fit.predict(example_datapoint))
 
 
 # fit.plot_vars(phi='vary',
-#               psi='vary',
-#               Lambda=np.mean(training_data['Lambda']),
-#               M=np.mean(training_data['M']),
-#               Co=np.mean(training_data['Co']),
+#               psi='mean',
+#               Lambda='mean',
+#               M='mean',
+#               Co='mean',
 #               num_points=500,
 #               efficiency_step=0.2,
 #               plot_training_points=True,
 #               CI_percent=95,
-#               legend_outside=True
+#               legend_outside=True,
+#               display_efficiency=False
 #               )
+
+fit.plot_vars(phi='vary',
+              psi='vary',
+              Lambda=5.073657893138810993e-01,
+              M=6.471594517666803270e-01,
+              Co=6.840099096298217773e-01,
+              num_points=500,
+              efficiency_step=0.5,
+              plot_training_points=True,
+              CI_percent=95,
+              legend_outside=True,
+              display_efficiency=True
+              )

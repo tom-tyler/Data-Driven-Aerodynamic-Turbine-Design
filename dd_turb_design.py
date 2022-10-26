@@ -98,11 +98,11 @@ class fit_data:
                 kernel_form=default_kernel,
                 output_key='eta_lost',
                 number_of_restarts=30,
-                alpha=0
+                noise_magnitude=0
                 ):
       
       self.number_of_restarts = number_of_restarts
-      self.alpha = alpha
+      self.noise_magnitude = noise_magnitude
       self.output_key = output_key
       
       self.input_array_train = training_dataframe.drop(columns=[self.output_key])
@@ -112,7 +112,7 @@ class fit_data:
       for column in self.input_array_train:
          self.limit_dict[column] = (np.around(training_dataframe[column].min(),decimals=1),np.around(training_dataframe[column].max(),decimals=1))
       
-      gaussian_process = GaussianProcessRegressor(kernel=kernel_form, n_restarts_optimizer=number_of_restarts,alpha=alpha)
+      gaussian_process = GaussianProcessRegressor(kernel=kernel_form, n_restarts_optimizer=number_of_restarts,alpha=noise_magnitude)
       gaussian_process.fit(self.input_array_train, self.output_array_train)
       
       self.optimised_kernel = gaussian_process.kernel_
@@ -220,6 +220,9 @@ class fit_data:
          plot_now = True
       else:
          plot_now = False
+         
+      if display_efficiency==False:
+         efficiency_step = efficiency_step*0.01
       
       var_dict = {'phi':phi,'psi':psi,'Lambda':Lambda,'M':M,'Co':Co}
       
@@ -243,13 +246,18 @@ class fit_data:
             x2 = np.linspace(start=limit_dict[key][0], stop=limit_dict[key][1], num=num_points)
             plot_dataframe[key] = x2
          else:
-            plot_dataframe[key] = var_dict[key]*np.ones(num_points)
+            if (var_dict[key] == 'mean'):
+               plot_dataframe[key] = np.mean(self.input_array_train[key])*np.ones(num_points)
+               constant_value = np.mean(self.input_array_train[key])
+            else:
+               plot_dataframe[key] = var_dict[key]*np.ones(num_points)
+               constant_value = var_dict[key]
             
             if (key == 'M') or (key == 'Co'):
-               plot_title += f'{key} = {var_dict[key]:.3f}'
+               plot_title += f'{key} = {constant_value:.3f}'
                plot_title += '\; '*title_variable_spacing
             else:
-               plot_title += '\\' + f'{key} = {var_dict[key]:.3f}'
+               plot_title += '\\' + f'{key} = {constant_value:.3f}'
                plot_title += '\; '*title_variable_spacing
       
       if dimensions == 1:
@@ -259,13 +267,11 @@ class fit_data:
                       CI_percent=CI_percent)
          
          if display_efficiency == True:
-            axis.set_ylim(bottom=None,top=100,auto=True)
             xvar_max = []
             for index in self.max_output_indices:
                xvar_max.append(x1[index])
                axis.text(x1[index], self.mean_prediction[index], f'{self.max_output:.2f}', size=12, color='darkblue')
          else:
-            axis.set_ylim(bottom=0,top=None,auto=True)
             xvar_min = []
             for index in self.min_output_indices:
                xvar_min.append(x1[index])
@@ -307,11 +313,27 @@ class fit_data:
                axis.set_xlabel(fr"$ {xlabel_string} $")
                
          if plotting_grid_value[1] == 0:
-            axis.set_ylabel('$ \\eta $')
+            if display_efficiency == True:
+               axis.set_ylabel('$ \\eta $')
+            else:
+               axis.set_ylabel('$ \\eta_{lost} $')
             
-         axis.set_xlim(limit_dict[plot_key1][0],limit_dict[plot_key1][1])
-         axis.set_ylim(np.min(self.lower_confidence_interval,np.max(self.upper_confidence_interval)))
-   
+         axis.set_xlim(limit_dict[plot_key1][0],limit_dict[plot_key1][1],
+                       auto=True)
+         
+         if display_efficiency == True:
+            y_range = np.amax(self.lower_confidence_interval) - np.amin(self.upper_confidence_interval)
+            axis.set_ylim(top=np.amax(self.lower_confidence_interval)+0.1*y_range,
+                          bottom=np.amin(self.upper_confidence_interval)-0.1*y_range,
+                          auto=True)
+         else:
+            y_range = np.amax(self.upper_confidence_interval) - np.amin(self.lower_confidence_interval)
+            axis.set_ylim(bottom=np.amin(self.lower_confidence_interval)-0.1*y_range,
+                          top=np.amax(self.upper_confidence_interval)+0.1*y_range,
+                          auto=True)
+
+         axis.grid(linestyle = '--', linewidth = 0.5)
+         
       elif dimensions == 2:
 
          X1,X2 = np.meshgrid(x1,x2) # creates two matrices which vary across in x and y
@@ -325,7 +347,10 @@ class fit_data:
             elif key == plot_key2:
                plot_dataframe[key] = X2_vector
             else:
-               plot_dataframe[key] = var_dict[key]*np.ones(num_points**2)
+               if (var_dict[key] == 'mean'):
+                  plot_dataframe[key] = np.mean(self.input_array_train[key])*np.ones(num_points**2)
+               else:
+                  plot_dataframe[key] = var_dict[key]*np.ones(num_points**2)
          
          self.predict(plot_dataframe,
                       display_efficiency=display_efficiency,
@@ -336,8 +361,8 @@ class fit_data:
          else:
             contour_textlabel = '\\eta_{lost}'
          
-         min_level = np.round(self.min_output/efficiency_step)*efficiency_step
-         max_level = np.round(self.max_output/efficiency_step)*efficiency_step
+         min_level = np.floor(self.min_output/efficiency_step)*efficiency_step
+         max_level = np.ceil(self.max_output/efficiency_step)*efficiency_step
          contour_levels = np.arange(min_level,max_level,efficiency_step)
          
          mean_prediction_grid = self.mean_prediction.reshape(num_points,num_points)
@@ -372,7 +397,7 @@ class fit_data:
                confidence_array = (upper_confidence_interval_grid<=contour_level) & (lower_confidence_interval_grid>=contour_level)
             else:
                confidence_array = (upper_confidence_interval_grid>=contour_level) & (lower_confidence_interval_grid<=contour_level)
-            confidence_plot = axis.contourf(xvar,yvar,confidence_array, levels=[0.5, 2], alpha=opacity,cmap = ListedColormap(['orange'])) # cmap=ListedColormap([cm.jet((contour_level-min_level)/(max_level-min_level))]
+            confidence_plot = axis.contourf(xvar,yvar,confidence_array, levels=[0.5, 2], alpha=opacity,cmap = ListedColormap(['orange'])) 
          
          if plotting_grid_value==[0,0]:
             h1,_ = predicted_plot.legend_elements()
@@ -416,8 +441,14 @@ class fit_data:
                xlabel_string2 = '\\'+plot_key2
                axis.set_ylabel(fr"$ {xlabel_string2} $")
          
-         axis.set_xlim(limit_dict[plot_key1][0],limit_dict[plot_key1][1])
-         axis.set_ylim(limit_dict[plot_key2][0],limit_dict[plot_key2][1])
+         axis.set_xlim(limit_dict[plot_key1][0],
+                       limit_dict[plot_key1][1],
+                       auto=True)
+         axis.set_ylim(limit_dict[plot_key2][0],
+                       limit_dict[plot_key2][1],
+                       auto=True)
+         
+         axis.grid(linestyle = '--', linewidth = 0.5)
           
       else:
          print('INVALID')
@@ -435,13 +466,15 @@ class fit_data:
                      line_error_percent=5,
                      CI_percent=95,
                      identify_outliers=True,
-                     title_variable_spacing=3
+                     title_variable_spacing=3,
+                     display_efficiency=True
                      ):
       
       self.predict(testing_dataframe,
                    include_output=True,
                    CI_in_dataframe=True,
-                   CI_percent=CI_percent
+                   CI_percent=CI_percent,
+                   display_efficiency=display_efficiency
                    )
       
       if axis == None:
@@ -495,9 +528,13 @@ class fit_data:
                   label = fr"{self.CI_percent}% confidence interval"
                   )
       ax.set_title(fr'RMSE = {self.RMSE:.2e}')
-      ax.set_xlabel('$ \\eta $ (actual)')
-      ax.set_ylabel('$ \\eta $ (prediction)')
-
+      if display_efficiency== True:
+         ax.set_xlabel('$ \\eta $ (actual)')
+         ax.set_ylabel('$ \\eta $ (prediction)')
+      else:
+         ax.set_xlabel('$ \\eta_{lost} $ (actual)')
+         ax.set_ylabel('$ \\eta_{lost} $ (prediction)')
+         
       leg = ax.legend(loc='upper left',
                       bbox_to_anchor=(1.02,1.0),
                       borderaxespad=0,
@@ -505,6 +542,8 @@ class fit_data:
                       ncol=1,
                       prop={'size': 10})
       leg.set_draggable(state=True)
+      
+      ax.grid(linestyle = '--', linewidth = 0.5)
       
       if axis == None:
          fig.suptitle("Data-driven turbine design")
