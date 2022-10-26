@@ -98,15 +98,12 @@ class fit_data:
                 kernel_form=default_kernel,
                 output_key='eta_lost',
                 number_of_restarts=30,
-                alpha=0,
-                CI_percent=95
+                alpha=0
                 ):
       
       self.number_of_restarts = number_of_restarts
       self.alpha = alpha
       self.output_key = output_key
-      self.CI_percent = CI_percent
-      self.confidence_scalar = st.norm.ppf(1 - ((1 - (CI_percent / 100)) / 2))
       
       self.input_array_train = training_dataframe.drop(columns=[self.output_key])
       self.output_array_train = training_dataframe[self.output_key]
@@ -124,7 +121,9 @@ class fit_data:
    def predict(self,
                dataframe,
                include_output=False,
-               display_efficiency=True
+               display_efficiency=True,
+               CI_in_dataframe=False,
+               CI_percent=95
                ):
       
       if include_output == True:
@@ -132,6 +131,9 @@ class fit_data:
          self.output_array_test = dataframe[self.output_key]
       else:
          self.input_array_test = dataframe
+      
+      self.CI_percent = CI_percent
+      self.confidence_scalar = st.norm.ppf(1 - ((1 - (CI_percent / 100)) / 2))
       
       self.mean_prediction, self.std_prediction = self.fitted_function.predict(self.input_array_test, return_std=True)
       self.upper_confidence_interval = self.mean_prediction + self.confidence_scalar * self.std_prediction
@@ -143,12 +145,20 @@ class fit_data:
          self.lower_confidence_interval = (np.ones(len(self.lower_confidence_interval)) - self.lower_confidence_interval)*100
          if include_output == True:
             self.output_array_test = (np.ones(len(self.output_array_test)) - self.output_array_test)*100
+         self.training_output = (np.ones(len(self.output_array_train)) - self.output_array_train)*100
+      else:
+         self.training_output = self.output_array_train
             
+      self.predicted_dataframe = self.input_array_test
+      self.predicted_dataframe['predicted_output'] = self.mean_prediction
       if include_output == True:
          self.RMSE = np.sqrt(mean_squared_error(self.output_array_test,self.mean_prediction))
+         self.predicted_dataframe['actual_output'] = self.output_array_test
+         self.predicted_dataframe['percent_error'] = abs((self.mean_prediction - self.output_array_test)/self.output_array_test)*100
+      if CI_in_dataframe == True:
+         self.predicted_dataframe['upper'] = self.upper_confidence_interval
+         self.predicted_dataframe['lower'] = self.lower_confidence_interval
          
-      self.predicted_dataframe = self.input_array_test
-      self.predicted_dataframe['output'] = self.mean_prediction
       
       self.min_output = np.amin(self.mean_prediction)
       self.min_output_indices = np.where(self.mean_prediction == self.min_output)
@@ -199,7 +209,10 @@ class fit_data:
                  display_efficiency=True,
                  title_variable_spacing=3,
                  plotting_grid_value=[0,0],
-                 grid_height=1
+                 grid_height=1,
+                 CI_percent=95,
+                 plot_training_points=False,
+                 legend_outside=False
                  ):
       
       if axis == None:
@@ -233,25 +246,37 @@ class fit_data:
             plot_dataframe[key] = var_dict[key]*np.ones(num_points)
             
             if (key == 'M') or (key == 'Co'):
-               plot_title += f'{key} = {var_dict[key]}'
+               plot_title += f'{key} = {var_dict[key]:.3f}'
                plot_title += '\; '*title_variable_spacing
             else:
-               plot_title += '\\' + f'{key} = {var_dict[key]}'
+               plot_title += '\\' + f'{key} = {var_dict[key]:.3f}'
                plot_title += '\; '*title_variable_spacing
       
       if dimensions == 1:
 
-         self.predict(plot_dataframe,display_efficiency=display_efficiency)
+         self.predict(plot_dataframe,
+                      display_efficiency=display_efficiency,
+                      CI_percent=CI_percent)
          
          if display_efficiency == True:
             axis.set_ylim(bottom=None,top=100,auto=True)
+            xvar_max = []
+            for index in self.max_output_indices:
+               xvar_max.append(x1[index])
+               axis.text(x1[index], self.mean_prediction[index], f'{self.max_output:.2f}', size=12, color='darkblue')
          else:
             axis.set_ylim(bottom=0,top=None,auto=True)
+            xvar_min = []
+            for index in self.min_output_indices:
+               xvar_min.append(x1[index])
+               axis.text(x1[index], self.mean_prediction[index], f'{self.min_output:.2f}', size=12, color='darkblue')
          
-         xvar_max = []
-         for index in self.max_output_indices:
-            xvar_max.append(x1[index])
-            axis.text(x1[index], self.mean_prediction[index], f'{self.max_output:.2f}', size=12, color='darkblue')
+         if plot_training_points == True:
+            axis.scatter(x=self.input_array_train[plot_key1],
+                         y=self.training_output,
+                         marker='x',
+                         color='red',
+                         label='Training data points')
          
          axis.plot(x1, self.mean_prediction, label=r"Mean prediction", color='blue')
          axis.fill_between(
@@ -263,7 +288,15 @@ class fit_data:
             color='orange'
          )
          if plotting_grid_value==[0,0]:
-            leg = axis.legend()
+            if legend_outside == True:
+               leg = axis.legend(loc='upper left',
+                                 bbox_to_anchor=(1.02,1.0),
+                                 borderaxespad=0,
+                                 frameon=True,
+                                 ncol=1,
+                                 prop={'size': 10})
+            else:
+               leg = axis.legend()
             leg.set_draggable(state=True)
          
          if plotting_grid_value[0] == (grid_height-1):
@@ -277,6 +310,7 @@ class fit_data:
             axis.set_ylabel('$ \\eta $')
             
          axis.set_xlim(limit_dict[plot_key1][0],limit_dict[plot_key1][1])
+         axis.set_ylim(np.min(self.lower_confidence_interval,np.max(self.upper_confidence_interval)))
    
       elif dimensions == 2:
 
@@ -293,7 +327,9 @@ class fit_data:
             else:
                plot_dataframe[key] = var_dict[key]*np.ones(num_points**2)
          
-         self.predict(plot_dataframe,display_efficiency=display_efficiency)
+         self.predict(plot_dataframe,
+                      display_efficiency=display_efficiency,
+                      CI_percent=CI_percent)
          
          if display_efficiency == True:
             contour_textlabel = '\\eta'
@@ -320,6 +356,13 @@ class fit_data:
             yvar_max.append(yvar.ravel()[index])
             axis.text(xvar.ravel()[index], yvar.ravel()[index], f'{self.max_output:.2f}', size=12, color='green')
          
+         if plot_training_points == True:
+            training_points_plot = axis.scatter(x=self.input_array_train[plot_key1],
+                         y=self.input_array_train[plot_key2],
+                         marker='x',
+                         color='red'
+                         )
+         
          predicted_plot = axis.contour(xvar, yvar, mean_prediction_grid,levels=contour_levels,cmap='winter',vmin=min_level,vmax=max_level)
          axis.clabel(predicted_plot, inline=1, fontsize=14)
          axis.scatter(xvar_max,yvar_max,color='green',marker='x')
@@ -330,11 +373,33 @@ class fit_data:
             else:
                confidence_array = (upper_confidence_interval_grid>=contour_level) & (lower_confidence_interval_grid<=contour_level)
             confidence_plot = axis.contourf(xvar,yvar,confidence_array, levels=[0.5, 2], alpha=opacity,cmap = ListedColormap(['orange'])) # cmap=ListedColormap([cm.jet((contour_level-min_level)/(max_level-min_level))]
-
+         
          if plotting_grid_value==[0,0]:
             h1,_ = predicted_plot.legend_elements()
             h2,_ = confidence_plot.legend_elements()
-            leg = axis.legend([h1[0], h2[0]], [fr'$ {contour_textlabel} $, Mean prediction',fr"{self.CI_percent}% confidence interval"])
+            if plot_training_points == True:
+               handles = [h1[0], h2[0], training_points_plot]
+               labels = [fr'$ {contour_textlabel} $, Mean prediction',
+                        fr"{self.CI_percent}% confidence interval",
+                        'Training data points']
+            else:
+               handles = [h1[0], h2[0]]
+               labels = [fr'$ {contour_textlabel} $, Mean prediction',
+                        fr"{self.CI_percent}% confidence interval",
+                        'Training data points']
+            if legend_outside == True:
+               leg = axis.legend(handles=handles,
+                                 labels=labels,
+                                 loc='upper left',
+                                 bbox_to_anchor=(1.02,1.0),
+                                 borderaxespad=0,
+                                 frameon=True,
+                                 ncol=1,
+                                 prop={'size': 10})
+            else:
+               leg = axis.legend(handles=handles,
+                                 labels=labels)
+
             leg.set_draggable(state=True)
          
          if plotting_grid_value[0] == (grid_height-1):
@@ -356,36 +421,94 @@ class fit_data:
           
       else:
          print('INVALID')
-         
+      
       axis.set_title(fr'$ {plot_title} $',size=10)
       
       if plot_now == True:
          fig.suptitle("Data-driven turbine design")
+         fig.tight_layout()
          plt.show()
       
    def plot_accuracy(self,
                      testing_dataframe,
-                     axis=None
+                     axis=None,
+                     line_error_percent=5,
+                     CI_percent=95,
+                     identify_outliers=True,
+                     title_variable_spacing=3
                      ):
       
-      self.predict(testing_dataframe,include_output=True)
+      self.predict(testing_dataframe,
+                   include_output=True,
+                   CI_in_dataframe=True,
+                   CI_percent=CI_percent
+                   )
       
       if axis == None:
          fig,ax = plt.subplots(1,1,sharex=True,sharey=True)
+         
+      predicted_values = self.predicted_dataframe['predicted_output']
+      actual_values = self.predicted_dataframe['actual_output']
+      upper_errorbar = (self.predicted_dataframe['upper']-predicted_values)
+      lower_errorbar = (predicted_values-self.predicted_dataframe['lower'])
       
-      limits_array = np.linspace(self.output_array_test.min(),self.output_array_test.max(),1000)
-      ax.scatter(self.output_array_test,self.mean_prediction,marker='x',label='Testing data points')
-      ax.plot(limits_array,limits_array,linestyle='dotted',color='red',label = r'$f(x)=x$')
+      if identify_outliers == True:
+         outliers = self.predicted_dataframe[self.predicted_dataframe['percent_error'] > line_error_percent]
+               
+         for row_index,row in outliers.iterrows():
+            value_string = f''
+            newline=' $\n$ '
+            for col_index,col in enumerate(outliers):
+               
+               if (col == 'M') or (col == 'Co'):
+                  if (col_index%2==0) and (col_index!=0):
+                     value_string += newline
+                  value_string += f'{col}={row[col]:.3f}'
+                  value_string += '\; '*title_variable_spacing
+                  
+               elif (col == 'phi') or (col == 'psi') or (col == 'Lambda'):
+                  if (col_index%2==0) and (col_index!=0):
+                     value_string += newline
+                  value_string += '\\' + f'{col}={row[col]:.3f}'
+                  value_string += '\; '*title_variable_spacing
+               
+            ax.scatter(row['actual_output'], row['predicted_output'],color='blue',marker=f'${row_index}$',s=160,label=fr'$ {value_string} $',linewidths=0.1)
+      
+      limits_array = np.linspace(actual_values.min(),actual_values.max(),1000)
+      upper_limits_array = (1+line_error_percent/100)*limits_array
+      lower_limits_array = (1-line_error_percent/100)*limits_array
+      
+      if identify_outliers == True:
+         non_outliers = self.predicted_dataframe[self.predicted_dataframe['percent_error'] < line_error_percent]
+         ax.scatter(non_outliers['actual_output'],non_outliers['predicted_output'],marker='x',label='Testing data points',color='blue')
+      else:
+         ax.scatter(actual_values,predicted_values,marker='x',label='Test data points',color='blue')
+      ax.plot(limits_array,limits_array,linestyle='solid',color='red',label = r'$f(x)=x$')
+      ax.plot(limits_array,upper_limits_array,linestyle='dotted',color='red',label = f'{line_error_percent}% error interval')
+      ax.plot(limits_array,lower_limits_array,linestyle='dotted',color='red')
+      ax.errorbar(actual_values,
+                  predicted_values,
+                  (upper_errorbar,lower_errorbar),
+                  fmt='none',
+                  capsize=2.0,
+                  ecolor='darkblue',
+                  label = fr"{self.CI_percent}% confidence interval"
+                  )
       ax.set_title(fr'RMSE = {self.RMSE:.2e}')
       ax.set_xlabel('$ \\eta $ (actual)')
       ax.set_ylabel('$ \\eta $ (prediction)')
-      # axis.set_xlim(limits_array[0],limits_array[-1])
-      # axis.set_ylim(limits_array[0],limits_array[-1])
-      leg = ax.legend()
+
+      leg = ax.legend(loc='upper left',
+                      bbox_to_anchor=(1.02,1.0),
+                      borderaxespad=0,
+                      frameon=True,
+                      ncol=1,
+                      prop={'size': 10})
       leg.set_draggable(state=True)
       
       if axis == None:
          fig.suptitle("Data-driven turbine design")
+         fig.tight_layout()
          plt.show()
       
    def plot_grid_vars(self,
@@ -405,7 +528,8 @@ class fit_data:
                       swap_axis=False,
                       display_efficiency=True,
                       title_variable_spacing=3,
-                      with_arrows=False
+                      with_arrows=False,
+                      CI_percent=95
                       ):
       
       var_dict = {'phi':None,'psi':None,'Lambda':None,'M':None,'Co':None}
@@ -457,7 +581,8 @@ class fit_data:
                         title_variable_spacing=title_variable_spacing,
                         opacity=opacity,
                         plotting_grid_value=[i,j],
-                        grid_height=num_rows
+                        grid_height=num_rows,
+                        CI_percent=CI_percent
                         )
 
       fig.suptitle("Data-driven turbine design")
@@ -487,4 +612,5 @@ class fit_data:
             xlabel_string2 = '\\'+row_var
             fig.supylabel(fr"$ {xlabel_string2} $")
 
+      fig.tight_layout()
       plt.show()

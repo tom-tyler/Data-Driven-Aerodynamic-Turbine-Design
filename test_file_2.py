@@ -5,23 +5,34 @@ from sklearn.gaussian_process import kernels
 import matplotlib.pyplot as plt
 import numpy as np
 
-training_file_path = 'Data-Driven-Aerodynamic-Turbine-Design\data-B for training.csv'
+# training_file_path = 'Data-Driven-Aerodynamic-Turbine-Design\data-B for training.csv'
+training_file_path = 'Data-Driven-Aerodynamic-Turbine-Design\data-C.csv'
 training_data = pd.read_csv(training_file_path, 
                             names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
                             )
+# training_data = training_data.iloc[0:13]
 
-testing_file_path = 'Data-Driven-Aerodynamic-Turbine-Design\data-A for testing.csv'
+# testing_file_path = 'Data-Driven-Aerodynamic-Turbine-Design\data-A for testing.csv'
+testing_file_path = 'Data-Driven-Aerodynamic-Turbine-Design\data-C.csv'
 testing_data = pd.read_csv(testing_file_path, 
                            names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
                            )
+# testing_data = testing_data.iloc[14:25]
 
 matern_kernel = kernels.Matern(length_scale = (1,1,1,1,1),
                          length_scale_bounds=(1e-2,1e2),
                          nu=1.5
                          )
 
+rbf_kernel_1d = kernels.RBF(length_scale=(1),
+                         length_scale_bounds=(1e-3,1e4)
+                         )
+rbf_kernel_5d = kernels.RBF(length_scale=(1,1,1,1,1),
+                         length_scale_bounds=(1e-1,1e4)
+                         )
+
 constant_kernel_1 = kernels.ConstantKernel(constant_value=1,
-                                           constant_value_bounds=(1e-6,1e1)
+                                           constant_value_bounds=(1e-8,1e1)
                                            )
 
 constant_kernel_2 = kernels.ConstantKernel(constant_value=1,
@@ -32,17 +43,16 @@ kernel = constant_kernel_1 * matern_kernel + constant_kernel_2
 
 fit = fit_data(kernel_form=kernel,
             training_dataframe=training_data,
-            CI_percent=10,
             number_of_restarts=20)
 
-# example_datapoint = pd.DataFrame({'phi':[0.8],
-#                                   'psi':[1.4],
-#                                   'Lambda':[0.5],
-#                                   'M':[0.6],
-#                                   'Co':[0.7]
-#                                   })
 
-# print(fit.predict(example_datapoint))
+example_datapoint = pd.DataFrame({'phi':[0.8],
+                                  'psi':[1.4],
+                                  'Lambda':[0.5],
+                                  'M':[0.6],
+                                  'Co':[0.7]
+                                  })
+print(fit.predict(example_datapoint))
 
 # limit_dict = {'phi':(0.5,0.7),
 #               'psi':(1.3,1.5),
@@ -54,25 +64,31 @@ fit = fit_data(kernel_form=kernel,
 # fit.find_global_max_min_values()
 # print(fit.max_output_row)
 
-# fit.plot_accuracy(testing_data)
+# fit.plot_accuracy(testing_data,
+#                   line_error_percent=0.15,
+#                   CI_percent=95)
 
-fit.plot_grid_vars(vary_var_1='phi',
-                   vary_or_constant_2='Lambda',
-                   column_var='psi',
-                   column_var_array=[1.0,1.5,2.0,2.5],
-                   row_var='M',
-                   row_var_array=[0.65,0.7,0.75],
-                   constant_var='Co',
-                   constant_var_value = 0.7,
-                   num_points=500,
-                   efficiency_step=0.5
-                   )
+# fit.plot_grid_vars(vary_var_1='phi',
+#                    vary_or_constant_2='Lambda',
+#                    column_var='psi',
+#                    column_var_array=[1.0,1.5,2.0,2.5],
+#                    row_var='M',
+#                    row_var_array=[0.65,0.7,0.75],
+#                    constant_var='Co',
+#                    constant_var_value = 0.7,
+#                    num_points=500,
+#                    efficiency_step=0.5
+#                    )
 
-# fit.plot_vars(phi=0.6,
-#               psi=1.4,
-#               Lambda=0.5,
-#               M='vary',
-#               Co=0.6,
+
+# fit.plot_vars(phi='vary',
+#               psi='vary',
+#               Lambda=np.mean(training_data['Lambda']),
+#               M=np.mean(training_data['M']),
+#               Co=np.mean(training_data['Co']),
 #               num_points=500,
-#               efficiency_step=0.2
+#               efficiency_step=0.2,
+#               plot_training_points=True,
+#               CI_percent=95,
+#               legend_outside=True
 #               )
