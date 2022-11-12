@@ -76,9 +76,10 @@ from matplotlib.colors import ListedColormap
 import scipy.stats as st
 from sklearn.gaussian_process import kernels
 from collections import OrderedDict
+import os
 
 matern_kernel = kernels.Matern(length_scale = (1,1,1,1,1),
-                         length_scale_bounds=(1e-3,1e3),
+                         length_scale_bounds=((1e-2,1e2),(1e-2,1e2),(1e-2,1e2),(1e-2,1e2),(1e-2,1e2)),
                          nu=1.5
                          )
 
@@ -90,7 +91,45 @@ constant_kernel_2 = kernels.ConstantKernel(constant_value=1,
                                            constant_value_bounds=(1e-7,1e2)
                                            )
 
-default_kernel = constant_kernel_1 * matern_kernel + constant_kernel_2
+default_kernel = matern_kernel + constant_kernel_2
+
+def fix_vars(df,
+             vars_to_fix,
+             values
+             ):
+   if vars_to_fix==None:
+      return df
+   else:
+      for i, var in enumerate(vars_to_fix):
+         if values=='mean':
+            df[var] = np.mean(df[var])*np.ones(df.shape[0])
+         else:
+            df[var] = values[i]*np.ones(df.shape[0])
+      
+   return df #do not need to take return value
+
+def read_in_data(path='Data'):
+   dataframe_dict = {}
+   for filename in os.listdir(path):
+
+      filepath = os.path.join(path, filename)
+      df = pd.read_csv(filepath)
+
+   
+      if len(df.columns)==7:
+         df.columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost","runid"]
+         df = df.drop(columns=['runid'])
+         dataframe_dict[str(filename)[:-3]] = df
+         
+      elif len(df.columns)==6: #back-compatibility
+         df.columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
+         dataframe_dict[str(filename)[:-3]] = df
+         
+      else:
+         print('error, invalid csv')
+         quit()
+         
+   return dataframe_dict
 
 class fit_data:
    def __init__(self,
@@ -104,14 +143,14 @@ class fit_data:
       self.number_of_restarts = number_of_restarts
       self.noise_magnitude = noise_magnitude
       self.output_key = output_key
-      
+
       self.input_array_train = training_dataframe.drop(columns=[self.output_key])
       self.output_array_train = training_dataframe[self.output_key]
       
       self.limit_dict = {}
       for column in self.input_array_train:
          self.limit_dict[column] = (np.around(training_dataframe[column].min(),decimals=1),np.around(training_dataframe[column].max(),decimals=1))
-      
+
       gaussian_process = GaussianProcessRegressor(kernel=kernel_form, n_restarts_optimizer=number_of_restarts,alpha=noise_magnitude)
       gaussian_process.fit(self.input_array_train, self.output_array_train)
       
@@ -351,10 +390,11 @@ class fit_data:
                   plot_dataframe[key] = np.mean(self.input_array_train[key])*np.ones(num_points**2)
                else:
                   plot_dataframe[key] = var_dict[key]*np.ones(num_points**2)
-         
+            
          self.predict(plot_dataframe,
                       display_efficiency=display_efficiency,
                       CI_percent=CI_percent)
+
          
          if display_efficiency == True:
             contour_textlabel = '\\eta'

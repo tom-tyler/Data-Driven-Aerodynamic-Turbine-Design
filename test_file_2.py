@@ -1,52 +1,69 @@
-from signal import set_wakeup_fd
-from dd_turb_design import fit_data
+from dd_turb_design import fit_data, fix_vars, read_in_data
 import pandas as pd
 from sklearn.gaussian_process import kernels
 import matplotlib.pyplot as plt
 import numpy as np
 
-data_A = pd.read_csv('Data-Driven-Aerodynamic-Turbine-Design\data-A for testing.csv',
-                     names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
-                     )
-data_B = pd.read_csv('Data-Driven-Aerodynamic-Turbine-Design\data-B for training.csv', 
-                     names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
-                     )
-data_C = pd.read_csv('Data-Driven-Aerodynamic-Turbine-Design\data-C.csv', 
-                     names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
-                     )
+# data_A = pd.read_csv('Data\data-A for testing.csv',
+#                      names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
+#                      )
+# data_B = pd.read_csv('Data\data-B for training.csv', 
+#                      names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
+#                      )
 
-data = pd.concat([data_A,data_B,data_C],ignore_index=True)
-data=data_C
-round_dict = {'phi': 2, 'psi': 2, 'Lambda': 2, 'M': 2, 'Co': 2, 'eta_lost':4}
-training_data = data.sample(frac=1.0,random_state=2)
-testing_data = data.loc[~data.index.isin(training_data.index)]
+# data_C = pd.read_csv('Data\data-C.csv', 
+#                      names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
+#                      )
+# data_D = pd.read_csv('Data\data-D.csv', 
+#                      names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
+#                      )
+# data_E = pd.read_csv('Data\data-E.csv', 
+#                      names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
+#                      )
+# data_F = pd.read_csv('Data\data-F.csv', 
+#                      names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
+#                      )
 
-matern_kernel = kernels.Matern(length_scale = (1,1,1,1,1),
-                         length_scale_bounds=(1e-2,1e2),
-                         nu=1.5
-                         )
+# lambda_1d_data = pd.read_csv('Data\Lambda_1D.csv', 
+#                      names=["phi", "psi", "Lambda", "M", "Co", "eta_lost",'runid']
+#                      ).drop(columns=['runid'])
 
-rbf_kernel_1d = kernels.RBF(length_scale=(1),
-                         length_scale_bounds=(1e-3,1e4)
-                         )
-rbf_kernel_5d = kernels.RBF(length_scale=(1,1,1,1,1),
-                         length_scale_bounds=(1e-1,1e4)
-                         )
+data_dict=read_in_data()
+dataframe_list = data_dict.values()
 
-constant_kernel_1 = kernels.ConstantKernel(constant_value=1,
-                                           constant_value_bounds=(1e-8,1e1)
-                                           )
+data = pd.concat(dataframe_list,ignore_index=True)
+# data = pd.concat([data_A],ignore_index=True)
 
-constant_kernel_2 = kernels.ConstantKernel(constant_value=1,
-                                           constant_value_bounds=(1e-6,1e1)
-                                           )
+# round_dict = {'phi': 2, 'psi': 2, 'Lambda': 2, 'M': 2, 'Co': 2, 'eta_lost':4}
+# training_data = data.sample(frac=1.0,random_state=2)
+# testing_data = data.loc[~data.index.isin(training_data.index)]
 
-kernel = constant_kernel_1 * matern_kernel + constant_kernel_2
+# fix_vars(lambda_1d_data,
+#          vars_to_fix=['M','Co','phi','psi'],
+#          values='mean')
 
-fit = fit_data(kernel_form=kernel,
-            training_dataframe=training_data,
-            number_of_restarts=20)
+fit = fit_data(training_dataframe=data,
+               number_of_restarts=30)
 
+print(fit.optimised_kernel)
+
+fit.plot_vars(phi='mean',
+              psi='mean',
+              Lambda='vary',
+              M='mean',
+              Co='mean',
+              num_points=500,
+              efficiency_step=0.5,
+              plot_training_points=True,
+              CI_percent=95,
+              legend_outside=True,
+              display_efficiency=True
+              )
+
+# fit.plot_accuracy(testing_data,
+#                 line_error_percent=5,
+#                 CI_percent=95,
+#                 display_efficiency=False)
 
 # example_datapoint = pd.DataFrame({'phi':[0.8],
 #                                   'psi':[1.4],
@@ -66,10 +83,6 @@ fit = fit_data(kernel_form=kernel,
 # fit.find_global_max_min_values()
 # print(fit.max_output_row)
 
-# fit.plot_accuracy(testing_data,
-#                   line_error_percent=1,
-#                   CI_percent=95,
-#                   display_efficiency=True)
 
 # fit.plot_grid_vars(vary_var_1='phi',
 #                    vary_or_constant_2='Lambda',
@@ -84,11 +97,11 @@ fit = fit_data(kernel_form=kernel,
 #                    )
 
 
-# fit.plot_vars(phi='vary',
+# fit.plot_vars(phi='mean',
 #               psi='mean',
 #               Lambda='mean',
 #               M='mean',
-#               Co='mean',
+#               Co='vary',
 #               num_points=500,
 #               efficiency_step=0.2,
 #               plot_training_points=True,
@@ -97,15 +110,3 @@ fit = fit_data(kernel_form=kernel,
 #               display_efficiency=False
 #               )
 
-fit.plot_vars(phi='vary',
-              psi='vary',
-              Lambda=5.073657893138810993e-01,
-              M=6.471594517666803270e-01,
-              Co=6.840099096298217773e-01,
-              num_points=500,
-              efficiency_step=0.5,
-              plot_training_points=True,
-              CI_percent=95,
-              legend_outside=True,
-              display_efficiency=True
-              )
