@@ -108,7 +108,10 @@ def fix_vars(df,
       
    return df #do not need to take return value
 
-def read_in_data(path='Data'):
+def read_in_data(path='Data',
+                 dataset='all'
+                 ):
+   
    dataframe_dict = {}
    for filename in os.listdir(path):
 
@@ -119,17 +122,23 @@ def read_in_data(path='Data'):
       if len(df.columns)==7:
          df.columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost","runid"]
          df = df.drop(columns=['runid'])
-         dataframe_dict[str(filename)[:-3]] = df
+         dataframe_dict[str(filename)[:-4]] = df
          
       elif len(df.columns)==6: #back-compatibility
          df.columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
-         dataframe_dict[str(filename)[:-3]] = df
+         dataframe_dict[str(filename)[:-4]] = df
          
       else:
          print('error, invalid csv')
          quit()
-         
-   return dataframe_dict
+   if dataset=='all':
+      pass
+   else:   
+      dataframe_dict = dict((k, dataframe_dict[k]) for k in dataset)
+      
+   dataframe_list = dataframe_dict.values()   
+   data = pd.concat(dataframe_list,ignore_index=True)
+   return data
 
 def split_data(df,
                fraction_training=0.75,

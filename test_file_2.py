@@ -4,25 +4,18 @@ from sklearn.gaussian_process import kernels
 import matplotlib.pyplot as plt
 import numpy as np
 
-data_dict=read_in_data()
-dataframe_list = data_dict.values()
-
-data = pd.concat(dataframe_list,ignore_index=True)
-# data = pd.concat([data_A],ignore_index=True)
-
-
-# fix_vars(lambda_1d_data,
-#          vars_to_fix=['M','Co','phi','psi'],
-#          values='mean')
+data = read_in_data(dataset=['2D_phi_psi_data_1',
+                           '2D_phi_psi_data_2',
+                           '2D_phi_psi_data_3'])
 
 fit = fit_data(training_dataframe=data,
                number_of_restarts=30)
 
 print(fit.optimised_kernel)
 
-fit.plot_vars(phi='mean',
-              psi='mean',
-              Lambda='vary',
+fit.plot_vars(phi='vary',
+              psi='vary',
+              Lambda='mean',
               M='mean',
               Co='mean',
               num_points=500,
@@ -68,7 +61,6 @@ fit.plot_vars(phi='mean',
 #                    num_points=500,
 #                    efficiency_step=0.5
 #                    )
-
 
 # fit.plot_vars(phi='mean',
 #               psi='mean',
