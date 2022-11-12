@@ -131,6 +131,16 @@ def read_in_data(path='Data'):
          
    return dataframe_dict
 
+def split_data(df,
+               fraction_training=0.75,
+               random_seed_state=2
+               ):
+   training_data = df.sample(frac=fraction_training,
+                             random_state=random_seed_state
+                             )
+   testing_data = df.loc[~df.index.isin(training_data.index)]
+   return training_data,testing_data
+
 class fit_data:
    def __init__(self,
                 training_dataframe,

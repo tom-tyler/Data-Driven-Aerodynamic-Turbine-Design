@@ -4,39 +4,12 @@ from sklearn.gaussian_process import kernels
 import matplotlib.pyplot as plt
 import numpy as np
 
-# data_A = pd.read_csv('Data\data-A for testing.csv',
-#                      names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
-#                      )
-# data_B = pd.read_csv('Data\data-B for training.csv', 
-#                      names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
-#                      )
-
-# data_C = pd.read_csv('Data\data-C.csv', 
-#                      names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
-#                      )
-# data_D = pd.read_csv('Data\data-D.csv', 
-#                      names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
-#                      )
-# data_E = pd.read_csv('Data\data-E.csv', 
-#                      names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
-#                      )
-# data_F = pd.read_csv('Data\data-F.csv', 
-#                      names=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
-#                      )
-
-# lambda_1d_data = pd.read_csv('Data\Lambda_1D.csv', 
-#                      names=["phi", "psi", "Lambda", "M", "Co", "eta_lost",'runid']
-#                      ).drop(columns=['runid'])
-
 data_dict=read_in_data()
 dataframe_list = data_dict.values()
 
 data = pd.concat(dataframe_list,ignore_index=True)
 # data = pd.concat([data_A],ignore_index=True)
 
-# round_dict = {'phi': 2, 'psi': 2, 'Lambda': 2, 'M': 2, 'Co': 2, 'eta_lost':4}
-# training_data = data.sample(frac=1.0,random_state=2)
-# testing_data = data.loc[~data.index.isin(training_data.index)]
 
 # fix_vars(lambda_1d_data,
 #          vars_to_fix=['M','Co','phi','psi'],
