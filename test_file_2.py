@@ -4,28 +4,23 @@ from sklearn.gaussian_process import kernels
 import matplotlib.pyplot as plt
 import numpy as np
 
-data = read_in_data(dataset=['5D_turbine_data_1',
-                             '5D_turbine_data_2',
-                             '5D_turbine_data_3',
-                             '5D_turbine_data_4',
-                             '5D_turbine_data_5'])
-
-data = read_in_data()
-
+data = read_in_data(dataset='all')
 
 fit = fit_data(training_dataframe=data,
-               number_of_restarts=20,
-               noise_magnitude=1e-8)
+               number_of_restarts=20)
 
-fit.plot_vars(phi='vary',
-              M=0.9,
-              psi='vary',
-              num_points=250,
-              efficiency_step=0.5,
-              plot_training_points=True,
+#need noise if rbf kernel. trade off between noise and nu
+
+print(fit.optimised_kernel)
+
+fit.plot_vars(Co='vary',
+              Lambda='vary',
+              num_points=500,
+              efficiency_step=0.1,
+              plot_training_points=False,
               CI_percent=95,
               legend_outside=True,
-              display_efficiency=True
+              contour_type='continuous'
               )
 
 # fit.plot_accuracy(testing_data,

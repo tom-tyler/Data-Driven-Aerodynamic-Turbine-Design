@@ -80,7 +80,7 @@ import matplotlib.colors as mcol
 
 matern_kernel = kernels.Matern(length_scale = (1,1,1,1,1),
                          length_scale_bounds=((1e-2,1e2),(1e-2,1e2),(1e-2,1e2),(1e-2,1e2),(1e-2,1e2)),
-                         nu=1.5
+                         nu=2.5
                          )
 
 constant_kernel_1 = kernels.ConstantKernel(constant_value=1,
@@ -91,7 +91,10 @@ constant_kernel_2 = kernels.ConstantKernel(constant_value=1,
                                            constant_value_bounds=(1e-7,1e2)
                                            )
 
-default_kernel = matern_kernel + constant_kernel_2
+noise_kernel = kernels.WhiteKernel(noise_level=1e-6,
+                                   noise_level_bounds=(1e-8,1e-4))
+
+default_kernel = matern_kernel + noise_kernel
 
 def fix_vars(df,
              vars_to_fix,
@@ -114,28 +117,33 @@ def read_in_data(path='Data',
    
    dataframe_dict = {}
    for filename in os.listdir(path):
-
+      data_name = str(filename)[:-4]
+      
+      if dataset=='all':
+         pass
+      elif dataset=='5D':
+         if data_name[:-2] != '5D_turbine_data':
+            continue
+      else:
+         if data_name not in dataset:
+            continue
+      
       filepath = os.path.join(path, filename)
       df = pd.read_csv(filepath)
-
    
       if len(df.columns)==7:
          df.columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost","runid"]
          df = df.drop(columns=['runid'])
-         dataframe_dict[str(filename)[:-4]] = df
+         dataframe_dict[data_name] = df
          
       elif len(df.columns)==6: #back-compatibility
          df.columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
-         dataframe_dict[str(filename)[:-4]] = df
+         dataframe_dict[data_name] = df
          
       else:
          print('error, invalid csv')
          quit()
-   if dataset=='all':
-      pass
-   else:   
-      dataframe_dict = dict((k, dataframe_dict[k]) for k in dataset)
-      
+
    dataframe_list = dataframe_dict.values()   
    data = pd.concat(dataframe_list,ignore_index=True)
    return data
@@ -285,12 +293,12 @@ class fit_data:
       
       var_dict = {'phi':phi,'psi':psi,'Lambda':Lambda,'M':M,'Co':Co}
       
-      color_limits  = np.array([84, 88, 92, 96])
+      color_limits  = np.array([84, 90, 96])
       if display_efficiency == True:
          pass
       else:
-         color_limits = 1 - color_limits/100
-      cmap_colors = ["red","orange",'yellow',"green"]
+         color_limits = 1 - (color_limits/100)
+      cmap_colors = ["red","orange","green"]
       cmap_norm=plt.Normalize(min(color_limits),max(color_limits))
       cmap_tuples = list(zip(map(cmap_norm,color_limits), cmap_colors))
       efficiency_cmap = mcol.LinearSegmentedColormap.from_list("", cmap_tuples)
@@ -460,7 +468,7 @@ class fit_data:
                          )
          
          if contour_type=='line':
-            predicted_plot = axis.contour(xvar, yvar, mean_prediction_grid,levels=contour_levels,cmap=efficiency_cmap,vmin=min_level,vmax=max_level,norm=cmap_norm)
+            predicted_plot = axis.contour(xvar, yvar, mean_prediction_grid,levels=contour_levels,cmap=efficiency_cmap,norm=cmap_norm)
             axis.clabel(predicted_plot, inline=1, fontsize=14)
             for contour_level_index,contour_level in enumerate(contour_levels):
                if display_efficiency == True:
@@ -474,8 +482,8 @@ class fit_data:
                h2,_ = confidence_plot.legend_elements()
                
          elif contour_type=='continuous':
-            predicted_plot = axis.contourf(xvar, yvar, mean_prediction_grid,cmap=efficiency_cmap,norm=cmap_norm)
-
+            predicted_plot = axis.contourf(xvar, yvar, mean_prediction_grid,cmap=efficiency_cmap,norm=cmap_norm,levels=contour_levels,extend='both')
+            
          h1,_ = predicted_plot.legend_elements()
          axis.scatter(xvar_max,yvar_max,color='green',marker='x')
 
