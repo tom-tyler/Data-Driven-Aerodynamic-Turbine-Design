@@ -17,16 +17,16 @@ fit = fit_data(training_dataframe=data,
                number_of_restarts=20,
                noise_magnitude=1e-8)
 
-# fit.plot_vars(phi='vary',
-#               M=0.9,
-#               psi='vary',
-#               num_points=250,
-#               efficiency_step=0.5,
-#               plot_training_points=True,
-#               CI_percent=95,
-#               legend_outside=True,
-#               display_efficiency=True
-#               )
+fit.plot_vars(phi='vary',
+              M=0.9,
+              psi='vary',
+              num_points=250,
+              efficiency_step=0.5,
+              plot_training_points=True,
+              CI_percent=95,
+              legend_outside=True,
+              display_efficiency=True
+              )
 
 # fit.plot_accuracy(testing_data,
 #                 line_error_percent=5,
@@ -52,18 +52,18 @@ fit = fit_data(training_dataframe=data,
 # print(fit.max_output_row)
 
 
-fit.plot_grid_vars(vary_var_1='phi',
-                   vary_or_constant_2='Co',
-                   column_var='M',
-                   column_var_array=[0.5,0.6,0.7,0.8,0.9],
-                   row_var='psi',
-                   row_var_array=[2.0],
-                   constant_var='Lambda',
-                   constant_var_value = 0.5,
-                   num_points=500,
-                   efficiency_step=0.25,
-                   CI_percent=10
-                   )
+# fit.plot_grid_vars(vary_var_1='phi',
+#                    vary_or_constant_2='Co',
+#                    column_var='M',
+#                    column_var_array=[0.5,0.6,0.7,0.8,0.9],
+#                    row_var='psi',
+#                    row_var_array=[2.0],
+#                    constant_var='Lambda',
+#                    constant_var_value = 0.5,
+#                    num_points=500,
+#                    efficiency_step=0.25,
+#                    CI_percent=10
+#                    )
 
 # fit.plot_vars(phi='mean',
 #               psi='mean',

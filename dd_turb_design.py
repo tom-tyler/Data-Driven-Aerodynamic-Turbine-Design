@@ -261,7 +261,7 @@ class fit_data:
                  axis=None,
                  num_points=100,
                  efficiency_step=0.5,
-                 opacity=0.3,
+                 opacity=0.2,
                  swap_axis=False,
                  display_efficiency=True,
                  title_variable_spacing=3,
@@ -284,6 +284,16 @@ class fit_data:
          efficiency_step = efficiency_step*0.01
       
       var_dict = {'phi':phi,'psi':psi,'Lambda':Lambda,'M':M,'Co':Co}
+      
+      color_limits  = np.array([84, 88, 92, 96])
+      if display_efficiency == True:
+         pass
+      else:
+         color_limits = 1 - color_limits/100
+      cmap_colors = ["red","orange",'yellow',"green"]
+      cmap_norm=plt.Normalize(min(color_limits),max(color_limits))
+      cmap_tuples = list(zip(map(cmap_norm,color_limits), cmap_colors))
+      efficiency_cmap = mcol.LinearSegmentedColormap.from_list("", cmap_tuples)
       
       dimensions = countOf(var_dict.values(), 'vary')
       plot_dataframe = pd.DataFrame({})
@@ -343,6 +353,7 @@ class fit_data:
                          color='red',
                          label='Training data points')
          
+         
          axis.plot(x1, self.mean_prediction, label=r"Mean prediction", color='blue')
          axis.fill_between(
             x=x1,
@@ -350,7 +361,7 @@ class fit_data:
             y2=self.lower_confidence_interval,
             alpha=opacity,                       
             label=fr"{self.CI_percent}% confidence interval",
-            color=CI_color
+            color='blue'
          )
          if plotting_grid_value==[0,0]:
             if legend_outside == True:
@@ -439,51 +450,31 @@ class fit_data:
          for index in self.max_output_indices:
             xvar_max.append(xvar.ravel()[index])
             yvar_max.append(yvar.ravel()[index])
-            axis.text(xvar.ravel()[index], yvar.ravel()[index], f'{self.max_output:.2f}', size=12, color='green')
+            axis.text(xvar.ravel()[index], yvar.ravel()[index], f'{self.max_output:.2f}', size=12, color='darkgreen')
          
          if plot_training_points == True:
             training_points_plot = axis.scatter(x=self.input_array_train[plot_key1],
                          y=self.input_array_train[plot_key2],
                          marker='x',
-                         color='red'
+                         color='blue'
                          )
-            
-         color_limits  = np.array([84, 88, 92, 96])
-         if display_efficiency == True:
-            pass
-         else:
-            color_limits = 1 - color_limits/100
-         cmap_colors = ["red","orange",'yellow',"green"]
-
-         cmap_norm=plt.Normalize(min(color_limits),max(color_limits))
-         cmap_tuples = list(zip(map(cmap_norm,color_limits), cmap_colors))
-         print('cmap_tuples: ',cmap_tuples)
-         self.efficiency_cmap = mcol.LinearSegmentedColormap.from_list("", cmap_tuples)
          
-         # self.efficiency_cmap = mcol.LinearSegmentedColormap.from_list(name='efficiency_colormap',
-         #                                                               colors=[(84,'red'),
-         #                                                                       (88,'orange'),
-         #                                                                       (92,'yellow'),
-         #                                                                       (96,'red')]
-         #                                                               )
-         
-         # predicted_plot = axis.contour(xvar, yvar, mean_prediction_grid,levels=contour_levels,cmap='winter',vmin=min_level,vmax=max_level)
          if contour_type=='line':
-            predicted_plot = axis.contour(xvar, yvar, mean_prediction_grid,levels=contour_levels,cmap=self.efficiency_cmap,vmin=min_level,vmax=max_level,norm=cmap_norm)
+            predicted_plot = axis.contour(xvar, yvar, mean_prediction_grid,levels=contour_levels,cmap=efficiency_cmap,vmin=min_level,vmax=max_level,norm=cmap_norm)
             axis.clabel(predicted_plot, inline=1, fontsize=14)
             for contour_level_index,contour_level in enumerate(contour_levels):
                if display_efficiency == True:
                   confidence_array = (upper_confidence_interval_grid<=contour_level) & (lower_confidence_interval_grid>=contour_level)
                else:
                   confidence_array = (upper_confidence_interval_grid>=contour_level) & (lower_confidence_interval_grid<=contour_level)
-               print('level: ',contour_level)
-               contour_color = self.efficiency_cmap(cmap_norm(contour_level))
-               print('color = ',self.efficiency_cmap(cmap_norm(contour_level)))
-               confidence_plot = axis.contourf(xvar,yvar,confidence_array, levels=[0.5, 2], alpha=opacity,cmap = mcol.ListedColormap([contour_color])) #mcol.ListedColormap([CI_color])
+
+               contour_color = efficiency_cmap(cmap_norm(contour_level))
+
+               confidence_plot = axis.contourf(xvar,yvar,confidence_array, levels=[0.5, 2], alpha=opacity,cmap = mcol.ListedColormap([contour_color])) 
                h2,_ = confidence_plot.legend_elements()
                
          elif contour_type=='continuous':
-            predicted_plot = axis.contourf(xvar, yvar, mean_prediction_grid,cmap=self.efficiency_cmap,norm=cmap_norm)
+            predicted_plot = axis.contourf(xvar, yvar, mean_prediction_grid,cmap=efficiency_cmap,norm=cmap_norm)
 
          h1,_ = predicted_plot.legend_elements()
          axis.scatter(xvar_max,yvar_max,color='green',marker='x')
