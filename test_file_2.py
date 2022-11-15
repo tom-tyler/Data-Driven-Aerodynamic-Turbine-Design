@@ -4,27 +4,29 @@ from sklearn.gaussian_process import kernels
 import matplotlib.pyplot as plt
 import numpy as np
 
-data = read_in_data(dataset=['2D_phi_psi_data_1',
-                           '2D_phi_psi_data_2',
-                           '2D_phi_psi_data_3'])
+data = read_in_data(dataset=['5D_turbine_data_1',
+                             '5D_turbine_data_2',
+                             '5D_turbine_data_3',
+                             '5D_turbine_data_4',
+                             '5D_turbine_data_5'])
+
+data = read_in_data()
+
 
 fit = fit_data(training_dataframe=data,
-               number_of_restarts=30)
+               number_of_restarts=20,
+               noise_magnitude=1e-8)
 
-print(fit.optimised_kernel)
-
-fit.plot_vars(phi='vary',
-              psi='vary',
-              Lambda='mean',
-              M='mean',
-              Co='mean',
-              num_points=500,
-              efficiency_step=0.5,
-              plot_training_points=True,
-              CI_percent=95,
-              legend_outside=True,
-              display_efficiency=True
-              )
+# fit.plot_vars(phi='vary',
+#               M=0.9,
+#               psi='vary',
+#               num_points=250,
+#               efficiency_step=0.5,
+#               plot_training_points=True,
+#               CI_percent=95,
+#               legend_outside=True,
+#               display_efficiency=True
+#               )
 
 # fit.plot_accuracy(testing_data,
 #                 line_error_percent=5,
@@ -50,17 +52,18 @@ fit.plot_vars(phi='vary',
 # print(fit.max_output_row)
 
 
-# fit.plot_grid_vars(vary_var_1='phi',
-#                    vary_or_constant_2='Lambda',
-#                    column_var='psi',
-#                    column_var_array=[1.0,1.5,2.0,2.5],
-#                    row_var='M',
-#                    row_var_array=[0.65,0.7,0.75],
-#                    constant_var='Co',
-#                    constant_var_value = 0.7,
-#                    num_points=500,
-#                    efficiency_step=0.5
-#                    )
+fit.plot_grid_vars(vary_var_1='phi',
+                   vary_or_constant_2='Co',
+                   column_var='M',
+                   column_var_array=[0.5,0.6,0.7,0.8,0.9],
+                   row_var='psi',
+                   row_var_array=[2.0],
+                   constant_var='Lambda',
+                   constant_var_value = 0.5,
+                   num_points=500,
+                   efficiency_step=0.25,
+                   CI_percent=10
+                   )
 
 # fit.plot_vars(phi='mean',
 #               psi='mean',

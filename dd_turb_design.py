@@ -72,11 +72,11 @@ from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from operator import countOf
-from matplotlib.colors import ListedColormap
 import scipy.stats as st
 from sklearn.gaussian_process import kernels
 from collections import OrderedDict
 import os
+import matplotlib.colors as mcol
 
 matern_kernel = kernels.Matern(length_scale = (1,1,1,1,1),
                          length_scale_bounds=((1e-2,1e2),(1e-2,1e2),(1e-2,1e2),(1e-2,1e2),(1e-2,1e2)),
@@ -171,10 +171,9 @@ class fit_data:
          self.limit_dict[column] = (np.around(training_dataframe[column].min(),decimals=1),np.around(training_dataframe[column].max(),decimals=1))
 
       gaussian_process = GaussianProcessRegressor(kernel=kernel_form, n_restarts_optimizer=number_of_restarts,alpha=noise_magnitude)
-      gaussian_process.fit(self.input_array_train, self.output_array_train)
+      self.fitted_function = gaussian_process.fit(self.input_array_train, self.output_array_train)
       
-      self.optimised_kernel = gaussian_process.kernel_
-      self.fitted_function = gaussian_process
+      self.optimised_kernel = self.fitted_function.kernel_
       
    def predict(self,
                dataframe,
@@ -253,11 +252,11 @@ class fit_data:
       return self.max_output_row,self.min_output_row
         
    def plot_vars(self,
-                 phi,
-                 psi,
-                 Lambda,
-                 M,
-                 Co,
+                 phi='mean',
+                 psi='mean',
+                 Lambda='mean',
+                 M='mean',
+                 Co='mean',
                  limit_dict=None,
                  axis=None,
                  num_points=100,
@@ -270,7 +269,9 @@ class fit_data:
                  grid_height=1,
                  CI_percent=95,
                  plot_training_points=False,
-                 legend_outside=False
+                 legend_outside=False,
+                 CI_color='orange',
+                 contour_type='line'
                  ):
       
       if axis == None:
@@ -349,7 +350,7 @@ class fit_data:
             y2=self.lower_confidence_interval,
             alpha=opacity,                       
             label=fr"{self.CI_percent}% confidence interval",
-            color='orange'
+            color=CI_color
          )
          if plotting_grid_value==[0,0]:
             if legend_outside == True:
@@ -446,31 +447,68 @@ class fit_data:
                          marker='x',
                          color='red'
                          )
+            
+         color_limits  = np.array([84, 88, 92, 96])
+         if display_efficiency == True:
+            pass
+         else:
+            color_limits = 1 - color_limits/100
+         cmap_colors = ["red","orange",'yellow',"green"]
+
+         cmap_norm=plt.Normalize(min(color_limits),max(color_limits))
+         cmap_tuples = list(zip(map(cmap_norm,color_limits), cmap_colors))
+         print('cmap_tuples: ',cmap_tuples)
+         self.efficiency_cmap = mcol.LinearSegmentedColormap.from_list("", cmap_tuples)
          
-         predicted_plot = axis.contour(xvar, yvar, mean_prediction_grid,levels=contour_levels,cmap='winter',vmin=min_level,vmax=max_level)
-         axis.clabel(predicted_plot, inline=1, fontsize=14)
+         # self.efficiency_cmap = mcol.LinearSegmentedColormap.from_list(name='efficiency_colormap',
+         #                                                               colors=[(84,'red'),
+         #                                                                       (88,'orange'),
+         #                                                                       (92,'yellow'),
+         #                                                                       (96,'red')]
+         #                                                               )
+         
+         # predicted_plot = axis.contour(xvar, yvar, mean_prediction_grid,levels=contour_levels,cmap='winter',vmin=min_level,vmax=max_level)
+         if contour_type=='line':
+            predicted_plot = axis.contour(xvar, yvar, mean_prediction_grid,levels=contour_levels,cmap=self.efficiency_cmap,vmin=min_level,vmax=max_level,norm=cmap_norm)
+            axis.clabel(predicted_plot, inline=1, fontsize=14)
+            for contour_level_index,contour_level in enumerate(contour_levels):
+               if display_efficiency == True:
+                  confidence_array = (upper_confidence_interval_grid<=contour_level) & (lower_confidence_interval_grid>=contour_level)
+               else:
+                  confidence_array = (upper_confidence_interval_grid>=contour_level) & (lower_confidence_interval_grid<=contour_level)
+               print('level: ',contour_level)
+               contour_color = self.efficiency_cmap(cmap_norm(contour_level))
+               print('color = ',self.efficiency_cmap(cmap_norm(contour_level)))
+               confidence_plot = axis.contourf(xvar,yvar,confidence_array, levels=[0.5, 2], alpha=opacity,cmap = mcol.ListedColormap([contour_color])) #mcol.ListedColormap([CI_color])
+               h2,_ = confidence_plot.legend_elements()
+               
+         elif contour_type=='continuous':
+            predicted_plot = axis.contourf(xvar, yvar, mean_prediction_grid,cmap=self.efficiency_cmap,norm=cmap_norm)
+
+         h1,_ = predicted_plot.legend_elements()
          axis.scatter(xvar_max,yvar_max,color='green',marker='x')
 
-         for contour_level_index,contour_level in enumerate(contour_levels):
-            if display_efficiency == True:
-               confidence_array = (upper_confidence_interval_grid<=contour_level) & (lower_confidence_interval_grid>=contour_level)
-            else:
-               confidence_array = (upper_confidence_interval_grid>=contour_level) & (lower_confidence_interval_grid<=contour_level)
-            confidence_plot = axis.contourf(xvar,yvar,confidence_array, levels=[0.5, 2], alpha=opacity,cmap = ListedColormap(['orange'])) 
-         
          if plotting_grid_value==[0,0]:
-            h1,_ = predicted_plot.legend_elements()
-            h2,_ = confidence_plot.legend_elements()
+            
             if plot_training_points == True:
-               handles = [h1[0], h2[0], training_points_plot]
-               labels = [fr'$ {contour_textlabel} $, Mean prediction',
-                        fr"{self.CI_percent}% confidence interval",
-                        'Training data points']
+               if contour_type == 'line':
+                  handles = [h1[0], h2[0], training_points_plot]
+                  labels = [fr'$ {contour_textlabel} $, Mean prediction',
+                           fr"{self.CI_percent}% confidence interval",
+                           'Training data points']
+               else:
+                  handles = [h1[0], training_points_plot]
+                  labels = [fr'$ {contour_textlabel} $, Mean prediction',
+                            'Training data points']
             else:
-               handles = [h1[0], h2[0]]
-               labels = [fr'$ {contour_textlabel} $, Mean prediction',
-                        fr"{self.CI_percent}% confidence interval",
-                        'Training data points']
+               if contour_type == 'line':
+                  handles = [h1[0], h2[0]]
+                  labels = [fr'$ {contour_textlabel} $, Mean prediction',
+                           fr"{self.CI_percent}% confidence interval",
+                           'Training data points']
+               else:
+                  handles = [h1[0]]
+                  labels = [fr'$ {contour_textlabel} $, Mean prediction']
             if legend_outside == True:
                leg = axis.legend(handles=handles,
                                  labels=labels,
@@ -626,8 +664,11 @@ class fit_data:
                       swap_axis=False,
                       display_efficiency=True,
                       title_variable_spacing=3,
-                      with_arrows=False,
-                      CI_percent=95
+                      with_arrows=True,
+                      CI_percent=95,
+                      plot_training_points=False,
+                      legend_outside=False,
+                      CI_color='orange'
                       ):
       
       var_dict = {'phi':None,'psi':None,'Lambda':None,'M':None,'Co':None}
@@ -656,32 +697,95 @@ class fit_data:
                                sharex=True,
                                sharey=True
                                )
+      
+      if num_columns == 1:
+         for i, axis in enumerate(axes):
 
-      for (i,j), axis in np.ndenumerate(axes):
+            for key in var_dict:
+               if column_var == key:
+                  var_dict[key] = column_var_array[0]
+               elif row_var == key:
+                  var_dict[key] = row_var_array[i]
+            
+            self.plot_vars(axis=axis,
+                           phi=var_dict['phi'],
+                           psi=var_dict['psi'],
+                           Lambda=var_dict['Lambda'],
+                           M=var_dict['M'],
+                           Co=var_dict['Co'],
+                           num_points=num_points,
+                           efficiency_step=efficiency_step,
+                           swap_axis=swap_axis,
+                           limit_dict=limit_dict,
+                           display_efficiency=display_efficiency,
+                           title_variable_spacing=title_variable_spacing,
+                           opacity=opacity,
+                           plotting_grid_value=[i,0],
+                           grid_height=num_rows,
+                           CI_percent=CI_percent,
+                           plot_training_points=plot_training_points,
+                           legend_outside=legend_outside,
+                           CI_color=CI_color
+                           )
+      elif num_rows==1:
+         for j, axis in enumerate(axes):
 
-         for key in var_dict:
-            if column_var == key:
-               var_dict[key] = column_var_array[j]
-            elif row_var == key:
-               var_dict[key] = row_var_array[i]
-         
-         self.plot_vars(axis=axis,
-                        phi=var_dict['phi'],
-                        psi=var_dict['psi'],
-                        Lambda=var_dict['Lambda'],
-                        M=var_dict['M'],
-                        Co=var_dict['Co'],
-                        num_points=num_points,
-                        efficiency_step=efficiency_step,
-                        swap_axis=swap_axis,
-                        limit_dict=limit_dict,
-                        display_efficiency=display_efficiency,
-                        title_variable_spacing=title_variable_spacing,
-                        opacity=opacity,
-                        plotting_grid_value=[i,j],
-                        grid_height=num_rows,
-                        CI_percent=CI_percent
-                        )
+            for key in var_dict:
+               if column_var == key:
+                  var_dict[key] = column_var_array[j]
+               elif row_var == key:
+                  var_dict[key] = row_var_array[0]
+            
+            self.plot_vars(axis=axis,
+                           phi=var_dict['phi'],
+                           psi=var_dict['psi'],
+                           Lambda=var_dict['Lambda'],
+                           M=var_dict['M'],
+                           Co=var_dict['Co'],
+                           num_points=num_points,
+                           efficiency_step=efficiency_step,
+                           swap_axis=swap_axis,
+                           limit_dict=limit_dict,
+                           display_efficiency=display_efficiency,
+                           title_variable_spacing=title_variable_spacing,
+                           opacity=opacity,
+                           plotting_grid_value=[0,j],
+                           grid_height=num_rows,
+                           CI_percent=CI_percent,
+                           plot_training_points=plot_training_points,
+                           legend_outside=legend_outside,
+                           CI_color=CI_color
+                           )
+      
+      else:
+         for (i,j), axis in np.ndenumerate(axes):
+
+            for key in var_dict:
+               if column_var == key:
+                  var_dict[key] = column_var_array[j]
+               elif row_var == key:
+                  var_dict[key] = row_var_array[i]
+            
+            self.plot_vars(axis=axis,
+                           phi=var_dict['phi'],
+                           psi=var_dict['psi'],
+                           Lambda=var_dict['Lambda'],
+                           M=var_dict['M'],
+                           Co=var_dict['Co'],
+                           num_points=num_points,
+                           efficiency_step=efficiency_step,
+                           swap_axis=swap_axis,
+                           limit_dict=limit_dict,
+                           display_efficiency=display_efficiency,
+                           title_variable_spacing=title_variable_spacing,
+                           opacity=opacity,
+                           plotting_grid_value=[i,j],
+                           grid_height=num_rows,
+                           CI_percent=CI_percent,
+                           plot_training_points=plot_training_points,
+                           legend_outside=legend_outside,
+                           CI_color=CI_color
+                           )
 
       fig.suptitle("Data-driven turbine design")
       
@@ -710,5 +814,5 @@ class fit_data:
             xlabel_string2 = '\\'+row_var
             fig.supylabel(fr"$ {xlabel_string2} $")
 
-      fig.tight_layout()
+      
       plt.show()
