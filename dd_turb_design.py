@@ -161,7 +161,7 @@ class fit_data:
          self.RMSE = np.sqrt(mean_squared_error(self.output_array_test,self.mean_prediction))
          self.predicted_dataframe['actual_output'] = self.output_array_test
          self.predicted_dataframe['percent_error'] = abs((self.mean_prediction - self.output_array_test)/self.output_array_test)*100
-         self.score = self.fitted_function.score(self.input_array_test,self.output_array_test)
+         self.score = self.fitted_function.score(dataframe.drop(columns=[self.output_key]),dataframe[self.output_key])
       if CI_in_dataframe == True:
          self.predicted_dataframe['upper'] = self.upper_confidence_interval
          self.predicted_dataframe['lower'] = self.lower_confidence_interval
@@ -565,7 +565,7 @@ class fit_data:
                   ecolor='darkblue',
                   label = fr"{self.CI_percent}% confidence interval"
                   )
-      ax.set_title(fr'RMSE = {self.RMSE:.2e}    Score: {self.score:.2f}')
+      ax.set_title(fr'RMSE = {self.RMSE:.2e}    Score: {self.score:.3f}')
       if display_efficiency== True:
          ax.set_xlabel('$ \\eta $ (actual)')
          ax.set_ylabel('$ \\eta $ (prediction)')
