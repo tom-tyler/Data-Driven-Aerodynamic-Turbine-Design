@@ -4,7 +4,7 @@ from sklearn.gaussian_process import kernels
 import matplotlib.pyplot as plt
 import numpy as np
 
-data = read_in_data(dataset='all')
+data = read_in_data(dataset='5D')
 traindf,testdf = split_data(data)
 
 fit = fit_data(training_dataframe=traindf,

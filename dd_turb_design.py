@@ -97,7 +97,8 @@ class fit_data:
                 kernel_form=default_kernel,
                 output_key='eta_lost',
                 number_of_restarts=30,
-                noise_magnitude=0
+                noise_magnitude=0,
+                nu='optimise'
                 ):
       
       self.number_of_restarts = number_of_restarts
@@ -113,13 +114,14 @@ class fit_data:
       
       nu_dict = {1.5:None,2.5:None,np.inf:None}
       gaussian_process = GaussianProcessRegressor(kernel=kernel_form, n_restarts_optimizer=number_of_restarts,alpha=noise_magnitude)
-      for nu in nu_dict:
-         gaussian_process.set_params(kernel__k1__nu=nu)
-         fitted_function = gaussian_process.fit(self.input_array_train, self.output_array_train)
-         nu_dict[nu] = fitted_function.log_marginal_likelihood_value_
-      
-      nu_optimum = max(nu_dict, key=nu_dict.get)
-      gaussian_process.set_params(kernel__k1__nu=nu_optimum)
+      if nu=='optimise':
+         for nui in nu_dict:
+            gaussian_process.set_params(kernel__k1__nu=nui)
+            fitted_function = gaussian_process.fit(self.input_array_train, self.output_array_train)
+            nu_dict[nui] = fitted_function.log_marginal_likelihood_value_
+         nu = max(nu_dict, key=nu_dict.get)
+         
+      gaussian_process.set_params(kernel__k1__nu=nu)
       self.fitted_function = gaussian_process.fit(self.input_array_train, self.output_array_train)
       
       self.optimised_kernel = self.fitted_function.kernel_
