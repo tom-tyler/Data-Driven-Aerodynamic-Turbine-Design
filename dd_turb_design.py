@@ -1,70 +1,3 @@
-"""
-General Method:
-
-1.) Have n data points of m-dimensional data
-
-2.) If not already in this form, put into the form of a
-(nx1) array, with each element of the array a (1xm) array:
-
-3.) Create a kernel:
-- consider length scales
-- consider potential noise
-- consider type of data
-- use previous runs to inform choice of constant and lengths potentially
-
-4.) Fit training data using kernel
-
-5.) Predict outcome of testing data and compare to actual results.
-Calculate the RMSE and plot predicted vs actual
-
-6.) Ability to plot graphs holding all but one or 2 values constant
-
-"""
-"""
-Functions Required:
-
-1.) Fit data:
- - inputs:
-    - kernel_form
-    - num restarts
-    - alpha(noise)
-    - training matrix:
-        [[x1,y1,z1],
-         [x2,y2,z2],
-         ...]
-         
- - attributes:
-    - output the kernel
-    - output gaussian_process (this is fitted function, so rename as such)
-
- - methods:
-    - 
-
-2.) Predict result (use now fitted function):
- - inputs:
-    - fitted gaussian process
-    - testing matrix without output:
-        [[x1,y1],
-         [x2,y2],
-         ...]
-         
- - attributes:
-    - mean_prediction
-    - std_prediction
-
- - methods:
-    - output RMSE (array [z1,z2,z3,...].T)
-    - confidence intervals (% confidence)
-        - upper_confidence_interval = mean_prediction + number * std_prediction
-        - lower_confidence_interval = mean_prediction - number * std_prediction
- 
-3.) plot graphs
- - inputs:
-    - x1
-    - x2 (if you want a 2d plot, else none)
-    - y
-"""
-
 from sklearn.gaussian_process import GaussianProcessRegressor
 import numpy as np
 import pandas as pd
@@ -92,7 +25,7 @@ constant_kernel_2 = kernels.ConstantKernel(constant_value=1,
                                            )
 
 noise_kernel = kernels.WhiteKernel(noise_level=1e-6,
-                                   noise_level_bounds=(1e-8,1e-4))
+                                   noise_level_bounds=(1e-10,1e-4))
 
 default_kernel = matern_kernel + noise_kernel
 
@@ -177,8 +110,16 @@ class fit_data:
       self.limit_dict = {}
       for column in self.input_array_train:
          self.limit_dict[column] = (np.around(training_dataframe[column].min(),decimals=1),np.around(training_dataframe[column].max(),decimals=1))
-
+      
+      nu_dict = {1.5:None,2.5:None,np.inf:None}
       gaussian_process = GaussianProcessRegressor(kernel=kernel_form, n_restarts_optimizer=number_of_restarts,alpha=noise_magnitude)
+      for nu in nu_dict:
+         gaussian_process.set_params(kernel__k1__nu=nu)
+         fitted_function = gaussian_process.fit(self.input_array_train, self.output_array_train)
+         nu_dict[nu] = fitted_function.log_marginal_likelihood_value_
+      
+      nu_optimum = max(nu_dict, key=nu_dict.get)
+      gaussian_process.set_params(kernel__k1__nu=nu_optimum)
       self.fitted_function = gaussian_process.fit(self.input_array_train, self.output_array_train)
       
       self.optimised_kernel = self.fitted_function.kernel_
@@ -220,6 +161,7 @@ class fit_data:
          self.RMSE = np.sqrt(mean_squared_error(self.output_array_test,self.mean_prediction))
          self.predicted_dataframe['actual_output'] = self.output_array_test
          self.predicted_dataframe['percent_error'] = abs((self.mean_prediction - self.output_array_test)/self.output_array_test)*100
+         self.score = self.fitted_function.score(self.input_array_test,self.output_array_test)
       if CI_in_dataframe == True:
          self.predicted_dataframe['upper'] = self.upper_confidence_interval
          self.predicted_dataframe['lower'] = self.lower_confidence_interval
@@ -293,7 +235,7 @@ class fit_data:
       
       var_dict = {'phi':phi,'psi':psi,'Lambda':Lambda,'M':M,'Co':Co}
       
-      color_limits  = np.array([84, 90, 96])
+      color_limits  = np.array([88, 92, 96])
       if display_efficiency == True:
          pass
       else:
@@ -623,7 +565,7 @@ class fit_data:
                   ecolor='darkblue',
                   label = fr"{self.CI_percent}% confidence interval"
                   )
-      ax.set_title(fr'RMSE = {self.RMSE:.2e}')
+      ax.set_title(fr'RMSE = {self.RMSE:.2e}    Score: {self.score:.2f}')
       if display_efficiency== True:
          ax.set_xlabel('$ \\eta $ (actual)')
          ax.set_ylabel('$ \\eta $ (prediction)')
