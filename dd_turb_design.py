@@ -120,8 +120,8 @@ class fit_data:
             fitted_function = gaussian_process.fit(self.input_array_train, self.output_array_train)
             nu_dict[nui] = fitted_function.log_marginal_likelihood_value_
          nu = max(nu_dict, key=nu_dict.get)
-         
-      gaussian_process.set_params(kernel__k1__nu=nu)
+      
+      gaussian_process.set_params(kernel__k1__nu=nu) # kernel__k1__k1__nu if more than 1 kernel (not white), kernel__k1__nu otherwise
       self.fitted_function = gaussian_process.fit(self.input_array_train, self.output_array_train)
       
       self.optimised_kernel = self.fitted_function.kernel_
@@ -144,13 +144,12 @@ class fit_data:
       self.confidence_scalar = st.norm.ppf(1 - ((1 - (CI_percent / 100)) / 2))
       
       self.mean_prediction, self.std_prediction = self.fitted_function.predict(self.input_array_test, return_std=True)
-      self.upper_confidence_interval = self.mean_prediction + self.confidence_scalar * self.std_prediction
-      self.lower_confidence_interval = self.mean_prediction - self.confidence_scalar * self.std_prediction
+      self.upper = self.mean_prediction + self.confidence_scalar * self.std_prediction
+      self.lower = self.mean_prediction - self.confidence_scalar * self.std_prediction
       
       if display_efficiency == True:
          self.mean_prediction = (np.ones(len(self.mean_prediction)) - self.mean_prediction)*100
-         self.upper_confidence_interval = (np.ones(len(self.upper_confidence_interval)) - self.upper_confidence_interval)*100
-         self.lower_confidence_interval = (np.ones(len(self.lower_confidence_interval)) - self.lower_confidence_interval)*100
+         self.lower, self.upper = (np.ones(len(self.upper)) - self.upper)*100, (np.ones(len(self.lower)) - self.lower)*100
          if include_output == True:
             self.output_array_test = (np.ones(len(self.output_array_test)) - self.output_array_test)*100
          self.training_output = (np.ones(len(self.output_array_train)) - self.output_array_train)*100
@@ -165,8 +164,8 @@ class fit_data:
          self.predicted_dataframe['percent_error'] = abs((self.mean_prediction - self.output_array_test)/self.output_array_test)*100
          self.score = self.fitted_function.score(dataframe.drop(columns=[self.output_key]),dataframe[self.output_key])
       if CI_in_dataframe == True:
-         self.predicted_dataframe['upper'] = self.upper_confidence_interval
-         self.predicted_dataframe['lower'] = self.lower_confidence_interval
+         self.predicted_dataframe['upper'] = self.upper
+         self.predicted_dataframe['lower'] = self.lower
          
       
       self.min_output = np.amin(self.mean_prediction)
@@ -174,6 +173,8 @@ class fit_data:
       
       self.max_output = np.amax(self.mean_prediction)
       self.max_output_indices = np.where(self.mean_prediction == self.max_output)
+      
+      print(self.predicted_dataframe)
       
       return self.predicted_dataframe
       
@@ -238,11 +239,12 @@ class fit_data:
       var_dict = {'phi':phi,'psi':psi,'Lambda':Lambda,'M':M,'Co':Co}
       
       color_limits  = np.array([88, 92, 96])
-      if display_efficiency == True:
-         pass
-      else:
-         color_limits = 1 - (color_limits/100)
       cmap_colors = ["red","orange","green"]
+      
+      if display_efficiency == False:
+         color_limits = np.flip(1 - (color_limits/100),0)
+         cmap_colors = np.flip(cmap_colors)
+      
       cmap_norm=plt.Normalize(min(color_limits),max(color_limits))
       cmap_tuples = list(zip(map(cmap_norm,color_limits), cmap_colors))
       efficiency_cmap = mcol.LinearSegmentedColormap.from_list("", cmap_tuples)
@@ -309,8 +311,8 @@ class fit_data:
          axis.plot(x1, self.mean_prediction, label=r"Mean prediction", color='blue')
          axis.fill_between(
             x=x1,
-            y1=self.upper_confidence_interval,
-            y2=self.lower_confidence_interval,
+            y1=self.upper,
+            y2=self.lower,
             alpha=opacity,                       
             label=fr"{self.CI_percent}% confidence interval",
             color='blue'
@@ -343,16 +345,16 @@ class fit_data:
          axis.set_xlim(limit_dict[plot_key1][0],limit_dict[plot_key1][1],
                        auto=True)
          
-         if display_efficiency == True:
-            y_range = np.amax(self.lower_confidence_interval) - np.amin(self.upper_confidence_interval)
-            axis.set_ylim(top=np.amax(self.lower_confidence_interval)+0.1*y_range,
-                          bottom=np.amin(self.upper_confidence_interval)-0.1*y_range,
-                          auto=True)
-         else:
-            y_range = np.amax(self.upper_confidence_interval) - np.amin(self.lower_confidence_interval)
-            axis.set_ylim(bottom=np.amin(self.lower_confidence_interval)-0.1*y_range,
-                          top=np.amax(self.upper_confidence_interval)+0.1*y_range,
-                          auto=True)
+         # if display_efficiency == True:
+         #    y_range = np.amax(self.lower) - np.amin(self.upper)
+         #    axis.set_ylim(top=np.amax(self.lower)+0.1*y_range,
+         #                  bottom=np.amin(self.upper)-0.1*y_range,
+         #                  auto=True)
+         # else:
+         y_range = np.amax(self.upper) - np.amin(self.lower)
+         axis.set_ylim(bottom=np.amin(self.lower)-0.1*y_range,
+                        top=np.amax(self.upper)+0.1*y_range,
+                        auto=True)
 
          axis.grid(linestyle = '--', linewidth = 0.5)
          
@@ -389,8 +391,8 @@ class fit_data:
          contour_levels = np.arange(min_level,max_level,efficiency_step)
          
          mean_prediction_grid = self.mean_prediction.reshape(num_points,num_points)
-         upper_confidence_interval_grid = self.upper_confidence_interval.reshape(num_points,num_points)
-         lower_confidence_interval_grid = self.lower_confidence_interval.reshape(num_points,num_points)
+         upper_grid = self.upper.reshape(num_points,num_points)
+         lower_grid = self.lower.reshape(num_points,num_points)
 
          if swap_axis == False:
             xvar,yvar=X1,X2
@@ -415,10 +417,10 @@ class fit_data:
             predicted_plot = axis.contour(xvar, yvar, mean_prediction_grid,levels=contour_levels,cmap=efficiency_cmap,norm=cmap_norm)
             axis.clabel(predicted_plot, inline=1, fontsize=14)
             for contour_level_index,contour_level in enumerate(contour_levels):
-               if display_efficiency == True:
-                  confidence_array = (upper_confidence_interval_grid<=contour_level) & (lower_confidence_interval_grid>=contour_level)
-               else:
-                  confidence_array = (upper_confidence_interval_grid>=contour_level) & (lower_confidence_interval_grid<=contour_level)
+               # if display_efficiency == True:
+               #    confidence_array = (upper_grid<=contour_level) & (lower_grid>=contour_level)
+               # else:
+               confidence_array = (upper_grid>=contour_level) & (lower_grid<=contour_level)
 
                contour_color = efficiency_cmap(cmap_norm(contour_level))
 
