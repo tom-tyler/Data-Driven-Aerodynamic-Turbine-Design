@@ -34,22 +34,21 @@ else:
     print('incorrect input')
     quit()
 
-
+num_levels = 11
 
 # Extract cut (r, rt) or (y, z) planes upstream and downstream of each row
 (stator_in, stator_out), (rotor_in, rotor_out) = g.cut_rows()
 
 # Calculate flow coefficient
-phi = rotor_in.mix_out().vx / rotor_in.mix_out().U
-print("Flow coefficient, phi = %.3f" % phi)
+phi = stator_out.vx / rotor_in.mix_out().U
 
 # Make a contour plot of flow coefficient distribution
 fig, ax = plt.subplots()
 hc = ax.contourf(
     stator_out.y,
     stator_out.z,
-    stator_out.vx / rotor_in.mix_out().U,
-    np.linspace(0.8, 1.2, 11),
+    phi,
+    np.linspace(np.amin(phi), np.amax(phi), num_levels),
 )
 ax.axis("equal")
 plt.colorbar(hc)
@@ -70,7 +69,7 @@ C = g.cut_span(0.5)
 
 # Plot contours of density
 fig, ax = plt.subplots()
-lev_rho = np.linspace(2.2, 3.5, 11)
+lev_rho = np.linspace(np.amin(c.ro), np.amax(c.ro), num_levels)
 for c in C:
     hc = ax.contourf(c.x, c.rt, c.ro, lev_rho)
 ax.axis("equal")
