@@ -8,9 +8,39 @@ import matplotlib.pyplot as plt
 
 import numpy as np
 
-# Load the grid file provided on command line
-# output_hdf5 = sys.argv[1]
-# g = grid.read_hdf5(output_hdf5)
+def variable_to_parameter(variable, section):
+    if variable == 'M':
+        return section.M
+    elif variable == 'ro'
+        return section.ro
+    
+
+def plot_contour_XT(variable,cut_height=0.5,num_levels = 11):
+    
+    # Cut in (x, rt) plane
+    plane = g.cut_span(cut_height)
+    
+    # Plot contours
+    fig, ax = plt.subplots()
+    
+    # Get max and min values for contours
+    min_val,max_val=[],[]
+    for section in plane:
+        min_val.append(np.amin(section.ro))
+        max_val.append(np.amax(section.ro))
+        
+    min_val=np.amin(min_val)
+    max_val=np.amax(max_val)
+
+    levels = np.linspace(min_val,max_val,num_levels)
+    
+    for section in plane:
+        hc = ax.contourf(section.x, section.rt, section.ro, levels)
+    ax.axis("equal")
+    plt.colorbar(hc)
+    plot_name = 'contour_'+'ro'+'.pdf'
+    plt.savefig(os.path.join(plot_directory,plot_name))
+    print('Plotted: ')
 
 # Load grid file manually by typing in runid
 datapoint_runid = str(input('Enter run id (e.g. 002803602529): '))
@@ -37,7 +67,7 @@ else:
 if not os.path.exists(plot_directory):
     os.makedirs(plot_directory)
 
-num_levels = 11
+num_levels=11
 
 # Extract cut (r, rt) or (y, z) planes upstream and downstream of each row
 (stator_in, stator_out), (rotor_in, rotor_out) = g.cut_rows()
@@ -70,6 +100,7 @@ plt.savefig(os.path.join(plot_directory,"geometry.pdf"))
 # Cut at mid-height (x, rt) plane
 C = g.cut_span(0.5)
 
+
 # Plot contours of density
 fig, ax = plt.subplots()
 for c in C:
@@ -78,5 +109,8 @@ for c in C:
 ax.axis("equal")
 plt.colorbar(hc)
 plt.savefig(os.path.join(plot_directory,"contour_rho.pdf"))
+
+# Plot contours of Mach number
+plot_contour_XT()
 
 print('Figures stored in: ', plot_directory)
