@@ -1,5 +1,5 @@
 # Call this script using
-# $ python post_process_example.py HDF5_FILE
+# $ python post_process_example.py
 """Post process a steady Turbostream solution"""
 
 import sys, os
@@ -29,10 +29,13 @@ print('HDF5 path: ', datapoint_hdf5)
 if os.path.isfile(datapoint_hdf5):
     g = grid.read_hdf5(datapoint_hdf5)
     plot_directory = os.path.join(datapoint_directory, 'Figures')
-    os.makedirs(plot_directory)
+
 else:
     print('incorrect input')
     quit()
+    
+if not os.path.exists(plot_directory):
+    os.makedirs(plot_directory)
 
 num_levels = 11
 
@@ -69,8 +72,8 @@ C = g.cut_span(0.5)
 
 # Plot contours of density
 fig, ax = plt.subplots()
-lev_rho = np.linspace(np.amin(c.ro), np.amax(c.ro), num_levels)
 for c in C:
+    lev_rho = np.linspace(np.amin(c.ro), np.amax(c.ro), num_levels)
     hc = ax.contourf(c.x, c.rt, c.ro, lev_rho)
 ax.axis("equal")
 plt.colorbar(hc)
