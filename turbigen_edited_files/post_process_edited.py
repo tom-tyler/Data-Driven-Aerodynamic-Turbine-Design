@@ -8,11 +8,31 @@ import matplotlib.pyplot as plt
 
 import numpy as np
 
-def variable_to_parameter(variable, section):
+def param(variable, section):
     if variable == 'M':
-        return section.M
-    elif variable == 'ro'
+        return section.mach
+    elif variable == 'Mrel':
+        return section.mach_rel
+    elif variable == 'V':
+        return np.sqrt(section.vsq)
+    elif variable == 'Vrel':
+        return np.sqrt(section.vsq_rel)
+    elif variable == 'ro':
         return section.ro
+    elif variable == 'p':
+        return section.pstat
+    elif variable == 'T':
+        return section.tstat
+    elif variable == 'p0':
+        return section.pstag
+    elif variable == 'T0':
+        return section.tstag
+    elif variable == 'p0rel':
+        return section.pstag_rel
+    elif variable == 'T0rel':
+        return section.tstag_rel
+    else:
+        print(str(variable)+' not currently implimented')
     
 
 def plot_contour_XT(variable,cut_height=0.5,num_levels = 11):
@@ -25,22 +45,40 @@ def plot_contour_XT(variable,cut_height=0.5,num_levels = 11):
     
     # Get max and min values for contours
     min_val,max_val=[],[]
+    min_x,max_x=[],[]
+    min_rt,max_rt=[],[]
+    
     for section in plane:
-        min_val.append(np.amin(section.ro))
-        max_val.append(np.amax(section.ro))
+        var = param(variable,section)
+        min_val.append(np.amin(var))
+        max_val.append(np.amax(var))
+        min_x.append(np.amin(section.x))
+        max_x.append(np.amax(section.x))
+        min_rt.append(np.amin(section.rt))
+        max_rt.append(np.amax(section.rt))
         
     min_val=np.amin(min_val)
     max_val=np.amax(max_val)
+    min_x=np.amin(min_x)
+    max_x=np.amax(max_x)
+    min_rt=np.amin(min_rt)
+    max_rt=np.amax(max_rt)
 
     levels = np.linspace(min_val,max_val,num_levels)
     
     for section in plane:
-        hc = ax.contourf(section.x, section.rt, section.ro, levels)
-    ax.axis("equal")
-    plt.colorbar(hc)
-    plot_name = 'contour_'+'ro'+'.pdf'
+        var = param(variable,section)
+        hc = ax.contourf(section.x, section.rt, var, levels)
+    ax.axis("scaled")
+    ax.set_title(variable+' plot at '+str(cut_height*100)+'% cut height')
+    ax.set_xlim(min_x,max_x)
+    ax.set_ylim(min_rt,max_rt)
+    plt.colorbar(hc,orientation='horizontal',format='%.3g')
+    plot_name = 'contour_'+variable+'.pdf'
     plt.savefig(os.path.join(plot_directory,plot_name))
-    print('Plotted: ')
+    print('Plotted: ', variable)
+    
+    
 
 # Load grid file manually by typing in runid
 datapoint_runid = str(input('Enter run id (e.g. 002803602529): '))
@@ -97,20 +135,26 @@ for jplot in (0, 33, -1):
 ax.axis("equal")
 plt.savefig(os.path.join(plot_directory,"geometry.pdf"))
 
-# Cut at mid-height (x, rt) plane
-C = g.cut_span(0.5)
-
-
-# Plot contours of density
-fig, ax = plt.subplots()
-for c in C:
-    lev_rho = np.linspace(np.amin(c.ro), np.amax(c.ro), num_levels)
-    hc = ax.contourf(c.x, c.rt, c.ro, lev_rho)
-ax.axis("equal")
-plt.colorbar(hc)
-plt.savefig(os.path.join(plot_directory,"contour_rho.pdf"))
 
 # Plot contours of Mach number
-plot_contour_XT()
+plot_contour_XT('M')
+plot_contour_XT('Mrel')
+
+# Plot contours of velocity
+plot_contour_XT('V')
+plot_contour_XT('Vrel')
+
+# Plot contours of density
+plot_contour_XT('ro')
+
+# Plot contours of pressure
+plot_contour_XT('p')
+plot_contour_XT('p0')
+plot_contour_XT('p0rel')
+
+# Plot contours of temperature
+plot_contour_XT('T')
+plot_contour_XT('T0')
+plot_contour_XT('T0rel')
 
 print('Figures stored in: ', plot_directory)

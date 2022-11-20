@@ -10,6 +10,7 @@ from sklearn.gaussian_process import kernels
 from collections import OrderedDict
 import os
 import matplotlib.colors as mcol
+import sklearn.preprocessing as pre
 
 matern_kernel = kernels.Matern(length_scale = (1,1,1,1,1),
                          length_scale_bounds=((1e-2,1e2),(1e-2,1e2),(1e-2,1e2),(1e-2,1e2),(1e-2,1e2)),
@@ -24,8 +25,8 @@ constant_kernel_2 = kernels.ConstantKernel(constant_value=1,
                                            constant_value_bounds=(1e-7,1e2)
                                            )
 
-noise_kernel = kernels.WhiteKernel(noise_level=1e-6,
-                                   noise_level_bounds=(1e-10,1e-4))
+noise_kernel = kernels.WhiteKernel(noise_level=1e-8,
+                                   noise_level_bounds=(1e-12,1e-6))
 
 default_kernel = matern_kernel + noise_kernel
 
@@ -91,40 +92,65 @@ def split_data(df,
    testing_data = df.loc[~df.index.isin(training_data.index)]
    return training_data,testing_data
 
-class fit_data:
+class fit_data:  #rename this turb_design and turn init into a new method to fit the data. This will help as model will already be made
    def __init__(self,
                 training_dataframe,
                 kernel_form=default_kernel,
                 output_key='eta_lost',
-                number_of_restarts=30,
+                number_of_restarts=0,            #do not need to be >0 to optimise parameters. this saves so much time
                 noise_magnitude=0,
-                nu='optimise'
+                nu='optimise',
+                normalize_y=False,           #seems to make things worse if normalize_y=True
+                scale_name=None,
                 ):
       
       self.number_of_restarts = number_of_restarts
       self.noise_magnitude = noise_magnitude
       self.output_key = output_key
-
-      self.input_array_train = training_dataframe.drop(columns=[self.output_key])
-      self.output_array_train = training_dataframe[self.output_key]
+      self.scale_name = scale_name
+      if self.scale_name == 'standard':
+         self.scale = pre.StandardScaler()
+      elif self.scale_name == 'robust':
+         self.scale = pre.RobustScaler()
       
+      if self.scale!=None:
+         scaled_dataframe = pd.DataFrame(self.scale.fit_transform(training_dataframe.to_numpy()),
+                                           columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost"])
+         self.input_array_train = scaled_dataframe.drop(columns=[self.output_key])
+         self.output_array_train = scaled_dataframe[self.output_key]
+      else:
+         self.input_array_train = training_dataframe.drop(columns=[self.output_key])
+         self.output_array_train = training_dataframe[self.output_key]
+         
+         
       self.limit_dict = {}
       for column in self.input_array_train:
-         self.limit_dict[column] = (np.around(training_dataframe[column].min(),decimals=1),np.around(training_dataframe[column].max(),decimals=1))
+         self.limit_dict[column] = (np.around(training_dataframe[column].min(),decimals=1),
+                                    np.around(training_dataframe[column].max(),decimals=1)
+                                    )
       
       nu_dict = {1.5:None,2.5:None,np.inf:None}
-      gaussian_process = GaussianProcessRegressor(kernel=kernel_form, n_restarts_optimizer=number_of_restarts,alpha=noise_magnitude)
+      gaussian_process = GaussianProcessRegressor(kernel=kernel_form,
+                                                  n_restarts_optimizer=number_of_restarts,
+                                                  alpha=noise_magnitude,
+                                                  normalize_y=normalize_y,
+                                                  random_state=0
+                                                  )
       if nu=='optimise':
          for nui in nu_dict:
             gaussian_process.set_params(kernel__k1__nu=nui)
-            fitted_function = gaussian_process.fit(self.input_array_train, self.output_array_train)
+            fitted_function = gaussian_process.fit(self.input_array_train.to_numpy(), self.output_array_train.to_numpy())
             nu_dict[nui] = fitted_function.log_marginal_likelihood_value_
          nu = max(nu_dict, key=nu_dict.get)
       
       gaussian_process.set_params(kernel__k1__nu=nu) # kernel__k1__k1__nu if more than 1 kernel (not white), kernel__k1__nu otherwise
-      self.fitted_function = gaussian_process.fit(self.input_array_train, self.output_array_train)
+      self.fitted_function = gaussian_process.fit(self.input_array_train.to_numpy(), self.output_array_train.to_numpy())
       
       self.optimised_kernel = self.fitted_function.kernel_
+      
+      if self.scale!=None:
+         self.input_array_train = training_dataframe.drop(columns=[self.output_key])
+         self.output_array_train = training_dataframe[self.output_key]
       
    def predict(self,
                dataframe,
@@ -134,18 +160,51 @@ class fit_data:
                CI_percent=95
                ):
       
-      if include_output == True:
-         self.input_array_test = dataframe.drop(columns=[self.output_key])
-         self.output_array_test = dataframe[self.output_key]
+      if self.scale!=None:
+         if include_output == False:
+            dataframe[self.output_key] = np.ones(len(dataframe.index))
+
+         scaled_dataframe = pd.DataFrame(self.scale.transform(dataframe.to_numpy()),
+                                           columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost"])
+
+         self.input_array_test = scaled_dataframe.drop(columns=[self.output_key])
+         self.output_array_test = scaled_dataframe[self.output_key]
+
       else:
-         self.input_array_test = dataframe
+         if include_output == True:
+            self.input_array_test = dataframe.drop(columns=[self.output_key])
+            self.output_array_test = dataframe[self.output_key]
+         else:
+            self.input_array_test = dataframe
       
       self.CI_percent = CI_percent
       self.confidence_scalar = st.norm.ppf(1 - ((1 - (CI_percent / 100)) / 2))
       
-      self.mean_prediction, self.std_prediction = self.fitted_function.predict(self.input_array_test, return_std=True)
+      if self.scale!=None:
+         mean_scaled, std_scaled = self.fitted_function.predict(self.input_array_test.to_numpy(), return_std=True)
+         
+         # mean_dataframe_scaled = np.column_stack((self.input_array_test.to_numpy(),mean_scaled))
+         
+         if self.scale_name == 'standard':
+            self.mean_prediction = mean_scaled*self.scale.scale_[-1] + self.scale.mean_[-1] #derived using probability
+            self.std_prediction = self.scale.scale_[-1]*std_scaled #derived using probability
+         elif self.scale_name == 'robust':
+            self.mean_prediction = mean_scaled * self.scale.scale_[-1] + self.scale.center_[-1]
+            self.std_prediction = std_scaled * self.scale.scale_[-1]
+         else:
+            print('SCALE?')
+         if include_output == True:
+            self.input_array_test = dataframe.drop(columns=[self.output_key])
+            self.output_array_test = dataframe[self.output_key]
+         else:
+            self.input_array_test = dataframe
+            
+      else:
+         self.mean_prediction, self.std_prediction = self.fitted_function.predict(self.input_array_test.to_numpy(), return_std=True)
+      
       self.upper = self.mean_prediction + self.confidence_scalar * self.std_prediction
       self.lower = self.mean_prediction - self.confidence_scalar * self.std_prediction
+
       
       if display_efficiency == True:
          self.mean_prediction = (np.ones(len(self.mean_prediction)) - self.mean_prediction)*100
@@ -162,7 +221,10 @@ class fit_data:
          self.RMSE = np.sqrt(mean_squared_error(self.output_array_test,self.mean_prediction))
          self.predicted_dataframe['actual_output'] = self.output_array_test
          self.predicted_dataframe['percent_error'] = abs((self.mean_prediction - self.output_array_test)/self.output_array_test)*100
-         self.score = self.fitted_function.score(dataframe.drop(columns=[self.output_key]),dataframe[self.output_key])
+         if self.scale!=None:
+            self.score = self.fitted_function.score(scaled_dataframe.drop(columns=[self.output_key]).to_numpy(),scaled_dataframe[self.output_key].to_numpy())
+         else:
+            self.score = self.fitted_function.score(dataframe.drop(columns=[self.output_key]).to_numpy(),dataframe[self.output_key].to_numpy())
       if CI_in_dataframe == True:
          self.predicted_dataframe['upper'] = self.upper
          self.predicted_dataframe['lower'] = self.lower
@@ -173,8 +235,6 @@ class fit_data:
       
       self.max_output = np.amax(self.mean_prediction)
       self.max_output_indices = np.where(self.mean_prediction == self.max_output)
-      
-      print(self.predicted_dataframe)
       
       return self.predicted_dataframe
       
