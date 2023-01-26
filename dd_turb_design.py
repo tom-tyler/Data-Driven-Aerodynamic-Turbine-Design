@@ -11,9 +11,20 @@ from collections import OrderedDict
 import os
 import matplotlib.colors as mcol
 import sklearn.preprocessing as pre
+from random import randint
+
+def random_with_N_digits(n):
+    range_start = 10**(n-1)
+    range_end = (10**n)-1
+    return randint(range_start, range_end)
 
 matern_kernel = kernels.Matern(length_scale = (1,1,1,1,1),
-                         length_scale_bounds=((1e-2,1e2),(1e-2,1e2),(1e-2,1e2),(1e-2,1e2),(1e-2,1e2)),
+                         length_scale_bounds=((1e-2,1e2),(1e-2,1e3),(1e-2,1e2),(1e-2,1e2),(1e-2,1e2)),
+                         nu=2.5
+                         )
+
+matern_kernel_for_1D = kernels.Matern(length_scale = (100,100,1,100,100),
+                         length_scale_bounds=((1e-3,1e3),(1e-3,1e3),(1e-2,1e2),(1e-3,1e3),(1e-3,1e3)),
                          nu=2.5
                          )
 
@@ -25,8 +36,11 @@ constant_kernel_2 = kernels.ConstantKernel(constant_value=1,
                                            constant_value_bounds=(1e-7,1e2)
                                            )
 
-noise_kernel = kernels.WhiteKernel(noise_level=1e-8,
-                                   noise_level_bounds=(1e-12,1e-6))
+noise_kernel = kernels.WhiteKernel(noise_level=1e-3,
+                                   noise_level_bounds=(1e-7,1e-1))
+
+noise_kernel_fixed = kernels.WhiteKernel(noise_level=1e-12,
+                                   noise_level_bounds='fixed')
 
 default_kernel = matern_kernel + noise_kernel
 
@@ -56,7 +70,10 @@ def read_in_data(path='Data',
       if dataset=='all':
          pass
       elif dataset=='5D':
-         if data_name[:-2] != '5D_turbine_data':
+         if data_name[:15] != '5D_turbine_data':
+            continue
+      elif dataset=='4D':
+         if data_name[:7] != '4D_data':
             continue
       else:
          if data_name not in dataset:
@@ -108,10 +125,18 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       self.noise_magnitude = noise_magnitude
       self.output_key = output_key
       self.scale_name = scale_name
+      self.scale=None
       if self.scale_name == 'standard':
          self.scale = pre.StandardScaler()
       elif self.scale_name == 'robust':
          self.scale = pre.RobustScaler()
+      elif self.scale_name == 'minmax':
+         self.scale = pre.MinMaxScaler()
+      elif self.scale_name == None:
+         pass
+      else:
+         print('INVALID SCALE NAME')
+         quit()
       
       if self.scale!=None:
          scaled_dataframe = pd.DataFrame(self.scale.fit_transform(training_dataframe.to_numpy()),
@@ -191,6 +216,10 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          elif self.scale_name == 'robust':
             self.mean_prediction = mean_scaled * self.scale.scale_[-1] + self.scale.center_[-1]
             self.std_prediction = std_scaled * self.scale.scale_[-1]
+            pre.MinMaxScaler()
+         elif self.scale_name == 'minmax':
+            self.mean_prediction = (mean_scaled - self.scale.min_[-1])/self.scale.scale_[-1]
+            self.std_prediction = std_scaled/self.scale.scale_[-1]
          else:
             print('SCALE?')
          if include_output == True:
@@ -284,7 +313,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                  plot_training_points=False,
                  legend_outside=False,
                  CI_color='orange',
-                 contour_type='line'
+                 contour_type='line',
+                 plotting_grid=False
                  ):
       
       if axis == None:
@@ -405,16 +435,16 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          axis.set_xlim(limit_dict[plot_key1][0],limit_dict[plot_key1][1],
                        auto=True)
          
-         # if display_efficiency == True:
-         #    y_range = np.amax(self.lower) - np.amin(self.upper)
-         #    axis.set_ylim(top=np.amax(self.lower)+0.1*y_range,
-         #                  bottom=np.amin(self.upper)-0.1*y_range,
-         #                  auto=True)
-         # else:
-         y_range = np.amax(self.upper) - np.amin(self.lower)
-         axis.set_ylim(bottom=np.amin(self.lower)-0.1*y_range,
-                        top=np.amax(self.upper)+0.1*y_range,
-                        auto=True)
+         if plotting_grid==True:
+            y_range = np.amax(self.upper) - np.amin(self.lower)
+            axis.set_ylim(bottom=np.amin(self.lower)-0.1*y_range,
+                           top=np.amax(self.upper)+0.1*y_range,
+                           auto=True)
+         else:
+            y_range = np.amax(self.upper) - np.amin(self.lower)
+            axis.set_ylim(bottom=np.amin(self.lower)-0.1*y_range,
+                           top=np.amax(self.upper)+0.1*y_range,
+                           auto=True)
 
          axis.grid(linestyle = '--', linewidth = 0.5)
          
@@ -509,7 +539,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                if contour_type == 'line':
                   handles = [h1[0], h2[0]]
                   labels = [fr'$ {contour_textlabel} $, Mean prediction',
-                           fr"{self.CI_percent}% confidence interval",
+                           fr"95% confidence interval", #edit this
                            'Training data points']
                else:
                   handles = [h1[0]]
@@ -569,7 +599,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                      CI_percent=95,
                      identify_outliers=True,
                      title_variable_spacing=3,
-                     display_efficiency=True
+                     display_efficiency=True,
+                     plot_errorbars=True
                      ):
       
       self.predict(testing_dataframe,
@@ -607,7 +638,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                   value_string += '\\' + f'{col}={row[col]:.3f}'
                   value_string += '\; '*title_variable_spacing
                
-            ax.scatter(row['actual_output'], row['predicted_output'],color='blue',marker=f'${row_index}$',s=160,label=fr'$ {value_string} $',linewidths=0.1)
+            ax.scatter(row['actual_output'], row['predicted_output'],color='blue',marker=f'${row_index}$',s=160,label=fr'$ runID={random_with_N_digits(11)} $',linewidths=0.1) # was label=fr'$ {value_string} $'
       
       limits_array = np.linspace(actual_values.min(),actual_values.max(),1000)
       upper_limits_array = (1+line_error_percent/100)*limits_array
@@ -621,15 +652,17 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       ax.plot(limits_array,limits_array,linestyle='solid',color='red',label = r'$f(x)=x$')
       ax.plot(limits_array,upper_limits_array,linestyle='dotted',color='red',label = f'{line_error_percent}% error interval')
       ax.plot(limits_array,lower_limits_array,linestyle='dotted',color='red')
-      ax.errorbar(actual_values,
-                  predicted_values,
-                  (upper_errorbar,lower_errorbar),
-                  fmt='none',
-                  capsize=2.0,
-                  ecolor='darkblue',
-                  label = fr"{self.CI_percent}% confidence interval"
-                  )
+      if plot_errorbars==True:
+         ax.errorbar(actual_values,
+                     predicted_values,
+                     (upper_errorbar,lower_errorbar),
+                     fmt='none',
+                     capsize=2.0,
+                     ecolor='darkblue',
+                     label = fr"{self.CI_percent}% confidence interval"
+                     )
       ax.set_title(fr'RMSE = {self.RMSE:.2e}    Score: {self.score:.3f}')
+      # ax.set_title(fr'Score: {self.score:.3f}')
       if display_efficiency== True:
          ax.set_xlabel('$ \\eta $ (actual)')
          ax.set_ylabel('$ \\eta $ (prediction)')
@@ -789,7 +822,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                            CI_percent=CI_percent,
                            plot_training_points=plot_training_points,
                            legend_outside=legend_outside,
-                           CI_color=CI_color
+                           CI_color=CI_color,
+                           plotting_grid=True
                            )
 
       fig.suptitle("Data-driven turbine design")
