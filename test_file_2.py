@@ -50,7 +50,7 @@ print(fit.optimised_kernel)
 #               CI_percent=95
 #               )
 
-fit.plot_vars(phi='Lambda',
+fit.plot_vars(Lambda='vary',
               num_points=500,
               efficiency_step=0.5,
               plot_training_points=True,
