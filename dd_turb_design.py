@@ -13,11 +13,6 @@ import matplotlib.colors as mcol
 import sklearn.preprocessing as pre
 from random import randint
 
-def random_with_N_digits(n):
-    range_start = 10**(n-1)
-    range_end = (10**n)-1
-    return randint(range_start, range_end)
-
 def read_in_data(path='Data',
                  dataset='all',
                  column_names=None
@@ -48,7 +43,7 @@ def read_in_data(path='Data',
             
          elif len(df.columns)==6: #back-compatibility
             df.columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
-            df["runid"] = 12345678910
+            df["runid"] = 0
             dataframe_dict[data_name] = df
             
             
@@ -81,7 +76,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                 number_of_restarts=0,            #do not need to be >0 to optimise parameters. this saves so much time
                 length_bounds=(1e-1,1e3),
                 noise_magnitude=1e-3,
-                noise_bounds=[1e-8,1e-1],
+                noise_bounds=(1e-8,1e-1),
                 nu='optimise',
                 normalize_y=False,           #seems to make things worse if normalize_y=True
                 scale_name=None,
@@ -598,7 +593,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       
       if 'runid' in testing_dataframe.columns:
          runid_dataframe = testing_dataframe['runid']
-         print(runid_dataframe)
       
       for dataframe_variable in testing_dataframe.columns:
          if (dataframe_variable in self.variables) or (dataframe_variable==self.output_key):

@@ -5,11 +5,11 @@ import numpy as np
 
 # data = read_in_data(dataset=['2D_phi_psi_data_1','2D_phi_psi_data_2','2D_phi_psi_data_3','2D_phi_psi_data_4'])
 
-data = read_in_data(dataset='4D')
+# data = read_in_data(dataset='4D')
 
-# data = read_in_data(dataset='5D')
+data = read_in_data(dataset='5D')
 
-# data = read_in_data()
+data = read_in_data()
 
 traindf,testdf = split_data(data,
                             random_seed_state=0,
@@ -18,12 +18,12 @@ traindf,testdf = split_data(data,
 fit = fit_data(training_dataframe=traindf,
                scale_name='minmax',
                number_of_restarts=0,
-               nu=np.inf,
-               variables=['phi','psi'])
+               variables=['phi','psi','Lambda','M','Co'])
 
 print(fit.optimised_kernel)
 
 # fit.plot_vars(psi='vary',
+#               phi='vary',
 #               num_points=500,
 #               efficiency_step=0.5,
 #               plot_training_points=False,
@@ -32,12 +32,12 @@ print(fit.optimised_kernel)
 
 # print(fit.find_global_max_min_values())
 
-fit.plot_accuracy(testing_dataframe=testdf,
-                  line_error_percent=10,
-                  CI_percent=95,
-                  display_efficiency=False,
-                  identify_outliers=True,
-                  plot_errorbars=True)
+# fit.plot_accuracy(testing_dataframe=testdf,
+#                   line_error_percent=10,
+#                   CI_percent=95,
+#                   display_efficiency=False,
+#                   identify_outliers=True,
+#                   plot_errorbars=True)
 
 # fit.plot_grid_vars('phi',
 #                    'psi',
