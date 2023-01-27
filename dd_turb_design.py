@@ -11,12 +11,10 @@ from collections import OrderedDict
 import os
 import matplotlib.colors as mcol
 import sklearn.preprocessing as pre
-from random import randint
+import compflow_native as compflow
 
-def read_in_data(path='Data',
-                 dataset='all',
-                 column_names=None
-                 ):
+def read_in_data(path='Data Complete',
+                 dataset='all'):
    
    dataframe_dict = {}
    for filename in os.listdir(path):
@@ -36,23 +34,29 @@ def read_in_data(path='Data',
       
       filepath = os.path.join(path, filename)
       df = pd.read_csv(filepath)
-      if column_names==None:
-         if len(df.columns)==7:
-            df.columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost","runid"]
-            dataframe_dict[data_name] = df
-            
-         elif len(df.columns)==6: #back-compatibility
-            df.columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
-            df["runid"] = 0
-            dataframe_dict[data_name] = df
-            
-            
-         else:
-            print('error, invalid csv')
-            quit()
-      else:
-         df.columns=column_names
-         dataframe_dict[data_name] = df
+
+      df.columns=["phi",
+                  "psi", 
+                  "Lambda", 
+                  "M", 
+                  "Co", 
+                  "eta_lost",
+                  "runid",
+                  'Yp_stator', 
+                  'Yp_rotor', 
+                  'zeta_stator',
+                  'zeta_rotor',
+                  's_cx_stator',
+                  's_cx_rotor',
+                  'AR_stator',
+                  'AR_rotor',
+                  'loss_rat',
+                  'Al1',
+                  'Al2a',
+                  'Al2b',
+                  'Al3']
+      
+      dataframe_dict[data_name] = df
 
    dataframe_list = dataframe_dict.values()   
    data = pd.concat(dataframe_list,ignore_index=True)
@@ -68,6 +72,14 @@ def split_data(df,
    testing_data = df.loc[~df.index.isin(training_data.index)]
    return training_data,testing_data
 
+def drop_columns(df,variables,output_key):
+   for dataframe_variable in df.columns:
+      if (dataframe_variable in variables) or (dataframe_variable==output_key):
+         pass
+      else:
+         df=df.drop(columns=str(dataframe_variable))
+   return df
+
 class fit_data:  #rename this turb_design and turn init into a new method to fit the data. This will help as model will already be made
    def __init__(self,
                 training_dataframe,
@@ -79,7 +91,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                 noise_bounds=(1e-8,1e-1),
                 nu='optimise',
                 normalize_y=False,           #seems to make things worse if normalize_y=True
-                scale_name=None,
+                scale_name='minmax',
                 ):
       
       self.number_of_restarts = number_of_restarts
@@ -105,15 +117,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       else:
          print('INVALID SCALE NAME')
          quit()
-
-      if 'runid' in training_dataframe.columns:
-         training_dataframe=training_dataframe.drop(columns=['runid'])
-         
-      for dataframe_variable in training_dataframe.columns:
-         if (dataframe_variable in variables) or (dataframe_variable==output_key):
-            pass
-         else:
-            training_dataframe=training_dataframe.drop(columns=str(dataframe_variable))
+      
+      training_dataframe = drop_columns(training_dataframe,variables,output_key)
 
       if self.scale!=None:
          scaled_dataframe = pd.DataFrame(self.scale.fit_transform(training_dataframe.to_numpy()),
@@ -160,8 +165,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                CI_percent=95
                ):
       
-      if 'runid' in dataframe.columns:
-         dataframe = dataframe.drop(columns='runid')
+      dataframe = drop_columns(dataframe,self.variables,self.output_key)
       
       if self.scale!=None:
          if include_output == False:
@@ -288,7 +292,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                  CI_percent=95,
                  plot_training_points=False,
                  legend_outside=False,
-                 CI_color='orange',
                  contour_type='line',
                  plotting_grid=False
                  ):
@@ -357,11 +360,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                plot_title += '\\' + f'{key} = {constant_value:.3f}'
                plot_title += '\; '*title_variable_spacing
       
-      for dataframe_variable in plot_dataframe.columns:
-         if (dataframe_variable in self.variables) or (dataframe_variable==self.output_key):
-            pass
-         else:
-            plot_dataframe=plot_dataframe.drop(columns=str(dataframe_variable))
+      plot_dataframe = drop_columns(plot_dataframe,self.variables,self.output_key)
             
       if dimensions == 1:
          
@@ -591,14 +590,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                      plot_errorbars=True
                      ):
       
-      if 'runid' in testing_dataframe.columns:
-         runid_dataframe = testing_dataframe['runid']
-      
-      for dataframe_variable in testing_dataframe.columns:
-         if (dataframe_variable in self.variables) or (dataframe_variable==self.output_key):
-            pass
-         else:
-            testing_dataframe=testing_dataframe.drop(columns=str(dataframe_variable))
+      runid_dataframe = testing_dataframe['runid']   
+      testing_dataframe = drop_columns(testing_dataframe,self.variables,self.output_key)
       
       self.predict(testing_dataframe,
                    include_output=True,
@@ -853,7 +846,9 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       
       plt.show()
       
-   def matern_kernel(self,N,bounds = (1e-2,1e3)):
+   def matern_kernel(self,
+                     N,
+                     bounds = (1e-2,1e3)):
       L = np.ones(N)
       L_bounds = []
       for i in range(N):
@@ -863,3 +858,119 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                             length_scale_bounds=L_bounds,
                             nu=2.5
                             )
+      
+   def nondim_to_dim(self,
+                     dataframe
+                     ):
+      
+      # Assemble all of the data into the output object
+      dataframe['Yp'] = 0.0
+      dataframe['Al'] = 0.0
+      dataframe['Alrel'] = 0.0
+      dataframe['Ma'] = 0.0
+      dataframe['Marel'] = 0.0
+      dataframe['Ax_Ax1'] = 0.0
+      dataframe['Lam'] = 0.0
+      dataframe['U_sqrt_cpTo1'] = 0.0
+      dataframe['Po_Po1'] = 0.0
+      dataframe['To_To1'] = 0.0
+      dataframe['Vt_U'] = 0.0
+      dataframe['Vtrel_U'] = 0.0
+      dataframe['V_U'] = 0.0
+      dataframe['Vrel_U'] = 0.0
+      dataframe['P3_Po1'] = 0.0
+      dataframe['mdot_mdot1'] = 0.0
+      
+      #   "To1": 1600.0,
+      #   "Po1": 1600000.0,
+      #   "rgas": 287.14,
+      #   "Omega": 314.159,
+      #   "delta": 0.1
+      #   "htr": 0.9,
+
+      #   "Re": 2000000.0
+      
+      for index, row in dataframe.iterrows():
+         phi = row['phi']                                             # Flow coefficient [--]
+         psi = row['psi']                                             # Stage loading coefficient [--]
+         Al13 = (row['Al1'],row['Al3'])                               # Yaw angles [deg]
+         Ma2 = row['M']                                               # Vane exit Mach number [--]
+         ga = 1.33                                                    # Ratio of specific heats [--]
+         eta = 1.0 - row['eta_lost']                                  # Polytropic efficiency [--]
+         Vx_rat = (row['zeta_stator'],row['zeta_rotor'])              # Axial velocity ratios [--]
+         loss_rat = row['loss_rat']                                   # Fraction of stator loss [--]
+         
+         # Get absolute flow angles using Euler work eqn
+         tanAl2 = (np.tan(np.radians(Al13[1])) * Vx_rat[1] + psi / phi)
+         Al2 = np.degrees(np.arctan(tanAl2))
+         Al = np.insert(Al13, 1, Al2)
+         cosAl = np.cos(np.radians(Al))
+         
+         # Get non-dimensional velocities from definition of flow coefficient
+         Vx_U1,Vx_U2,Vx_U3 = Vx_rat[0]*phi, phi, Vx_rat[1]*phi
+         Vx_U = np.array([Vx_U1,Vx_U2,Vx_U3])
+         Vt_U = Vx_U * np.tan(np.radians(Al))
+         V_U = np.sqrt(Vx_U ** 2.0 + Vt_U ** 2.0)
+
+         # Change reference frame for rotor-relative velocities and angles
+         Vtrel_U = Vt_U - 1.0
+         Vrel_U = np.sqrt(Vx_U ** 2.0 + Vtrel_U ** 2.0)
+         Alrel = np.degrees(np.arctan2(Vtrel_U, Vx_U))
+
+         # Use Mach number to get U/cpTo1
+         V_sqrtcpTo2 = compflow.V_cpTo_from_Ma(Ma2, ga)
+         U_sqrtcpTo1 = V_sqrtcpTo2 / V_U[1]
+         Usq_cpTo1 = U_sqrtcpTo1 ** 2.0
+
+         # Non-dimensional temperatures from U/cpTo Ma and stage loading definition
+         cpTo1_Usq = 1.0 / Usq_cpTo1
+         cpTo2_Usq = cpTo1_Usq
+         cpTo3_Usq = (cpTo2_Usq - psi)
+
+         # Turbine
+         cpTo_Usq = np.array([cpTo1_Usq, cpTo2_Usq, cpTo3_Usq])
+         
+         # Mach numbers and capacity from compressible flow relations
+         Ma = compflow.Ma_from_V_cpTo(V_U / np.sqrt(cpTo_Usq), ga)
+         Marel = Ma * Vrel_U / V_U
+         Q = compflow.mcpTo_APo_from_Ma(Ma, ga)
+         Q_Q1 = Q / Q[0]
+
+         # Use polytropic effy to get entropy change
+         To_To1 = cpTo_Usq / cpTo_Usq[0]
+         Ds_cp = -(1.0 - 1.0 / eta) * np.log(To_To1[-1])
+
+         # Somewhat arbitrarily, split loss using loss ratio (default 0.5)
+         s_cp = np.hstack((0.0, loss_rat, 1.0)) * Ds_cp
+
+         # Convert to stagnation pressures
+         Po_Po1 = np.exp((ga / (ga - 1.0)) * (np.log(To_To1) + s_cp))
+
+         # Account for cooling or bleed flows
+         mdot_mdot1 = np.array([1.0, 1.0, 1.0])
+
+         # Use definition of capacity to get flow area ratios
+         # Area ratios = span ratios because rm = const
+         Dr_Drin = mdot_mdot1 * np.sqrt(To_To1) / Po_Po1 / Q_Q1 * cosAl[0] / cosAl
+
+         # Evaluate some other useful secondary aerodynamic parameters
+         T_To1 = To_To1 / compflow.To_T_from_Ma(Ma, ga)
+         P_Po1 = Po_Po1 / compflow.Po_P_from_Ma(Ma, ga)
+         Porel_Po1 = P_Po1 * compflow.Po_P_from_Ma(Marel, ga)
+         
+         # Assemble all of the data into the output object
+         row['Al1'],row['Al2'],row['Al3'] = Al  #3
+         row['Alrel1'],row['Alrel2'],row['Alrel3'] = Alrel  #3
+         row['M1'],row['M2'],row['M3'] = Ma  #3
+         row['M1rel'],row['M1rel'],row['M1rel'] = Marel  #3
+         row['Ax_Ax1'],row['Ax_Ax1'],row['Ax_Ax1'] = Dr_Drin  #3
+         row['Po_Po1'],row['Po_Po1'],row['Po_Po1'] = Po_Po1  #3
+         row['To_To1'],row['To_To1'],row['To_To1'] = To_To1  #3
+         row['Vt_U'],row['Vt_U'],row['Vt_U'] = Vt_U  #3
+         row['Vtrel_U'],row['Vtrel_U'],row['Vtrel_U'] = Vtrel_U  #3
+         row['V_U'],row['V_U'],row['V_U'] = V_U  #3
+         row['Vrel_U'],row['Vrel_U'],row['Vrel_U'] = Vrel_U  #3
+         row['P3_Po1'] = P_Po1[2]  #1
+         row['mdot_mdot1'],row['mdot_mdot1'],row['mdot_mdot1'] = mdot_mdot1  #3
+
+      return dataframe

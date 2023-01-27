@@ -201,6 +201,12 @@ Ma2 = extract_from_dict("Ma2", metadata)
 eta = extract_from_dict("eta_lost_wp", metadata)
 Yp_stator, Yp_rotor = extract_from_dict("Yp", metadata).T
 runid = extract_from_dict("runid",metadata)
+zeta_stator, zeta_rotor = extract_from_dict("zeta", metadata).T
+s_cx_stator, s_cx_rotor = extract_from_dict("s_cx", metadata).T
+AR_stator, AR_rotor = extract_from_dict("AR", metadata).T
+loss_rat = extract_from_dict("loss_rat", metadata)
+Al1,Al2a,Al2b,Al3 = extract_from_dict("Al", metadata).T
+
 
 # # Make csv
 if not os.path.exists('Data'):
@@ -208,14 +214,33 @@ if not os.path.exists('Data'):
 
 job_file_name = job_name+'.csv'
 job_data_path = os.path.join('Data',job_file_name)
-M = np.column_stack((phi, psi, Lam, Ma2, Co, eta, list(map(int, runid))))
+M = np.column_stack((phi, 
+                     psi, 
+                     Lam, 
+                     Ma2, 
+                     Co, 
+                     eta,
+                     list(map(int, runid)),
+                     Yp_stator, 
+                     Yp_rotor, 
+                     zeta_stator,
+                     zeta_rotor,
+                     s_cx_stator,
+                     s_cx_rotor,
+                     AR_stator,
+                     AR_rotor,
+                     loss_rat,
+                     Al1,
+                     Al2a,
+                     Al2b,
+                     Al3))
 np.savetxt(job_data_path, M, delimiter=",")
 
-fig, ax = plt.subplots()
-ax.plot(Co, eta, "kx")
+# fig, ax = plt.subplots()
+# ax.plot(Co, eta, "kx")
 # ax.plot(Co, Yp_stator, "bo")
 # ax.plot(Co, Yp_rotor, "kx")
-plt.savefig("eta_Co.pdf")
+# plt.savefig("eta_Co.pdf")
 
 quit()
 

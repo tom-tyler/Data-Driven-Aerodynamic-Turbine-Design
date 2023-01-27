@@ -1,29 +1,24 @@
 from dd_turb_design import fit_data, read_in_data, split_data
-import numpy as np
 
 # data = read_in_data(dataset=['1D_lambda_data_1','1D_lambda_data_2']) #1 and 2 are very similar so only use 1
-
-# data = read_in_data(dataset=['2D_phi_psi_data_1','2D_phi_psi_data_2','2D_phi_psi_data_3','2D_phi_psi_data_4'])
-
-# data = read_in_data(dataset='4D')
-
-data = read_in_data(dataset='5D')
-
-data = read_in_data()
+# data2d = read_in_data(dataset=['2D_phi_psi_data_1','2D_phi_psi_data_2','2D_phi_psi_data_3','2D_phi_psi_data_4'])
+data = read_in_data(dataset='4D')
+# data = read_in_data(dataset='5D')
+# data = read_in_data()
 
 traindf,testdf = split_data(data,
                             random_seed_state=0,
-                            fraction_training=0.75)
+                            fraction_training=1.0)
 
 fit = fit_data(training_dataframe=traindf,
-               scale_name='minmax',
-               number_of_restarts=0,
-               variables=['phi','psi','Lambda','M','Co'])
+               variables=['phi','psi','M','Co'])
 
-print(fit.optimised_kernel)
+print(fit.nondim_to_dim(data))
 
-# fit.plot_vars(psi='vary',
-#               phi='vary',
+# print(fit.optimised_kernel)
+
+# fit.plot_vars(phi='vary',
+#               psi='vary',
 #               num_points=500,
 #               efficiency_step=0.5,
 #               plot_training_points=False,
