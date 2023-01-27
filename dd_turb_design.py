@@ -18,21 +18,6 @@ def random_with_N_digits(n):
     range_end = (10**n)-1
     return randint(range_start, range_end)
 
-def fix_vars(df,
-             vars_to_fix,
-             values
-             ):
-   if vars_to_fix==None:
-      return df
-   else:
-      for i, var in enumerate(vars_to_fix):
-         if values=='mean':
-            df[var] = np.mean(df[var])*np.ones(df.shape[0])
-         else:
-            df[var] = values[i]*np.ones(df.shape[0])
-      
-   return df #do not need to take return value
-
 def read_in_data(path='Data',
                  dataset='all',
                  column_names=None
@@ -59,7 +44,6 @@ def read_in_data(path='Data',
       if column_names==None:
          if len(df.columns)==7:
             df.columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost","runid"]
-            # df = df.drop(columns=['runid'])
             dataframe_dict[data_name] = df
             
          elif len(df.columns)==6: #back-compatibility
@@ -73,7 +57,6 @@ def read_in_data(path='Data',
             quit()
       else:
          df.columns=column_names
-         # df = df.drop(columns=['runid'])
          dataframe_dict[data_name] = df
 
    dataframe_list = dataframe_dict.values()   
@@ -96,7 +79,9 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                 variables=['phi','psi','Lambda','M','Co'],
                 output_key='eta_lost',
                 number_of_restarts=0,            #do not need to be >0 to optimise parameters. this saves so much time
-                noise_magnitude=0,
+                length_bounds=(1e-1,1e3),
+                noise_magnitude=1e-3,
+                noise_bounds=[1e-8,1e-1],
                 nu='optimise',
                 normalize_y=False,           #seems to make things worse if normalize_y=True
                 scale_name=None,
@@ -109,10 +94,10 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       self.scale=None
       self.variables = variables
       
-      noise_kernel = kernels.WhiteKernel(noise_level=1e-3,
-                                         noise_level_bounds=(1e-7,1e-1))
+      noise_kernel = kernels.WhiteKernel(noise_level=noise_magnitude,
+                                         noise_level_bounds=noise_bounds)
 
-      kernel_form = self.matern_kernel(len(variables)) + noise_kernel
+      kernel_form = self.matern_kernel(len(variables),bounds=length_bounds) + noise_kernel
       
       if self.scale_name == 'standard':
          self.scale = pre.StandardScaler()
@@ -153,7 +138,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       nu_dict = {1.5:None,2.5:None,np.inf:None}
       gaussian_process = GaussianProcessRegressor(kernel=kernel_form,
                                                   n_restarts_optimizer=number_of_restarts,
-                                                  alpha=noise_magnitude,
                                                   normalize_y=normalize_y,
                                                   random_state=0
                                                   )
@@ -598,7 +582,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          axis.set_title(fr'$ {plot_title} $',size=10)
       
       if plot_now == True:
-         fig.suptitle("Data-driven turbine design")
          fig.tight_layout()
          plt.show()
       
@@ -613,6 +596,16 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                      plot_errorbars=True
                      ):
       
+      if 'runid' in testing_dataframe.columns:
+         runid_dataframe = testing_dataframe['runid']
+         print(runid_dataframe)
+      
+      for dataframe_variable in testing_dataframe.columns:
+         if (dataframe_variable in self.variables) or (dataframe_variable==self.output_key):
+            pass
+         else:
+            testing_dataframe=testing_dataframe.drop(columns=str(dataframe_variable))
+      
       self.predict(testing_dataframe,
                    include_output=True,
                    CI_in_dataframe=True,
@@ -622,6 +615,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       
       if axis == None:
          fig,ax = plt.subplots(1,1,sharex=True,sharey=True)
+         
+      self.predicted_dataframe['runid'] = runid_dataframe
          
       predicted_values = self.predicted_dataframe['predicted_output']
       actual_values = self.predicted_dataframe['actual_output']
@@ -648,7 +643,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                   value_string += '\\' + f'{col}={row[col]:.3f}'
                   value_string += '\; '*title_variable_spacing
                
-            ax.scatter(row['actual_output'], row['predicted_output'],color='blue',marker=f'${row_index}$',s=160,label=fr'$ runID={random_with_N_digits(11)} $',linewidths=0.1) # was label=fr'$ {value_string} $'
+            ax.scatter(row['actual_output'], row['predicted_output'],color='blue',marker=f'${row_index}$',s=160,label=fr'$ runID={row["runid"]:.0f} $',linewidths=0.1)
       
       limits_array = np.linspace(actual_values.min(),actual_values.max(),1000)
       upper_limits_array = (1+line_error_percent/100)*limits_array
@@ -673,6 +668,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                      )
       ax.set_title(fr'RMSE = {self.RMSE:.2e}    Score: {self.score:.3f}')
       # ax.set_title(fr'Score: {self.score:.3f}')
+      
       if display_efficiency== True:
          ax.set_xlabel('$ \\eta $ (actual)')
          ax.set_ylabel('$ \\eta $ (prediction)')
@@ -691,7 +687,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       ax.grid(linestyle = '--', linewidth = 0.5)
       
       if axis == None:
-         fig.suptitle("Data-driven turbine design")
          fig.tight_layout()
          plt.show()
       
@@ -835,8 +830,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                            CI_color=CI_color,
                            plotting_grid=True
                            )
-
-      fig.suptitle("Data-driven turbine design")
       
       if with_arrows==True:
          if (column_var == 'M') or (column_var == 'Co'):
@@ -866,9 +859,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       
       plt.show()
       
-   def matern_kernel(self,N):
+   def matern_kernel(self,N,bounds = (1e-2,1e3)):
       L = np.ones(N)
-      bounds = (1e-2,1e3)
       L_bounds = []
       for i in range(N):
          L_bounds.append(bounds)
