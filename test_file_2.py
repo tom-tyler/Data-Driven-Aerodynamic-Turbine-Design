@@ -1,14 +1,14 @@
 from dd_turb_design import fit_data, read_in_data, split_data, fix_vars
 import numpy as np
 
-# data = read_in_data(dataset=['1D_lambda_data_2']) #1 and 2 are very similar so only use 1
+data = read_in_data(dataset=['1D_lambda_data_2']) #1 and 2 are very similar so only use 1
 
 # data = read_in_data(dataset=['2D_phi_psi_data_1',
 #                                 '2D_phi_psi_data_2',
 #                                 '2D_phi_psi_data_3',
 #                                 '2D_phi_psi_data_4'])
 
-data = read_in_data(dataset='4D')
+# data = read_in_data(dataset='4D')
 
 # data = read_in_data(dataset='5D')
 
@@ -33,7 +33,7 @@ traindf,testdf = split_data(data,
 fit = fit_data(training_dataframe=traindf,
                scale_name='minmax',
                number_of_restarts=0,
-               variables=['phi','psi','M','Co'])
+               variables=['Lambda'])
 
 #need noise if rbf kernel. trade off between noise and nu
 
@@ -50,8 +50,7 @@ print(fit.optimised_kernel)
 #               CI_percent=95
 #               )
 
-fit.plot_vars(phi='vary',
-              psi='vary',
+fit.plot_vars(phi='Lambda',
               num_points=500,
               efficiency_step=0.5,
               plot_training_points=True,
