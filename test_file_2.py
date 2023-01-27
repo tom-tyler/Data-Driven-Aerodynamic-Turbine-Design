@@ -1,39 +1,39 @@
 from dd_turb_design import fit_data, read_in_data, split_data, fix_vars
 import numpy as np
 
-# data_1D = read_in_data(dataset=['1D_lambda_data_2']) #1 and 2 are very similar so only use 1
+# data = read_in_data(dataset=['1D_lambda_data_2']) #1 and 2 are very similar so only use 1
 
-# data_2D = read_in_data(dataset=['2D_phi_psi_data_1',
+# data = read_in_data(dataset=['2D_phi_psi_data_1',
 #                                 '2D_phi_psi_data_2',
 #                                 '2D_phi_psi_data_3',
 #                                 '2D_phi_psi_data_4'])
 
-data_4D = read_in_data(dataset='4D')
+data = read_in_data(dataset='4D')
 
-# data_5D = read_in_data(dataset='5D')
+# data = read_in_data(dataset='5D')
 
 # data = read_in_data()
 
-# data_1D = fix_vars(data_1D,
+# data = fix_vars(data,
 #                    ['phi','psi','M','Co'],
 #                    [0.81,1.78,0.7,0.65])
 
-# data_2D = fix_vars(data_2D,
+# data = fix_vars(data,
 #                    ['Lambda','M','Co'],
 #                    [0.51,0.66,0.66])
 
-data_4D = fix_vars(data_4D,
-                   ['Lambda'],
-                   [0.5])
+# data = fix_vars(data,
+#                 ['Lambda'],
+#                 [0.5])
 
-traindf,testdf = split_data(data_4D,
+traindf,testdf = split_data(data,
                             random_seed_state=0,
                             fraction_training=1.0) #7 good results
 
 fit = fit_data(training_dataframe=traindf,
-               nu=np.inf,
                scale_name='minmax',
-               number_of_restarts=30)
+               number_of_restarts=0,
+               variables=['phi','psi','M','Co'])
 
 #need noise if rbf kernel. trade off between noise and nu
 
@@ -57,6 +57,8 @@ fit.plot_vars(phi='vary',
               plot_training_points=True,
               CI_percent=95
               )
+
+# print(fit.predict(data).iloc[-1][-1])
 
 
 # fit.plot_accuracy(testing_dataframe=testdf,

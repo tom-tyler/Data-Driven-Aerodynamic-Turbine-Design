@@ -18,32 +18,6 @@ def random_with_N_digits(n):
     range_end = (10**n)-1
     return randint(range_start, range_end)
 
-matern_kernel = kernels.Matern(length_scale = (1,1,1,1,1),
-                         length_scale_bounds=((1e-2,1e2),(1e-2,1e3),(1e-2,1e2),(1e-2,1e2),(1e-2,1e2)),
-                         nu=2.5
-                         )
-
-matern_kernel_for_1D = kernels.Matern(length_scale = (100,100,1,100,100),
-                         length_scale_bounds=((1e-3,1e3),(1e-3,1e3),(1e-2,1e2),(1e-3,1e3),(1e-3,1e3)),
-                         nu=2.5
-                         )
-
-constant_kernel_1 = kernels.ConstantKernel(constant_value=1,
-                                           constant_value_bounds=(1e-7,1e2)
-                                           )
-
-constant_kernel_2 = kernels.ConstantKernel(constant_value=1,
-                                           constant_value_bounds=(1e-7,1e2)
-                                           )
-
-noise_kernel = kernels.WhiteKernel(noise_level=1e-3,
-                                   noise_level_bounds=(1e-7,1e-1))
-
-noise_kernel_fixed = kernels.WhiteKernel(noise_level=1e-12,
-                                   noise_level_bounds='fixed')
-
-default_kernel = matern_kernel + noise_kernel
-
 def fix_vars(df,
              vars_to_fix,
              values
@@ -60,7 +34,8 @@ def fix_vars(df,
    return df #do not need to take return value
 
 def read_in_data(path='Data',
-                 dataset='all'
+                 dataset='all',
+                 column_names=None
                  ):
    
    dataframe_dict = {}
@@ -81,19 +56,25 @@ def read_in_data(path='Data',
       
       filepath = os.path.join(path, filename)
       df = pd.read_csv(filepath)
-   
-      if len(df.columns)==7:
-         df.columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost","runid"]
-         df = df.drop(columns=['runid'])
-         dataframe_dict[data_name] = df
-         
-      elif len(df.columns)==6: #back-compatibility
-         df.columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
-         dataframe_dict[data_name] = df
-         
+      if column_names==None:
+         if len(df.columns)==7:
+            df.columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost","runid"]
+            # df = df.drop(columns=['runid'])
+            dataframe_dict[data_name] = df
+            
+         elif len(df.columns)==6: #back-compatibility
+            df.columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost"]
+            df["runid"] = 12345678910
+            dataframe_dict[data_name] = df
+            
+            
+         else:
+            print('error, invalid csv')
+            quit()
       else:
-         print('error, invalid csv')
-         quit()
+         df.columns=column_names
+         # df = df.drop(columns=['runid'])
+         dataframe_dict[data_name] = df
 
    dataframe_list = dataframe_dict.values()   
    data = pd.concat(dataframe_list,ignore_index=True)
@@ -112,7 +93,7 @@ def split_data(df,
 class fit_data:  #rename this turb_design and turn init into a new method to fit the data. This will help as model will already be made
    def __init__(self,
                 training_dataframe,
-                kernel_form=default_kernel,
+                variables=['phi','psi','Lambda','M','Co'],
                 output_key='eta_lost',
                 number_of_restarts=0,            #do not need to be >0 to optimise parameters. this saves so much time
                 noise_magnitude=0,
@@ -126,6 +107,13 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       self.output_key = output_key
       self.scale_name = scale_name
       self.scale=None
+      self.variables = variables
+      
+      noise_kernel = kernels.WhiteKernel(noise_level=1e-3,
+                                         noise_level_bounds=(1e-7,1e-1))
+
+      kernel_form = self.matern_kernel(len(variables)) + noise_kernel
+      
       if self.scale_name == 'standard':
          self.scale = pre.StandardScaler()
       elif self.scale_name == 'robust':
@@ -137,16 +125,24 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       else:
          print('INVALID SCALE NAME')
          quit()
-      
+
+      if 'runid' in training_dataframe.columns:
+         training_dataframe=training_dataframe.drop(columns=['runid'])
+         
+      for dataframe_variable in training_dataframe.columns:
+         if (dataframe_variable in variables) or (dataframe_variable==output_key):
+            pass
+         else:
+            training_dataframe=training_dataframe.drop(columns=str(dataframe_variable))
+
       if self.scale!=None:
          scaled_dataframe = pd.DataFrame(self.scale.fit_transform(training_dataframe.to_numpy()),
-                                           columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost"])
+                                           columns=training_dataframe.columns)
          self.input_array_train = scaled_dataframe.drop(columns=[self.output_key])
          self.output_array_train = scaled_dataframe[self.output_key]
       else:
          self.input_array_train = training_dataframe.drop(columns=[self.output_key])
          self.output_array_train = training_dataframe[self.output_key]
-         
          
       self.limit_dict = {}
       for column in self.input_array_train:
@@ -185,12 +181,15 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                CI_percent=95
                ):
       
+      if 'runid' in dataframe.columns:
+         dataframe = dataframe.drop(columns='runid')
+      
       if self.scale!=None:
          if include_output == False:
             dataframe[self.output_key] = np.ones(len(dataframe.index))
-
+            
          scaled_dataframe = pd.DataFrame(self.scale.transform(dataframe.to_numpy()),
-                                           columns=["phi", "psi", "Lambda", "M", "Co", "eta_lost"])
+                                           columns=dataframe.columns)
 
          self.input_array_test = scaled_dataframe.drop(columns=[self.output_key])
          self.output_array_test = scaled_dataframe[self.output_key]
@@ -207,8 +206,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       
       if self.scale!=None:
          mean_scaled, std_scaled = self.fitted_function.predict(self.input_array_test.to_numpy(), return_std=True)
-         
-         # mean_dataframe_scaled = np.column_stack((self.input_array_test.to_numpy(),mean_scaled))
          
          if self.scale_name == 'standard':
             self.mean_prediction = mean_scaled*self.scale.scale_[-1] + self.scale.mean_[-1] #derived using probability
@@ -326,8 +323,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       if display_efficiency==False:
          efficiency_step = efficiency_step*0.01
       
-      var_dict = {'phi':phi,'psi':psi,'Lambda':Lambda,'M':M,'Co':Co}
-      
       color_limits  = np.array([88, 92, 96])
       cmap_colors = ["red","orange","green"]
       
@@ -339,7 +334,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       cmap_tuples = list(zip(map(cmap_norm,color_limits), cmap_colors))
       efficiency_cmap = mcol.LinearSegmentedColormap.from_list("", cmap_tuples)
       
-      dimensions = countOf(var_dict.values(), 'vary')
       plot_dataframe = pd.DataFrame({})
       vary_counter = 0
       
@@ -348,7 +342,18 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       
       plot_title = ' '
       
+      var_dict_full = {'phi':phi,'psi':psi,'Lambda':Lambda,'M':M,'Co':Co}
+      
+      var_dict = {}
+
+      for key, value in var_dict_full.items():
+         if key in self.variables:
+            var_dict[key] = value
+            
+      dimensions = countOf(var_dict.values(), 'vary')
+               
       for key in var_dict:
+         
          if (var_dict[key] == 'vary') and (vary_counter == 0):
             plot_key1 = key
             x1 = np.linspace(start=limit_dict[key][0], stop=limit_dict[key][1], num=num_points)
@@ -373,8 +378,14 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                plot_title += '\\' + f'{key} = {constant_value:.3f}'
                plot_title += '\; '*title_variable_spacing
       
+      for dataframe_variable in plot_dataframe.columns:
+         if (dataframe_variable in self.variables) or (dataframe_variable==self.output_key):
+            pass
+         else:
+            plot_dataframe=plot_dataframe.drop(columns=str(dataframe_variable))
+            
       if dimensions == 1:
-
+         
          self.predict(plot_dataframe,
                       display_efficiency=display_efficiency,
                       CI_percent=CI_percent)
@@ -507,9 +518,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             predicted_plot = axis.contour(xvar, yvar, mean_prediction_grid,levels=contour_levels,cmap=efficiency_cmap,norm=cmap_norm)
             axis.clabel(predicted_plot, inline=1, fontsize=14)
             for contour_level_index,contour_level in enumerate(contour_levels):
-               # if display_efficiency == True:
-               #    confidence_array = (upper_grid<=contour_level) & (lower_grid>=contour_level)
-               # else:
+
                confidence_array = (upper_grid>=contour_level) & (lower_grid<=contour_level)
 
                contour_color = efficiency_cmap(cmap_norm(contour_level))
@@ -539,7 +548,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                if contour_type == 'line':
                   handles = [h1[0], h2[0]]
                   labels = [fr'$ {contour_textlabel} $, Mean prediction',
-                           fr"95% confidence interval", #edit this
+                           fr"{self.CI_percent}% confidence interval", #edit this
                            'Training data points']
                else:
                   handles = [h1[0]]
@@ -585,7 +594,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       else:
          print('INVALID')
       
-      axis.set_title(fr'$ {plot_title} $',size=10)
+      if len(var_dict)>2:
+         axis.set_title(fr'$ {plot_title} $',size=10)
       
       if plot_now == True:
          fig.suptitle("Data-driven turbine design")
@@ -855,3 +865,15 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
 
       
       plt.show()
+      
+   def matern_kernel(self,N):
+      L = np.ones(N)
+      bounds = (1e-2,1e3)
+      L_bounds = []
+      for i in range(N):
+         L_bounds.append(bounds)
+      
+      return kernels.Matern(length_scale = L,
+                            length_scale_bounds=L_bounds,
+                            nu=2.5
+                            )
