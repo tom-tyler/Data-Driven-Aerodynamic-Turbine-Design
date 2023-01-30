@@ -13,21 +13,30 @@ import matplotlib.colors as mcol
 import sklearn.preprocessing as pre
 import compflow_native as compflow
 
-def read_in_data(path='Data Complete',
-                 dataset='all'):
+def read_in_data(dataset='all',
+                 path='Data Complete',
+                 factor=5
+                 ):
    
    dataframe_dict = {}
+   n_before = 0
+   n_after = 0
    for filename in os.listdir(path):
       data_name = str(filename)[:-4]
       
       if dataset=='all':
          pass
-      elif dataset=='5D':
+      elif dataset=='5D only':
          if data_name[:15] != '5D_turbine_data':
             continue
-      elif dataset=='4D':
-         if (data_name[:7] != '4D_data') and (data_name[:15] != '5D_turbine_data'):
+      elif dataset=='4D only':
+         if data_name[:7] != '4D_data':
             continue
+      elif dataset=='2D only':
+         if data_name[:15] != '2D_phi_psi_data':
+            continue
+      elif dataset in ['2D','4D']:
+         pass
       else:
          if data_name not in dataset:
             continue
@@ -35,36 +44,85 @@ def read_in_data(path='Data Complete',
       filepath = os.path.join(path, filename)
       df = pd.read_csv(filepath)
 
-      df.columns=["phi",
-                  "psi", 
-                  "Lambda", 
-                  "M", 
-                  "Co", 
-                  "eta_lost",
-                  "runid",
-                  'Yp_stator', 
-                  'Yp_rotor', 
-                  'zeta_stator',
-                  'zeta_rotor',
-                  's_cx_stator',
-                  's_cx_rotor',
-                  'AR_stator',
-                  'AR_rotor',
-                  'loss_rat',
-                  'Al1',
-                  'Al2a',
-                  'Al2b',
-                  'Al3']
+      if path == 'Data Complete':
+         df.columns=["phi",
+                     "psi", 
+                     "Lambda", 
+                     "M", 
+                     "Co", 
+                     "eta_lost",
+                     "runid",
+                     'Yp_stator', 
+                     'Yp_rotor', 
+                     'zeta_stator',
+                     'zeta_rotor',
+                     's_cx_stator',
+                     's_cx_rotor',
+                     'AR_stator',
+                     'AR_rotor',
+                     'loss_rat',
+                     'Al1',
+                     'Al2a',
+                     'Al2b',
+                     'Al3']
+         
+      elif path == 'Data':
+         if df.shape[1] == 6:
+            df.columns=["phi",
+                     "psi", 
+                     "Lambda", 
+                     "M", 
+                     "Co", 
+                     "eta_lost"]
+            df['runid'] = 0
+            
+         elif df.shape[1] == 7:
+            df.columns=["phi",
+                        "psi", 
+                        "Lambda", 
+                        "M", 
+                        "Co", 
+                        "eta_lost",
+                        "runid"]
+         else:
+            continue
       
-      if (data_name[:15] == '5D_turbine_data') and (dataset=='4D'):
-         df = df[df["Lambda"] < 0.52]
-         df = df[df["Lambda"] > 0.48]
+      # filter by factor% error
+      lower_factor = 1 - factor/100
+      upper_factor = 1 + factor/100
+      
+      n_before += len(df.index)
+      
+      if dataset in ['4D','4D only']:
+         # Lambda = 0.5
+         val = 0.5
+         df = df[df["Lambda"] < upper_factor*val]
+         df = df[df["Lambda"] > lower_factor*val]
+         
+      elif dataset in ['2D','2D only']:
+         # Lambda = 0.5
+         val=0.5
+         df = df[df["Lambda"] < upper_factor*val]
+         df = df[df["Lambda"] > lower_factor*val]
+         # M = 0.7 or 0.65
+         val_h=0.7
+         val_l=0.65
+         df = df[df["M"] < upper_factor*val_h]
+         df = df[df["M"] > lower_factor*val_l]
+         # Co = 0.65 or 0.7
+         val_h=0.7
+         val_l=0.65
+         df = df[df["Co"] < upper_factor*val_h]
+         df = df[df["Co"] > lower_factor*val_l]
+         
+      n_after += len(df.index)
       
       dataframe_dict[data_name] = df
 
+   print(f'n_before = {n_before}\nn_after = {n_after}\n%retained = {n_after/n_before*100:.2f} %')
    dataframe_list = dataframe_dict.values()   
    data = pd.concat(dataframe_list,ignore_index=True)
-   print(data.shape)
+
    return data
 
 def split_data(df,
@@ -107,6 +165,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       self.scale_name = scale_name
       self.scale=None
       self.variables = variables
+      self.no_points = len(training_dataframe.index)
       
       noise_kernel = kernels.WhiteKernel(noise_level=noise_magnitude,
                                          noise_level_bounds=noise_bounds)
@@ -583,6 +642,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          axis.set_title(fr'$ {plot_title} $',size=10)
       
       if plot_now == True:
+         fig.suptitle(f'n = {self.no_points}')
          fig.tight_layout()
          plt.show()
       
