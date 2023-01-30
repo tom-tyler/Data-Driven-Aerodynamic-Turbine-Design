@@ -8,12 +8,12 @@ data = read_in_data(dataset='4D')
 
 traindf,testdf = split_data(data,
                             random_seed_state=0,
-                            fraction_training=1.0)
+                            fraction_training=0.85)
 
 fit = fit_data(training_dataframe=traindf,
                variables=['phi','psi','M','Co'])
 
-print(fit.nondim_to_dim(data))
+# print(fit.nondim_to_dim(data))
 
 # print(fit.optimised_kernel)
 
@@ -21,18 +21,18 @@ print(fit.nondim_to_dim(data))
 #               psi='vary',
 #               num_points=500,
 #               efficiency_step=0.5,
-#               plot_training_points=False,
+#               plot_training_points=True,
 #               CI_percent=95
 #               )
 
 # print(fit.find_global_max_min_values())
 
-# fit.plot_accuracy(testing_dataframe=testdf,
-#                   line_error_percent=10,
-#                   CI_percent=95,
-#                   display_efficiency=False,
-#                   identify_outliers=True,
-#                   plot_errorbars=True)
+fit.plot_accuracy(testing_dataframe=testdf,
+                  line_error_percent=10,
+                  CI_percent=95,
+                  display_efficiency=False,
+                  identify_outliers=True,
+                  plot_errorbars=True)
 
 # fit.plot_grid_vars('phi',
 #                    'psi',

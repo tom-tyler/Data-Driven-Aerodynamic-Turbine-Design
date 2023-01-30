@@ -26,7 +26,7 @@ def read_in_data(path='Data Complete',
          if data_name[:15] != '5D_turbine_data':
             continue
       elif dataset=='4D':
-         if data_name[:7] != '4D_data':
+         if (data_name[:7] != '4D_data') and (data_name[:15] != '5D_turbine_data'):
             continue
       else:
          if data_name not in dataset:
@@ -56,10 +56,15 @@ def read_in_data(path='Data Complete',
                   'Al2b',
                   'Al3']
       
+      if (data_name[:15] == '5D_turbine_data') and (dataset=='4D'):
+         df = df[df["Lambda"] < 0.52]
+         df = df[df["Lambda"] > 0.48]
+      
       dataframe_dict[data_name] = df
 
    dataframe_list = dataframe_dict.values()   
    data = pd.concat(dataframe_list,ignore_index=True)
+   print(data.shape)
    return data
 
 def split_data(df,
@@ -79,6 +84,8 @@ def drop_columns(df,variables,output_key):
       else:
          df=df.drop(columns=str(dataframe_variable))
    return df
+
+
 
 class fit_data:  #rename this turb_design and turn init into a new method to fit the data. This will help as model will already be made
    def __init__(self,
@@ -653,8 +660,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                      ecolor='darkblue',
                      label = fr"{self.CI_percent}% confidence interval"
                      )
-      ax.set_title(fr'RMSE = {self.RMSE:.2e}    Score: {self.score:.3f}')
-      # ax.set_title(fr'Score: {self.score:.3f}')
+      ax.set_title(fr'RMSE = {self.RMSE:.2e}    $R^2$ = {self.score:.3f}')
+      # ax.set_title(fr'$R^2$ = {self.score:.3f}')
       
       if display_efficiency== True:
          ax.set_xlabel('$ \\eta $ (actual)')
