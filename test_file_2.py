@@ -1,33 +1,21 @@
-from dd_turb_design import fit_data, read_in_data, split_data, nondim_stage_from_Lam
+from dd_turb_design import fit_data, read_in_data, split_data, dim_2_non_dim
+import time
+import numpy as np
+# t1 = time.time()
+# print("--- %s seconds ---" % (time.time() - t1))
 
-data = read_in_data('5D only')
+data = read_in_data('4D only')
 
 traindf,testdf = split_data(data,
                             random_seed_state=0,
                             fraction_training=1.0)
 
 fit = fit_data(training_dataframe=traindf,
-               variables=['phi','psi','Lambda','M','Co'])
+               variables=['phi','psi','M2','Co'])
 
 print(fit.optimised_kernel)
 
 # print(nondim_stage_from_Lam(data))
-
-# fit.plot_vars(phi='vary',
-#               num_points=500,
-#               efficiency_step=0.1,
-#               plot_training_points=True,
-#               CI_percent=95,
-#               superpose_variable='T1_To1'
-#               )
-
-fit.plot_vars(x1='phi',
-              x2='M',
-              constants={'psi':'mean',
-                         'Lambda':'mean',
-                         'Co':'mean'},
-              efficiency_step=0.1,
-              num_points=400)
 
 # print(fit.find_global_max_min_values())
 
@@ -38,13 +26,12 @@ fit.plot_vars(x1='phi',
 #                   identify_outliers=True,
 #                   plot_errorbars=True)
 
-# fit.plot_grid_vars('phi',
-#                    'psi',
-#                    'Lambda',
-#                    [0.4,0.5,0.6],
-#                    'M',
-#                    [0.5,0.7,0.9],
-#                    'Co',
-#                    0.66,
-#                    num_points=400,
-#                    CI_percent=70)
+# fit.plot(x1='phi',
+#          x2='psi',
+#          num_points=400)
+
+print(dim_2_non_dim(mdot=400,
+                    shaft_power=2e6,
+                    stagnation_pressure_ratio=1.2,
+                    blade_number=30,
+                    turbine_diameter=1.6))

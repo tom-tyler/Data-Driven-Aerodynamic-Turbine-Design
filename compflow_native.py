@@ -5,7 +5,6 @@
 import numpy as np
 from scipy.optimize import newton
 
-
 # Invert the Mach number relations by solving iteratively
 def to_Ma(var, Y_in, ga, supersonic=False):
     #

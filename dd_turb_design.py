@@ -51,7 +51,7 @@ def read_in_data(dataset='all',
          df.columns=["phi",
                      "psi", 
                      "Lambda", 
-                     "M", 
+                     "M2", 
                      "Co", 
                      "eta_lost",
                      "runid",
@@ -74,7 +74,7 @@ def read_in_data(dataset='all',
             df.columns=["phi",
                      "psi", 
                      "Lambda", 
-                     "M", 
+                     "M2", 
                      "Co", 
                      "eta_lost"]
             df['runid'] = 0
@@ -83,7 +83,7 @@ def read_in_data(dataset='all',
             df.columns=["phi",
                         "psi", 
                         "Lambda", 
-                        "M", 
+                        "M2", 
                         "Co", 
                         "eta_lost",
                         "runid"]
@@ -107,11 +107,11 @@ def read_in_data(dataset='all',
          val=0.5
          df = df[df["Lambda"] < upper_factor*val]
          df = df[df["Lambda"] > lower_factor*val]
-         # M = 0.7 or 0.65
+         # M2 = 0.7 or 0.65
          val_h=0.7
          val_l=0.65
-         df = df[df["M"] < upper_factor*val_h]
-         df = df[df["M"] > lower_factor*val_l]
+         df = df[df["M2"] < upper_factor*val_h]
+         df = df[df["M2"] > lower_factor*val_l]
          # Co = 0.65 or 0.7
          val_h=0.7
          val_l=0.65
@@ -122,7 +122,7 @@ def read_in_data(dataset='all',
       
       dataframe_dict[data_name] = df
 
-   print(f'n_before = {n_before}\nn_after = {n_after}\n%retained = {n_after/n_before*100:.2f} %')
+   # print(f'n_before = {n_before}\nn_after = {n_after}\n%retained = {n_after/n_before*100:.2f} %')
    dataframe_list = dataframe_dict.values()   
    data = pd.concat(dataframe_list,ignore_index=True)
 
@@ -171,6 +171,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       self.scale_name = scale_name
       self.scale=None
       self.variables = variables
+      self.fit_dimensions = len(self.variables)
       self.no_points = len(training_dataframe.index)
       
       noise_kernel = kernels.WhiteKernel(noise_level=noise_magnitude,
@@ -352,7 +353,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
    def plot_vars(self,
                  x1=None,
                  x2=None,
-                 constants=[],
+                 constants='mean',
                  limit_dict=None,
                  axis=None,
                  num_points=100,
@@ -366,7 +367,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                  plot_training_points=False,
                  legend_outside=False,
                  contour_type='line',
-                 plotting_grid=False,
                  show_max=True,
                  show_min=False
                  ):
@@ -402,7 +402,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       
       plot_title = ' '
       
-      # var_dict_full = {'phi':phi,'psi':psi,'Lambda':Lambda,'M':M,'Co':Co}
+      # var_dict_full = {'phi':phi,'psi':psi,'Lambda':Lambda,'M2':M2,'Co':Co}
 
       constants_check=self.variables.copy()
                     
@@ -427,18 +427,25 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       else:
          sys.exit("Please specify x or y") 
       
-      if constants_check != list(constants):
+      constant_value = {}
+      
+      if constants == 'mean':
+         for constant_key in constants_check:
+            constant_value[constant_key] = np.mean(self.input_array_train[constant_key])
+         
+      elif set(constants_check) != set(constants):
          sys.exit("Constants specified are incorrect")
          
-      # format of constants is {'M':0.7,'Co':0.6, ...}
-      constant_value = {}
-      for constant_key in constants:
-         if (constants[constant_key] == 'mean'):
-            constant_value[constant_key] = np.mean(self.input_array_train[constant_key])
-         else:
-            constant_value[constant_key] = constants[constant_key]
-            
-         if (constant_key == 'M') or (constant_key == 'Co'):
+      else:
+         # format of constants is {'M2':0.7,'Co':0.6, ...}
+         for constant_key in constants:
+            if (constants[constant_key] == 'mean'):
+               constant_value[constant_key] = np.mean(self.input_array_train[constant_key])
+            else:
+               constant_value[constant_key] = constants[constant_key]
+               
+      for constant_key in constants_check:
+         if (constant_key == 'M2') or (constant_key == 'Co'):
             plot_title += f'{constant_key} = {constant_value[constant_key]:.3f}'
             plot_title += '\; '*title_variable_spacing
          else:
@@ -456,13 +463,10 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          plot_dataframe = pd.DataFrame({})
          plot_dataframe[plot_key1] = X1_vector
          plot_dataframe[plot_key2] = X2_vector
-         
-      for constant_key in constants:
-         if (constants[constant_key] == 'mean'):
-            plot_dataframe[constant_key] = constant_value[constant_key]*np.ones(num_points**dimensions)
-         else:
-            plot_dataframe[constant_key] = constant_value[constant_key]*np.ones(num_points**dimensions)
       
+      for constant_key in constants_check:
+         plot_dataframe[constant_key] = constant_value[constant_key]*np.ones(num_points**dimensions)
+
       self.predict(plot_dataframe,
                    display_efficiency=display_efficiency,
                    CI_percent=CI_percent)
@@ -519,7 +523,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             leg.set_draggable(state=True)
          
          if plotting_grid_value[0] == (grid_height-1):
-            if (plot_key1 == 'M') or (plot_key1 == 'Co'):
+            if (plot_key1 == 'M2') or (plot_key1 == 'Co'):
                axis.set_xlabel(fr"${plot_key1}$")
             else:
                xlabel_string = '\\'+plot_key1
@@ -543,15 +547,15 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          upper_grid = self.upper.reshape(num_points,num_points)
          lower_grid = self.lower.reshape(num_points,num_points)
          
-         # if show_max == True:
-         #    max_i = np.squeeze(self.max_output_indices)
-         #    axis.text(X1.ravel()[max_i], X2.ravel()[max_i], f'{self.max_output:.2f}', size=12, color='dark'+cmap_colors[2])
-         #    axis.scatter(X1.ravel()[max_i], X2.ravel()[max_i],color=cmap_colors[2],marker='x')
+         if show_max == True:
+            max_i = np.squeeze(self.max_output_indices)
+            axis.text(X1.ravel()[max_i], X2.ravel()[max_i], f'{self.max_output:.2f}', size=12, color='dark'+cmap_colors[2])
+            axis.scatter(X1.ravel()[max_i], X2.ravel()[max_i],color=cmap_colors[2],marker='x')
 
-         # if show_min == True:
-         #    min_i = np.squeeze(self.min_output_indices)
-         #    axis.text(X1.ravel()[min_i], X2.ravel()[min_i], f'{self.min_output:.2f}', size=12, color='dark'+cmap_colors[0])
-         #    axis.scatter(X1.ravel()[min_i], X2.ravel()[min_i],color=cmap_colors[0],marker='x')
+         if show_min == True:
+            min_i = np.squeeze(self.min_output_indices)
+            axis.text(X1.ravel()[min_i], X2.ravel()[min_i], f'{self.min_output:.2f}', size=12, color='dark'+cmap_colors[0])
+            axis.scatter(X1.ravel()[min_i], X2.ravel()[min_i],color=cmap_colors[0],marker='x')
          
          if plot_training_points == True:
             training_points_plot = axis.scatter(x=self.input_array_train[plot_key1],
@@ -618,14 +622,14 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             leg.set_draggable(state=True)
          
          if plotting_grid_value[0] == (grid_height-1):
-            if (plot_key1 == 'M') or (plot_key1 == 'Co'):
+            if (plot_key1 == 'M2') or (plot_key1 == 'Co'):
                axis.set_xlabel(f"${plot_key1}$")
             else:
                xlabel_string1 = '\\'+plot_key1
                axis.set_xlabel(fr"$ {xlabel_string1} $")
          
          if plotting_grid_value[1] == 0:
-            if (plot_key2 == 'M') or (plot_key2 == 'Co'):
+            if (plot_key2 == 'M2') or (plot_key2 == 'Co'):
                axis.set_ylabel(f"${plot_key2}$")
             else:
                xlabel_string2 = '\\'+plot_key2
@@ -643,11 +647,11 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       else:
          sys.exit('Somehow wrong number of dimensions')
       
-      if len(self.variables)>2:
+      if self.fit_dimensions>2:
          axis.set_title(fr'$ {plot_title} $',size=10)
       
       if plot_now == True:
-         fig.suptitle(f'n = {self.no_points}')
+         # fig.suptitle(f'n = {self.no_points}')
          fig.tight_layout()
          plt.show()
       
@@ -659,7 +663,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                      identify_outliers=True,
                      title_variable_spacing=3,
                      display_efficiency=True,
-                     plot_errorbars=True
+                     plot_errorbars=True,
+                     score_variable='both'
                      ):
       
       runid_dataframe = testing_dataframe['runid']   
@@ -690,7 +695,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             newline=' $\n$ '
             for col_index,col in enumerate(outliers):
                
-               if (col == 'M') or (col == 'Co'):
+               if (col == 'M2') or (col == 'Co'):
                   if (col_index%2==0) and (col_index!=0):
                      value_string += newline
                   value_string += f'{col}={row[col]:.3f}'
@@ -725,8 +730,14 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                      ecolor='darkblue',
                      label = fr"{self.CI_percent}% confidence interval"
                      )
-      ax.set_title(fr'RMSE = {self.RMSE:.2e}    $R^2$ = {self.score:.3f}')
-      # ax.set_title(fr'$R^2$ = {self.score:.3f}')
+      if score_variable=='both':
+         ax.set_title(fr'RMSE = {self.RMSE:.2e}    $R^2$ = {self.score:.3f}')
+      elif score_variable=='R2':
+         ax.set_title(fr'$R^2$ = {self.score:.3f}')
+      elif score_variable=='RMSE':
+         ax.set_title(fr'RMSE = {self.RMSE:.2e}')
+      else:
+         sys.exit("Enter suitable score variable from ['both','R2','RMSE']")
       
       if display_efficiency== True:
          ax.set_xlabel('$ \\eta $ (actual)')
@@ -749,174 +760,139 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          fig.tight_layout()
          plt.show()
       
-   # def plot_grid_vars(self,
-   #                    vary_var_1,
-   #                    vary_or_constant_2,
-   #                    column_var,
-   #                    column_var_array,
-   #                    row_var,
-   #                    row_var_array,
-   #                    constant_var,
-   #                    constant_var_value,
-   #                    constant_var_value_2=None,
-   #                    limit_dict=None,
-   #                    num_points=100,
-   #                    efficiency_step=0.5,
-   #                    opacity=0.3,
-   #                    swap_axis=False,
-   #                    display_efficiency=True,
-   #                    title_variable_spacing=3,
-   #                    with_arrows=True,
-   #                    CI_percent=95,
-   #                    plot_training_points=False,
-   #                    legend_outside=False,
-   #                    CI_color='orange'
-   #                    ):
-      
-   #    var_dict = {'phi':None,'psi':None,'Lambda':None,'M':None,'Co':None}
+   def plot(self,
+            x1,
+            x2,
+            constants='mean',          # form: {'M':0.5,'Co':0.5}
+            gridvars={},               # form: {'M':[0.5,0.6,0.7],'Co:[0.6,0.7]}
+            rotate_grid=False,
+            limit_dict=None,
+            num_points=100,
+            efficiency_step=0.5,
+            opacity=0.3,
+            display_efficiency=True, 
+            title_variable_spacing=3,
+            with_arrows=True,
+            CI_percent=95,
+            plot_training_points=False,
+            legend_outside=False,
+            contour_type='line',
+            show_max=True,
+            show_min=False
+            ):
 
-   #    for key in var_dict:
+      grid_constants=self.variables.copy()
+      
+      if x1 != None:
+         grid_constants.remove(x1)  
+      if x2 != None:
+         grid_constants.remove(x2)  
+      if (x1==None) and (x2==None):
+         sys.exit('Must state wither correct x1 or correct x2')
+      
+      grid_shape, grid_keys=[1,1], {0:' ',1:' '}
+      
+      if rotate_grid==True:
+         grid_index=1
+      else:
+         grid_index=0
          
-   #       if (key == vary_var_1):
-   #          var_dict[key] = 'vary'
-   #       elif (key == vary_or_constant_2):
-   #          if constant_var_value_2 == None:
-   #             var_dict[key] = 'vary'
-   #          else:
-   #             var_dict[key] = constant_var_value_2
-   #       elif key == column_var:
-   #          var_dict[key] = column_var_array
-   #       elif key == row_var:
-   #          var_dict[key] = row_var_array
-   #       elif key == constant_var:
-   #          var_dict[key] = constant_var_value
+      if gridvars != {}:
+         for var in grid_constants:
+            if var in [x1,x2]:
+               sys.exit('Already plotting grid variable')
+            elif var in gridvars:
+               grid_shape[grid_index] = len(gridvars[var])
+               grid_keys[grid_index] = var
+               grid_index = not grid_index
+      else:
+         grid_index=0
+               
+      num_rows=grid_shape[0]
+      num_columns=grid_shape[1]
       
-   #    num_columns = len(column_var_array)
-   #    num_rows = len(row_var_array)
+      fig, axes = plt.subplots(nrows=num_rows,
+                               ncols=num_columns,
+                               sharex=True,
+                               sharey=True
+                               )
       
-   #    fig, axes = plt.subplots(nrows=num_rows,
-   #                             ncols=num_columns,
-   #                             sharex=True,
-   #                             sharey=True
-   #                             )
-      
-   #    if num_columns == 1:
-   #       for i, axis in enumerate(axes):
+      for indices, axis in np.ndenumerate(axes):
+         
+         if (num_columns == 1) and (num_rows > 1):
+            i = np.squeeze(indices)
+            j = 0
+         elif (num_columns > 1) and (num_rows == 1):
+            j = np.squeeze(indices)
+            i = 0
+         elif (num_columns > 1) and (num_rows > 1):
+            (i,j) = indices
+         else:
+            i,j=0,0
+            
+         constant_dict = {}
+         
+         for var in grid_constants:
+            if (var in gridvars) and (grid_keys[0]==var):
+               constant_dict[var] = gridvars[var][i]
 
-   #          for key in var_dict:
-   #             if column_var == key:
-   #                var_dict[key] = column_var_array[0]
-   #             elif row_var == key:
-   #                var_dict[key] = row_var_array[i]
-            
-   #          self.plot_vars(axis=axis,
-   #                         phi=var_dict['phi'],
-   #                         psi=var_dict['psi'],
-   #                         Lambda=var_dict['Lambda'],
-   #                         M=var_dict['M'],
-   #                         Co=var_dict['Co'],
-   #                         num_points=num_points,
-   #                         efficiency_step=efficiency_step,
-   #                         swap_axis=swap_axis,
-   #                         limit_dict=limit_dict,
-   #                         display_efficiency=display_efficiency,
-   #                         title_variable_spacing=title_variable_spacing,
-   #                         opacity=opacity,
-   #                         plotting_grid_value=[i,0],
-   #                         grid_height=num_rows,
-   #                         CI_percent=CI_percent,
-   #                         plot_training_points=plot_training_points,
-   #                         legend_outside=legend_outside,
-   #                         CI_color=CI_color
-   #                         )
-   #    elif num_rows==1:
-   #       for j, axis in enumerate(axes):
+            elif (var in gridvars) and (grid_keys[1]==var):
+               constant_dict[var] = gridvars[var][j]
+            else:
+               if constants=='mean':
+                  constant_dict[var] = 'mean'
+               else:
+                  constant_dict[var] = constants[var]
 
-   #          for key in var_dict:
-   #             if column_var == key:
-   #                var_dict[key] = column_var_array[j]
-   #             elif row_var == key:
-   #                var_dict[key] = row_var_array[0]
-            
-   #          self.plot_vars(axis=axis,
-   #                         phi=var_dict['phi'],
-   #                         psi=var_dict['psi'],
-   #                         Lambda=var_dict['Lambda'],
-   #                         M=var_dict['M'],
-   #                         Co=var_dict['Co'],
-   #                         num_points=num_points,
-   #                         efficiency_step=efficiency_step,
-   #                         swap_axis=swap_axis,
-   #                         limit_dict=limit_dict,
-   #                         display_efficiency=display_efficiency,
-   #                         title_variable_spacing=title_variable_spacing,
-   #                         opacity=opacity,
-   #                         plotting_grid_value=[0,j],
-   #                         grid_height=num_rows,
-   #                         CI_percent=CI_percent,
-   #                         plot_training_points=plot_training_points,
-   #                         legend_outside=legend_outside,
-   #                         CI_color=CI_color
-   #                         )
-      
-   #    else:
-   #       for (i,j), axis in np.ndenumerate(axes):
+         self.plot_vars(x1=x1,
+                        x2=x2,
+                        constants=constant_dict,
+                        limit_dict=limit_dict,
+                        axis=axis,
+                        num_points=num_points,
+                        efficiency_step=efficiency_step,
+                        opacity=opacity,
+                        display_efficiency=display_efficiency,
+                        title_variable_spacing=title_variable_spacing,
+                        plotting_grid_value=[i,j],
+                        grid_height=num_rows,
+                        CI_percent=CI_percent,
+                        plot_training_points=plot_training_points,
+                        legend_outside=legend_outside,
+                        contour_type=contour_type,
+                        show_max=show_max,
+                        show_min=show_min
+                        )
 
-   #          for key in var_dict:
-   #             if column_var == key:
-   #                var_dict[key] = column_var_array[j]
-   #             elif row_var == key:
-   #                var_dict[key] = row_var_array[i]
-            
-   #          self.plot_vars(axis=axis,
-   #                         phi=var_dict['phi'],
-   #                         psi=var_dict['psi'],
-   #                         Lambda=var_dict['Lambda'],
-   #                         M=var_dict['M'],
-   #                         Co=var_dict['Co'],
-   #                         num_points=num_points,
-   #                         efficiency_step=efficiency_step,
-   #                         swap_axis=swap_axis,
-   #                         limit_dict=limit_dict,
-   #                         display_efficiency=display_efficiency,
-   #                         title_variable_spacing=title_variable_spacing,
-   #                         opacity=opacity,
-   #                         plotting_grid_value=[i,j],
-   #                         grid_height=num_rows,
-   #                         CI_percent=CI_percent,
-   #                         plot_training_points=plot_training_points,
-   #                         legend_outside=legend_outside,
-   #                         CI_color=CI_color,
-   #                         plotting_grid=True
-   #                         )
-      
-   #    if with_arrows==True:
-   #       if (column_var == 'M') or (column_var == 'Co'):
-   #          fig.supxlabel(f"${column_var} \\rightarrow $")
-   #       else:
-   #          xlabel_string1 = '\\'+column_var+' \\rightarrow'
-   #          fig.supxlabel(fr"$ {xlabel_string1} $")
-            
-   #       if (row_var == 'M') or (row_var == 'Co'):
-   #          fig.supylabel(f"$\\leftarrow {row_var} $")
-   #       else:
-   #          xlabel_string2 = '\\leftarrow \\'+row_var
-   #          fig.supylabel(fr"$ {xlabel_string2} $")
-   #    else:
-   #       if (column_var == 'M') or (column_var == 'Co'):
-   #          fig.supxlabel(f"${column_var} $")
-   #       else:
-   #          xlabel_string1 = '\\'+column_var
-   #          fig.supxlabel(fr"$ {xlabel_string1} $")
-            
-   #       if (row_var == 'M') or (row_var == 'Co'):
-   #          fig.supylabel(f"${row_var} $")
-   #       else:
-   #          xlabel_string2 = '\\'+row_var
-   #          fig.supylabel(fr"$ {xlabel_string2} $")
+      if (num_columns>1) or (num_rows>1):
+         if with_arrows==True:
+            if num_columns >1:
+               if (grid_keys[1] == 'M2') or (grid_keys[1] == 'Co'):
+                  fig.supxlabel(f"$ {grid_keys[1]} \\rightarrow $")
+               else:
+                  xlabel_string1 = '\\'+grid_keys[1]+' \\rightarrow'
+                  fig.supxlabel(fr"$ {xlabel_string1} $")
+            if num_rows >1:
+               if (grid_keys[0] == 'M2') or (grid_keys[0] == 'Co'):
+                  fig.supylabel(f"$\\leftarrow {grid_keys[0]} $")
+               else:
+                  xlabel_string2 = '\\leftarrow \\'+grid_keys[0]
+                  fig.supylabel(fr"$ {xlabel_string2} $")
+         else:
+            if num_columns >1:
+               if (grid_keys[1] == 'M2') or (grid_keys[1] == 'Co'):
+                  fig.supxlabel(f"${grid_keys[1]} $")
+               else:
+                  xlabel_string1 = '\\'+grid_keys[1]
+                  fig.supxlabel(fr"$ {xlabel_string1} $")
+            if num_rows >1:   
+               if (grid_keys[0] == 'M2') or (grid_keys[0] == 'Co'):
+                  fig.supylabel(f"${grid_keys[0]} $")
+               else:
+                  xlabel_string2 = '\\'+grid_keys[0]
+                  fig.supylabel(fr"$ {xlabel_string2} $")
 
-      
-   #    plt.show()
+      plt.show()
       
    def matern_kernel(self,
                      N,
@@ -931,7 +907,92 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                             nu=2.5
                             )
 
+def dim_2_non_dim(mdot,
+                  shaft_power,
+                  stagnation_pressure_ratio,
+                  blade_number,
+                  turbine_diameter,
+                  T01=1600,
+                  p01=1600000,
+                  shaft_speed=100*np.pi,
+                  aspect_ratio=1.6,
+                  hub_to_tip_ratio=0.9):
+   
+   gamma = 1.33
+   R = 272.9
+   cp = R / (1 - 1/gamma)
+   # print('cp=',cp)
+   tip_radius = 0.5*turbine_diameter
+   hub_radius = hub_to_tip_ratio*tip_radius
+   mean_radius = (tip_radius+hub_radius)/2
+   span = tip_radius-hub_radius
+   chord = span/aspect_ratio
+   
+   A = np.pi*2*mean_radius*span
+   
+   T02 = T01
+   T03 = T01 - shaft_power/(mdot*cp)
+   h01 = cp*T01
+   h02 = cp*T02
+   h03 = cp*T03
+   
+   U = mean_radius*shaft_speed
 
+   # print('U=',U)
+
+   pitch = mean_radius*2*np.pi/blade_number
+   dh0 = h03 - h01
+   
+   mcpT01_Ap01 = mdot*np.sqrt(cp*T01) / (A * p01)
+   # print('mcpT01_Ap01=',mcpT01_Ap01)
+   if mcpT01_Ap01 > 1.28:
+      sys.exit('Too large a mass flow function - flow will choke first')
+   
+   M1 = compflow.to_Ma("mcpTo_APo",mcpT01_Ap01,gamma)
+   p1 = p01 / compflow.from_Ma('Po_P',M1,gamma)
+   T1 = T01 / compflow.from_Ma('To_T',M1,gamma)
+   
+   p03 = p01/stagnation_pressure_ratio
+   mcpT03_Ap03 = mdot*np.sqrt(cp*T03) / (A * p03)
+   # print('T03=',T03)
+   # print('A=',A)
+   # print('mcpT03_Ap03=',mcpT03_Ap03)
+   if mcpT03_Ap03 > 1.28:
+      sys.exit('Too large a mass flow function - flow will choke first')
+   
+   M3 = compflow.to_Ma("mcpTo_APo",mcpT03_Ap03,gamma)
+   T3 = T03 / compflow.from_Ma('To_T',M3,gamma)
+   
+   #assume axial stator inflow, and constant Vx
+   V1 = M1*np.sqrt(gamma*R*T1)
+   Vx = V1
+   Vt1 = 0
+   V3 = M3*np.sqrt(gamma*R*T3)
+   # print('M3=',M3)
+   # print('T3',T3)
+   
+   Vt3 = np.sqrt(V3**2-Vx**2)
+   Vt2 = Vt3 - dh0/U
+   V2 = np.sqrt(Vt2**2+Vx**2)
+   
+   h1 = h01 - 0.5*V1**2
+   h2 = h02 - 0.5*V2**2
+   h3 = h03 - 0.5*V3**2
+   # print('Vt1,Vt2,Vt3 = ',Vt1,Vt2,Vt3)
+   # print('V1,V2,V3 = ',V1,V2,V3)
+   # print('h01,h02,h03 = ',h01,h02,h03)
+   # print('h1,h2,h3 = ',h1,h2,h3)
+   T2 = h2/cp
+   # print('T2=',T2)
+   M2 = np.squeeze(compflow.to_Ma("To_T",T02/T2,gamma))
+   # print(M2)
+   phi = Vx/U
+   psi = -1*dh0/U**2
+   Lambda = (h3-h2)/(h3-h1)
+   
+   Co = [(pitch/chord)*np.abs(Vt3-Vt2),(pitch/chord)*np.abs(Vt2-Vt1)]
+   
+   return [phi,psi,Lambda,M2,Co]
    
 def nondim_stage_from_Lam(dataframe):
       
@@ -940,7 +1001,7 @@ def nondim_stage_from_Lam(dataframe):
       phi = df.loc[index,'phi']                   # Flow coefficient [--]
       psi = df.loc[index,'psi']                   # Stage loading coefficient [--]
       Al13 = (0.0,x)                                     # Yaw angles [deg]
-      Ma2 = df.loc[index,'M']                     # Vane exit Mach number [--]
+      Ma2 = df.loc[index,'M2']                     # Vane exit Mach number [--]
       ga = 1.33                                          # Ratio of specific heats [--]
       eta = 1.0 - df.loc[index,'eta_lost']        # Polytropic efficiency [--]
       loss_ratio=0.4
