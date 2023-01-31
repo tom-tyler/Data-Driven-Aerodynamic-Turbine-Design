@@ -907,11 +907,11 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                             nu=2.5
                             )
 
-def dim_2_non_dim(mdot,
-                  shaft_power,
-                  stagnation_pressure_ratio,
-                  blade_number,
-                  turbine_diameter,
+def dim_2_non_dim(shaft_power=25e6,
+                  stagnation_pressure_ratio=1.5,
+                  blade_number=40,
+                  turbine_diameter=1.6,
+                  mdot=275,
                   T01=1600,
                   p01=1600000,
                   shaft_speed=100*np.pi,
@@ -937,6 +937,8 @@ def dim_2_non_dim(mdot,
    h03 = cp*T03
    
    U = mean_radius*shaft_speed
+   
+   
 
    # print('U=',U)
 
@@ -988,9 +990,14 @@ def dim_2_non_dim(mdot,
    # print(M2)
    phi = Vx/U
    psi = -1*dh0/U**2
-   Lambda = (h3-h2)/(h3-h1)
+   Lambda = np.abs((h3-h2)/(h3-h1))
    
-   Co = [(pitch/chord)*np.abs(Vt3-Vt2),(pitch/chord)*np.abs(Vt2-Vt1)]
+   a1=0
+   a2=np.arctan(Vt2/Vx)
+   a3=np.arctan(Vt3/Vx)
+   
+   # chord below should be replaced by suction surface length
+   Co = [(pitch/chord)*(np.tan(a1)-np.tan(a2))*np.cos(a2), (pitch/chord)*(np.tan(a2)-np.tan(a3))*np.cos(a3)]
    
    return [phi,psi,Lambda,M2,Co]
    

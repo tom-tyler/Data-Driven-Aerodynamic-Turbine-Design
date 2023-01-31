@@ -30,8 +30,6 @@ print(fit.optimised_kernel)
 #          x2='psi',
 #          num_points=400)
 
-print(dim_2_non_dim(mdot=400,
-                    shaft_power=2e6,
-                    stagnation_pressure_ratio=1.2,
-                    blade_number=30,
-                    turbine_diameter=1.6))
+print(dim_2_non_dim(shaft_power=20e6,
+                    stagnation_pressure_ratio=2.0,
+                    blade_number=40))
