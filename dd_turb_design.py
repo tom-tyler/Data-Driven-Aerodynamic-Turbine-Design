@@ -12,6 +12,9 @@ import os
 import matplotlib.colors as mcol
 import sklearn.preprocessing as pre
 import compflow_native as compflow
+import warnings
+import scipy.optimize as sciop
+import sys
 
 def read_in_data(dataset='all',
                  path='Data Complete',
@@ -35,7 +38,7 @@ def read_in_data(dataset='all',
       elif dataset=='2D only':
          if data_name[:15] != '2D_phi_psi_data':
             continue
-      elif dataset in ['2D','4D']:
+      elif dataset in ['2D','4D','5D']:
          pass
       else:
          if data_name not in dataset:
@@ -143,12 +146,10 @@ def drop_columns(df,variables,output_key):
          df=df.drop(columns=str(dataframe_variable))
    return df
 
-
-
 class fit_data:  #rename this turb_design and turn init into a new method to fit the data. This will help as model will already be made
    def __init__(self,
                 training_dataframe,
-                variables=['phi','psi','Lambda','M','Co'],
+                variables=None,
                 output_key='eta_lost',
                 number_of_restarts=0,            #do not need to be >0 to optimise parameters. this saves so much time
                 length_bounds=(1e-1,1e3),
@@ -158,6 +159,11 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                 normalize_y=False,           #seems to make things worse if normalize_y=True
                 scale_name='minmax',
                 ):
+      
+      if variables==None:
+         print('Please state variable to fit over.')
+      elif output_key==None:
+         print('Please state output to fit to.')
       
       self.number_of_restarts = number_of_restarts
       self.noise_magnitude = noise_magnitude
@@ -228,7 +234,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                include_output=False,
                display_efficiency=True,
                CI_in_dataframe=False,
-               CI_percent=95
+               CI_percent=95,
+               bonus_variables=False
                ):
       
       dataframe = drop_columns(dataframe,self.variables,self.output_key)
@@ -311,6 +318,9 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       self.max_output = np.amax(self.mean_prediction)
       self.max_output_indices = np.where(self.mean_prediction == self.max_output)
       
+      if bonus_variables == True:
+         self.predicted_dataframe = nondim_stage_from_Lam(self.predicted_dataframe)
+      
       return self.predicted_dataframe
       
    def find_global_max_min_values(self,
@@ -340,17 +350,16 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       return self.max_output_row,self.min_output_row
         
    def plot_vars(self,
-                 phi='mean',
-                 psi='mean',
-                 Lambda='mean',
-                 M='mean',
-                 Co='mean',
+                 x=None,
+                 y=None,
+                 z1='predicted_output',
+                 z2=None,
+                 constants=[],
                  limit_dict=None,
                  axis=None,
                  num_points=100,
                  efficiency_step=0.5,
                  opacity=0.2,
-                 swap_axis=False,
                  display_efficiency=True,
                  title_variable_spacing=3,
                  plotting_grid_value=[0,0],
@@ -359,7 +368,9 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                  plot_training_points=False,
                  legend_outside=False,
                  contour_type='line',
-                 plotting_grid=False
+                 plotting_grid=False,
+                 show_max=True,
+                 show_min=False
                  ):
       
       if axis == None:
@@ -368,82 +379,102 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       else:
          plot_now = False
          
-      if display_efficiency==False:
-         efficiency_step = efficiency_step*0.01
-      
       color_limits  = np.array([88, 92, 96])
       cmap_colors = ["red","orange","green"]
       
       if display_efficiency == False:
          color_limits = np.flip(1 - (color_limits/100),0)
          cmap_colors = np.flip(cmap_colors)
+         efficiency_step = efficiency_step*0.01
+         show_max=False
+         show_min=True
       
       cmap_norm=plt.Normalize(min(color_limits),max(color_limits))
       cmap_tuples = list(zip(map(cmap_norm,color_limits), cmap_colors))
       efficiency_cmap = mcol.LinearSegmentedColormap.from_list("", cmap_tuples)
       
       plot_dataframe = pd.DataFrame({})
-      vary_counter = 0
+      
+      if (z1 in [None,'predicted_output']) and (z2 in [None,'predicted_output']):
+         bonus_variables = False
+      else:
+         bonus_variables = True
       
       if limit_dict == None:
          limit_dict = self.limit_dict
       
       plot_title = ' '
       
-      var_dict_full = {'phi':phi,'psi':psi,'Lambda':Lambda,'M':M,'Co':Co}
-      
-      var_dict = {}
+      # var_dict_full = {'phi':phi,'psi':psi,'Lambda':Lambda,'M':M,'Co':Co}
 
-      for key, value in var_dict_full.items():
-         if key in self.variables:
-            var_dict[key] = value
-            
-      dimensions = countOf(var_dict.values(), 'vary')
-               
-      for key in var_dict:
+      constants_check=self.variables.copy()
+                    
+      if (x != None) and (y == None):
+         plot_key1 = x
+         x1 = np.linspace(start=limit_dict[plot_key1][0], stop=limit_dict[plot_key1][1], num=num_points)
+         plot_dataframe[plot_key1] = x1
+         constants_check.remove(plot_key1)  
+         dimensions=1   
+      elif (y != None) and (x == None):
+         plot_key1 = y
+         x1 = np.linspace(start=limit_dict[plot_key1][0], stop=limit_dict[plot_key1][1], num=num_points)
+         plot_dataframe[plot_key1] = x1
+         constants_check.remove(plot_key1)
+         dimensions=1
+      elif (y != None) and (x != None):
+         plot_key1 = x
+         x1 = np.linspace(start=limit_dict[plot_key1][0], stop=limit_dict[plot_key1][1], num=num_points)
+         plot_dataframe[plot_key1] = x1
+         constants_check.remove(plot_key1)
+         plot_key2 = y
+         x2 = np.linspace(start=limit_dict[plot_key2][0], stop=limit_dict[plot_key2][1], num=num_points)
+         plot_dataframe[plot_key2] = x2
+         constants_check.remove(plot_key2)
+         dimensions=2
+      else:
+         sys.exit("Please specify x or y") 
+      
+      if constants_check != list(constants):
+         sys.exit("Constants specified are incorrect")
          
-         if (var_dict[key] == 'vary') and (vary_counter == 0):
-            plot_key1 = key
-            x1 = np.linspace(start=limit_dict[key][0], stop=limit_dict[key][1], num=num_points)
-            plot_dataframe[key] = x1
-            vary_counter += 1
-         elif (var_dict[key] == 'vary') and (vary_counter == 1):
-            plot_key2 = key
-            x2 = np.linspace(start=limit_dict[key][0], stop=limit_dict[key][1], num=num_points)
-            plot_dataframe[key] = x2
+      # format of constants is {'M':0.7,'Co':0.6, ...}
+      constant_value = {}
+      for constant_key in constants:
+         if (constants[constant_key] == 'mean'):
+            constant_value[constant_key] = np.mean(self.input_array_train[constant_key])
          else:
-            if (var_dict[key] == 'mean'):
-               plot_dataframe[key] = np.mean(self.input_array_train[key])*np.ones(num_points)
-               constant_value = np.mean(self.input_array_train[key])
-            else:
-               plot_dataframe[key] = var_dict[key]*np.ones(num_points)
-               constant_value = var_dict[key]
+            constant_value[constant_key] = constants[constant_key]
             
-            if (key == 'M') or (key == 'Co'):
-               plot_title += f'{key} = {constant_value:.3f}'
-               plot_title += '\; '*title_variable_spacing
-            else:
-               plot_title += '\\' + f'{key} = {constant_value:.3f}'
-               plot_title += '\; '*title_variable_spacing
+         if (constant_key == 'M') or (constant_key == 'Co'):
+            plot_title += f'{constant_key} = {constant_value[constant_key]:.3f}'
+            plot_title += '\; '*title_variable_spacing
+         else:
+            plot_title += '\\' + f'{constant_key} = {constant_value[constant_key]:.3f}'
+            plot_title += '\; '*title_variable_spacing
       
       plot_dataframe = drop_columns(plot_dataframe,self.variables,self.output_key)
+      
+      if dimensions == 2:
+
+         X1,X2 = np.meshgrid(x1,x2) # creates two matrices which vary across in x and y
+         X1_vector = X1.ravel() #vector of "all" x coordinates from meshgrid
+         X2_vector = X2.ravel() #vector of "all" y coordinates from meshgrid
+         plot_dataframe = pd.DataFrame({})
+         plot_dataframe[x] = X1_vector
+         plot_dataframe[y] = X2_vector
+         
+      for constant_key in constants:
+         if (constants[constant_key] == 'mean'):
+            plot_dataframe[constant_key] = constant_value[constant_key]*np.ones(num_points**dimensions)
+         else:
+            plot_dataframe[constant_key] = constant_value[constant_key]*np.ones(num_points**dimensions)
+      
+      self.predict(plot_dataframe,
+                   display_efficiency=display_efficiency,
+                   CI_percent=CI_percent,
+                   bonus_variables=bonus_variables)
             
       if dimensions == 1:
-         
-         self.predict(plot_dataframe,
-                      display_efficiency=display_efficiency,
-                      CI_percent=CI_percent)
-         
-         if display_efficiency == True:
-            xvar_max = []
-            for index in self.max_output_indices:
-               xvar_max.append(x1[index])
-               axis.text(x1[index], self.mean_prediction[index], f'{self.max_output:.2f}', size=12, color='darkblue')
-         else:
-            xvar_min = []
-            for index in self.min_output_indices:
-               xvar_min.append(x1[index])
-               axis.text(x1[index], self.mean_prediction[index], f'{self.min_output:.2f}', size=12, color='darkblue')
          
          if plot_training_points == True:
             axis.scatter(x=self.input_array_train[plot_key1],
@@ -452,27 +483,99 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                          color='red',
                          label='Training data points')
          
+         if z1 != None:
+            axis.set_ylabel(z1)
+            z1_vector = self.predicted_dataframe[z1]
          
-         axis.plot(x1, self.mean_prediction, label=r"Mean prediction", color='blue')
-         axis.fill_between(
-            x=x1,
-            y1=self.upper,
-            y2=self.lower,
-            alpha=opacity,                       
-            label=fr"{self.CI_percent}% confidence interval",
-            color='blue'
-         )
-         if plotting_grid_value==[0,0]:
-            if legend_outside == True:
-               leg = axis.legend(loc='upper left',
-                                 bbox_to_anchor=(1.02,1.0),
-                                 borderaxespad=0,
-                                 frameon=True,
-                                 ncol=1,
-                                 prop={'size': 10})
+            max_z1 = np.amax(z1_vector)
+            if show_max == True:
+               max_z1_i = np.squeeze(np.where(z1_vector == max_z1))
+               axis.text(x1[max_z1_i], z1_vector[max_z1_i], f'{max_z1:.2f}', size=12, color='darkblue')
+               
+            min_z1 = np.amin(z1_vector)
+            if show_min == True:
+               min_z1_i = np.squeeze(np.where(z1_vector == min_z1))
+               axis.text(x1[min_z1_i], z1_vector[min_z1_i], f'{min_z1:.2f}', size=12, color='darkblue')
+         
+            axis.plot(x1, 
+                     z1_vector, 
+                     label=z1, 
+                     color='blue'
+                     )
+            
+            if z1 == 'predicted_output':
+               axis.fill_between(x=x1,
+                                 y1=self.upper,
+                                 y2=self.lower,
+                                 alpha=opacity,                       
+                                 label=fr"{self.CI_percent}% confidence interval",
+                                 color='blue'
+                                 )
+               y_range = np.amax(self.upper) - np.amin(self.lower)
+               axis.set_ylim(bottom=np.amin(self.lower)-0.1*y_range,
+                              top=np.amax(self.upper)+0.1*y_range,
+                              auto=True)
             else:
-               leg = axis.legend()
-            leg.set_draggable(state=True)
+               y_range = max_z1-min_z1
+               if not np.isclose(y_range, 0.0,rtol=1e-09, atol=0.0):
+                  axis.set_ylim(bottom=min_z1-0.1*y_range,
+                                 top=max_z1+0.1*y_range,
+                                 auto=True)
+            axis.legend(loc='upper right')
+            
+         if (z2 != None) and (z1 != None):
+            
+            axis2=axis.twinx()
+            axis2.set_ylabel(z2)
+            z2_vector = self.predicted_dataframe[z2]
+            
+            max_z2 = np.amax(z2_vector)
+            if show_max == True:
+               max_z2_i = np.squeeze(np.where(z2_vector == max_z2))
+               axis2.text(x1[max_z2_i], z2_vector[max_z2_i], f'{max_z2:.2f}', size=12, color='darkgreen')
+            
+            min_z2 = np.amin(z2_vector)
+            if show_min == True:
+               min_z2_i = np.squeeze(np.where(z2_vector == min_z2))
+               axis2.text(x1[min_z2_i], z2_vector[min_z2_i], f'{min_z2:.2f}', size=12, color='darkgreen')
+               
+            axis2.plot(x1, 
+                     z2_vector, 
+                     label=z2, 
+                     color='green'
+                     )
+            
+            if z2 == 'predicted_output':
+               axis2.fill_between(x=x1,
+                                 y1=self.upper,
+                                 y2=self.lower,
+                                 alpha=opacity,                       
+                                 label=fr"{self.CI_percent}% confidence interval",
+                                 color='green'
+                                 )
+               y_range = np.amax(self.upper) - np.amin(self.lower)
+               axis2.set_ylim(bottom=np.amin(self.lower)-0.1*y_range,
+                              top=np.amax(self.upper)+0.1*y_range,
+                              auto=True)
+            else:
+               if not np.isclose(y_range, 0.0,rtol=1e-09, atol=0.0):
+                  axis2.set_ylim(bottom=min_z2-0.1*y_range,
+                                 top=max_z2+0.1*y_range,
+                                 auto=True)
+            
+            axis2.legend(loc='upper left')
+            
+         # if plotting_grid_value==[0,0]:
+         #    if legend_outside == True:
+         #       leg = axis.legend(loc='upper left',
+         #                         bbox_to_anchor=(1.02,1.0),
+         #                         borderaxespad=0,
+         #                         frameon=True,
+         #                         ncol=1,
+         #                         prop={'size': 10})
+         #    else:
+         #       leg = axis.legend()
+         #    leg.set_draggable(state=True)
          
          if plotting_grid_value[0] == (grid_height-1):
             if (plot_key1 == 'M') or (plot_key1 == 'Co'):
@@ -481,50 +584,21 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                xlabel_string = '\\'+plot_key1
                axis.set_xlabel(fr"$ {xlabel_string} $")
                
-         if plotting_grid_value[1] == 0:
-            if display_efficiency == True:
-               axis.set_ylabel('$ \\eta $')
-            else:
-               axis.set_ylabel('$ \\eta_{lost} $')
+         # if plotting_grid_value[1] == 0:
+         #    if display_efficiency == True:
+         #       axis.set_ylabel('$ \\eta $')
+         #    else:
+         #       axis.set_ylabel('$ \\eta_{lost} $')
             
-         axis.set_xlim(limit_dict[plot_key1][0],limit_dict[plot_key1][1],
+            
+         axis.set_xlim(limit_dict[plot_key1][0],
+                       limit_dict[plot_key1][1],
                        auto=True)
          
-         if plotting_grid==True:
-            y_range = np.amax(self.upper) - np.amin(self.lower)
-            axis.set_ylim(bottom=np.amin(self.lower)-0.1*y_range,
-                           top=np.amax(self.upper)+0.1*y_range,
-                           auto=True)
-         else:
-            y_range = np.amax(self.upper) - np.amin(self.lower)
-            axis.set_ylim(bottom=np.amin(self.lower)-0.1*y_range,
-                           top=np.amax(self.upper)+0.1*y_range,
-                           auto=True)
 
          axis.grid(linestyle = '--', linewidth = 0.5)
          
       elif dimensions == 2:
-
-         X1,X2 = np.meshgrid(x1,x2) # creates two matrices which vary across in x and y
-         X1_vector = X1.ravel() #vector of "all" x coordinates from meshgrid
-         X2_vector = X2.ravel() #vector of "all" y coordinates from meshgrid
-         plot_dataframe = pd.DataFrame({})
-         for key in var_dict:
-            if key == plot_key1:
-               plot_dataframe[key] = X1_vector
-               vary_counter += 1
-            elif key == plot_key2:
-               plot_dataframe[key] = X2_vector
-            else:
-               if (var_dict[key] == 'mean'):
-                  plot_dataframe[key] = np.mean(self.input_array_train[key])*np.ones(num_points**2)
-               else:
-                  plot_dataframe[key] = var_dict[key]*np.ones(num_points**2)
-            
-         self.predict(plot_dataframe,
-                      display_efficiency=display_efficiency,
-                      CI_percent=CI_percent)
-
          
          if display_efficiency == True:
             contour_textlabel = '\\eta'
@@ -539,11 +613,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          upper_grid = self.upper.reshape(num_points,num_points)
          lower_grid = self.lower.reshape(num_points,num_points)
 
-         if swap_axis == False:
-            xvar,yvar=X1,X2
-         elif swap_axis == True:
-            yvar,xvar=X1,X2
-            plot_key1,plot_key2=plot_key2,plot_key1
+         xvar,yvar=X1,X2
          
          xvar_max,yvar_max=[],[]
          for index in self.max_output_indices:
@@ -592,7 +662,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                if contour_type == 'line':
                   handles = [h1[0], h2[0]]
                   labels = [fr'$ {contour_textlabel} $, Mean prediction',
-                           fr"{self.CI_percent}% confidence interval", #edit this
+                           fr"{self.CI_percent}% confidence interval", 
                            'Training data points']
                else:
                   handles = [h1[0]]
@@ -638,12 +708,12 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       else:
          print('INVALID')
       
-      if len(var_dict)>2:
+      if len(self.variables)>2:
          axis.set_title(fr'$ {plot_title} $',size=10)
       
       if plot_now == True:
          fig.suptitle(f'n = {self.no_points}')
-         fig.tight_layout()
+         # fig.tight_layout()
          plt.show()
       
    def plot_accuracy(self,
@@ -744,174 +814,174 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          fig.tight_layout()
          plt.show()
       
-   def plot_grid_vars(self,
-                      vary_var_1,
-                      vary_or_constant_2,
-                      column_var,
-                      column_var_array,
-                      row_var,
-                      row_var_array,
-                      constant_var,
-                      constant_var_value,
-                      constant_var_value_2=None,
-                      limit_dict=None,
-                      num_points=100,
-                      efficiency_step=0.5,
-                      opacity=0.3,
-                      swap_axis=False,
-                      display_efficiency=True,
-                      title_variable_spacing=3,
-                      with_arrows=True,
-                      CI_percent=95,
-                      plot_training_points=False,
-                      legend_outside=False,
-                      CI_color='orange'
-                      ):
+   # def plot_grid_vars(self,
+   #                    vary_var_1,
+   #                    vary_or_constant_2,
+   #                    column_var,
+   #                    column_var_array,
+   #                    row_var,
+   #                    row_var_array,
+   #                    constant_var,
+   #                    constant_var_value,
+   #                    constant_var_value_2=None,
+   #                    limit_dict=None,
+   #                    num_points=100,
+   #                    efficiency_step=0.5,
+   #                    opacity=0.3,
+   #                    swap_axis=False,
+   #                    display_efficiency=True,
+   #                    title_variable_spacing=3,
+   #                    with_arrows=True,
+   #                    CI_percent=95,
+   #                    plot_training_points=False,
+   #                    legend_outside=False,
+   #                    CI_color='orange'
+   #                    ):
       
-      var_dict = {'phi':None,'psi':None,'Lambda':None,'M':None,'Co':None}
+   #    var_dict = {'phi':None,'psi':None,'Lambda':None,'M':None,'Co':None}
 
-      for key in var_dict:
+   #    for key in var_dict:
          
-         if (key == vary_var_1):
-            var_dict[key] = 'vary'
-         elif (key == vary_or_constant_2):
-            if constant_var_value_2 == None:
-               var_dict[key] = 'vary'
-            else:
-               var_dict[key] = constant_var_value_2
-         elif key == column_var:
-            var_dict[key] = column_var_array
-         elif key == row_var:
-            var_dict[key] = row_var_array
-         elif key == constant_var:
-            var_dict[key] = constant_var_value
+   #       if (key == vary_var_1):
+   #          var_dict[key] = 'vary'
+   #       elif (key == vary_or_constant_2):
+   #          if constant_var_value_2 == None:
+   #             var_dict[key] = 'vary'
+   #          else:
+   #             var_dict[key] = constant_var_value_2
+   #       elif key == column_var:
+   #          var_dict[key] = column_var_array
+   #       elif key == row_var:
+   #          var_dict[key] = row_var_array
+   #       elif key == constant_var:
+   #          var_dict[key] = constant_var_value
       
-      num_columns = len(column_var_array)
-      num_rows = len(row_var_array)
+   #    num_columns = len(column_var_array)
+   #    num_rows = len(row_var_array)
       
-      fig, axes = plt.subplots(nrows=num_rows,
-                               ncols=num_columns,
-                               sharex=True,
-                               sharey=True
-                               )
+   #    fig, axes = plt.subplots(nrows=num_rows,
+   #                             ncols=num_columns,
+   #                             sharex=True,
+   #                             sharey=True
+   #                             )
       
-      if num_columns == 1:
-         for i, axis in enumerate(axes):
+   #    if num_columns == 1:
+   #       for i, axis in enumerate(axes):
 
-            for key in var_dict:
-               if column_var == key:
-                  var_dict[key] = column_var_array[0]
-               elif row_var == key:
-                  var_dict[key] = row_var_array[i]
+   #          for key in var_dict:
+   #             if column_var == key:
+   #                var_dict[key] = column_var_array[0]
+   #             elif row_var == key:
+   #                var_dict[key] = row_var_array[i]
             
-            self.plot_vars(axis=axis,
-                           phi=var_dict['phi'],
-                           psi=var_dict['psi'],
-                           Lambda=var_dict['Lambda'],
-                           M=var_dict['M'],
-                           Co=var_dict['Co'],
-                           num_points=num_points,
-                           efficiency_step=efficiency_step,
-                           swap_axis=swap_axis,
-                           limit_dict=limit_dict,
-                           display_efficiency=display_efficiency,
-                           title_variable_spacing=title_variable_spacing,
-                           opacity=opacity,
-                           plotting_grid_value=[i,0],
-                           grid_height=num_rows,
-                           CI_percent=CI_percent,
-                           plot_training_points=plot_training_points,
-                           legend_outside=legend_outside,
-                           CI_color=CI_color
-                           )
-      elif num_rows==1:
-         for j, axis in enumerate(axes):
+   #          self.plot_vars(axis=axis,
+   #                         phi=var_dict['phi'],
+   #                         psi=var_dict['psi'],
+   #                         Lambda=var_dict['Lambda'],
+   #                         M=var_dict['M'],
+   #                         Co=var_dict['Co'],
+   #                         num_points=num_points,
+   #                         efficiency_step=efficiency_step,
+   #                         swap_axis=swap_axis,
+   #                         limit_dict=limit_dict,
+   #                         display_efficiency=display_efficiency,
+   #                         title_variable_spacing=title_variable_spacing,
+   #                         opacity=opacity,
+   #                         plotting_grid_value=[i,0],
+   #                         grid_height=num_rows,
+   #                         CI_percent=CI_percent,
+   #                         plot_training_points=plot_training_points,
+   #                         legend_outside=legend_outside,
+   #                         CI_color=CI_color
+   #                         )
+   #    elif num_rows==1:
+   #       for j, axis in enumerate(axes):
 
-            for key in var_dict:
-               if column_var == key:
-                  var_dict[key] = column_var_array[j]
-               elif row_var == key:
-                  var_dict[key] = row_var_array[0]
+   #          for key in var_dict:
+   #             if column_var == key:
+   #                var_dict[key] = column_var_array[j]
+   #             elif row_var == key:
+   #                var_dict[key] = row_var_array[0]
             
-            self.plot_vars(axis=axis,
-                           phi=var_dict['phi'],
-                           psi=var_dict['psi'],
-                           Lambda=var_dict['Lambda'],
-                           M=var_dict['M'],
-                           Co=var_dict['Co'],
-                           num_points=num_points,
-                           efficiency_step=efficiency_step,
-                           swap_axis=swap_axis,
-                           limit_dict=limit_dict,
-                           display_efficiency=display_efficiency,
-                           title_variable_spacing=title_variable_spacing,
-                           opacity=opacity,
-                           plotting_grid_value=[0,j],
-                           grid_height=num_rows,
-                           CI_percent=CI_percent,
-                           plot_training_points=plot_training_points,
-                           legend_outside=legend_outside,
-                           CI_color=CI_color
-                           )
+   #          self.plot_vars(axis=axis,
+   #                         phi=var_dict['phi'],
+   #                         psi=var_dict['psi'],
+   #                         Lambda=var_dict['Lambda'],
+   #                         M=var_dict['M'],
+   #                         Co=var_dict['Co'],
+   #                         num_points=num_points,
+   #                         efficiency_step=efficiency_step,
+   #                         swap_axis=swap_axis,
+   #                         limit_dict=limit_dict,
+   #                         display_efficiency=display_efficiency,
+   #                         title_variable_spacing=title_variable_spacing,
+   #                         opacity=opacity,
+   #                         plotting_grid_value=[0,j],
+   #                         grid_height=num_rows,
+   #                         CI_percent=CI_percent,
+   #                         plot_training_points=plot_training_points,
+   #                         legend_outside=legend_outside,
+   #                         CI_color=CI_color
+   #                         )
       
-      else:
-         for (i,j), axis in np.ndenumerate(axes):
+   #    else:
+   #       for (i,j), axis in np.ndenumerate(axes):
 
-            for key in var_dict:
-               if column_var == key:
-                  var_dict[key] = column_var_array[j]
-               elif row_var == key:
-                  var_dict[key] = row_var_array[i]
+   #          for key in var_dict:
+   #             if column_var == key:
+   #                var_dict[key] = column_var_array[j]
+   #             elif row_var == key:
+   #                var_dict[key] = row_var_array[i]
             
-            self.plot_vars(axis=axis,
-                           phi=var_dict['phi'],
-                           psi=var_dict['psi'],
-                           Lambda=var_dict['Lambda'],
-                           M=var_dict['M'],
-                           Co=var_dict['Co'],
-                           num_points=num_points,
-                           efficiency_step=efficiency_step,
-                           swap_axis=swap_axis,
-                           limit_dict=limit_dict,
-                           display_efficiency=display_efficiency,
-                           title_variable_spacing=title_variable_spacing,
-                           opacity=opacity,
-                           plotting_grid_value=[i,j],
-                           grid_height=num_rows,
-                           CI_percent=CI_percent,
-                           plot_training_points=plot_training_points,
-                           legend_outside=legend_outside,
-                           CI_color=CI_color,
-                           plotting_grid=True
-                           )
+   #          self.plot_vars(axis=axis,
+   #                         phi=var_dict['phi'],
+   #                         psi=var_dict['psi'],
+   #                         Lambda=var_dict['Lambda'],
+   #                         M=var_dict['M'],
+   #                         Co=var_dict['Co'],
+   #                         num_points=num_points,
+   #                         efficiency_step=efficiency_step,
+   #                         swap_axis=swap_axis,
+   #                         limit_dict=limit_dict,
+   #                         display_efficiency=display_efficiency,
+   #                         title_variable_spacing=title_variable_spacing,
+   #                         opacity=opacity,
+   #                         plotting_grid_value=[i,j],
+   #                         grid_height=num_rows,
+   #                         CI_percent=CI_percent,
+   #                         plot_training_points=plot_training_points,
+   #                         legend_outside=legend_outside,
+   #                         CI_color=CI_color,
+   #                         plotting_grid=True
+   #                         )
       
-      if with_arrows==True:
-         if (column_var == 'M') or (column_var == 'Co'):
-            fig.supxlabel(f"${column_var} \\rightarrow $")
-         else:
-            xlabel_string1 = '\\'+column_var+' \\rightarrow'
-            fig.supxlabel(fr"$ {xlabel_string1} $")
+   #    if with_arrows==True:
+   #       if (column_var == 'M') or (column_var == 'Co'):
+   #          fig.supxlabel(f"${column_var} \\rightarrow $")
+   #       else:
+   #          xlabel_string1 = '\\'+column_var+' \\rightarrow'
+   #          fig.supxlabel(fr"$ {xlabel_string1} $")
             
-         if (row_var == 'M') or (row_var == 'Co'):
-            fig.supylabel(f"$\\leftarrow {row_var} $")
-         else:
-            xlabel_string2 = '\\leftarrow \\'+row_var
-            fig.supylabel(fr"$ {xlabel_string2} $")
-      else:
-         if (column_var == 'M') or (column_var == 'Co'):
-            fig.supxlabel(f"${column_var} $")
-         else:
-            xlabel_string1 = '\\'+column_var
-            fig.supxlabel(fr"$ {xlabel_string1} $")
+   #       if (row_var == 'M') or (row_var == 'Co'):
+   #          fig.supylabel(f"$\\leftarrow {row_var} $")
+   #       else:
+   #          xlabel_string2 = '\\leftarrow \\'+row_var
+   #          fig.supylabel(fr"$ {xlabel_string2} $")
+   #    else:
+   #       if (column_var == 'M') or (column_var == 'Co'):
+   #          fig.supxlabel(f"${column_var} $")
+   #       else:
+   #          xlabel_string1 = '\\'+column_var
+   #          fig.supxlabel(fr"$ {xlabel_string1} $")
             
-         if (row_var == 'M') or (row_var == 'Co'):
-            fig.supylabel(f"${row_var} $")
-         else:
-            xlabel_string2 = '\\'+row_var
-            fig.supylabel(fr"$ {xlabel_string2} $")
+   #       if (row_var == 'M') or (row_var == 'Co'):
+   #          fig.supylabel(f"${row_var} $")
+   #       else:
+   #          xlabel_string2 = '\\'+row_var
+   #          fig.supylabel(fr"$ {xlabel_string2} $")
 
       
-      plt.show()
+   #    plt.show()
       
    def matern_kernel(self,
                      N,
@@ -925,119 +995,155 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                             length_scale_bounds=L_bounds,
                             nu=2.5
                             )
+
+
+   
+def nondim_stage_from_Lam(dataframe):
       
-   def nondim_to_dim(self,
-                     dataframe
-                     ):
+   def vars_from_Al(x,index,df,iterating=False):
+
+      phi = df.loc[index,'phi']                   # Flow coefficient [--]
+      psi = df.loc[index,'psi']                   # Stage loading coefficient [--]
+      Al13 = (0.0,x)                                     # Yaw angles [deg]
+      Ma2 = df.loc[index,'M']                     # Vane exit Mach number [--]
+      ga = 1.33                                          # Ratio of specific heats [--]
+      eta = 1.0 - df.loc[index,'eta_lost']        # Polytropic efficiency [--]
+      loss_ratio=0.4
       
-      # Assemble all of the data into the output object
-      dataframe['Yp'] = 0.0
-      dataframe['Al'] = 0.0
-      dataframe['Alrel'] = 0.0
-      dataframe['Ma'] = 0.0
-      dataframe['Marel'] = 0.0
-      dataframe['Ax_Ax1'] = 0.0
-      dataframe['Lam'] = 0.0
-      dataframe['U_sqrt_cpTo1'] = 0.0
-      dataframe['Po_Po1'] = 0.0
-      dataframe['To_To1'] = 0.0
-      dataframe['Vt_U'] = 0.0
-      dataframe['Vtrel_U'] = 0.0
-      dataframe['V_U'] = 0.0
-      dataframe['Vrel_U'] = 0.0
-      dataframe['P3_Po1'] = 0.0
-      dataframe['mdot_mdot1'] = 0.0
+      # Get absolute flow angles using Euler work eqn
+      tanAl2 = (np.tan(np.radians(Al13[1])) + psi / phi)
+      Al2 = np.degrees(np.arctan(tanAl2))
+      Al = np.insert(Al13, 1, Al2)
+      cosAl = np.cos(np.radians(Al))
       
-      #   "To1": 1600.0,
-      #   "Po1": 1600000.0,
-      #   "rgas": 287.14,
-      #   "Omega": 314.159,
-      #   "delta": 0.1
-      #   "htr": 0.9,
+      # Get non-dimensional velocities from definition of flow coefficient
+      Vx_U1,Vx_U2,Vx_U3 = phi, phi, phi
+      Vx_U = np.array([Vx_U1,Vx_U2,Vx_U3])
+      Vt_U = Vx_U * np.tan(np.radians(Al))
+      V_U = np.sqrt(Vx_U ** 2.0 + Vt_U ** 2.0)
 
-      #   "Re": 2000000.0
+      # Change reference frame for rotor-relative velocities and angles
+      Vtrel_U = Vt_U - 1.0
+      Vrel_U = np.sqrt(Vx_U ** 2.0 + Vtrel_U ** 2.0)
+      Alrel = np.degrees(np.arctan2(Vtrel_U, Vx_U))
+
+      # Use Mach number to get U/cpTo1
+      V_sqrtcpTo2 = compflow.V_cpTo_from_Ma(Ma2, ga)
+      U_sqrtcpTo1 = V_sqrtcpTo2 / V_U[1]
+      Usq_cpTo1 = U_sqrtcpTo1 ** 2.0
+
+      # Non-dimensional temperatures from U/cpTo Ma and stage loading definition
+      cpTo1_Usq = 1.0 / Usq_cpTo1
+      cpTo2_Usq = cpTo1_Usq
+      cpTo3_Usq = (cpTo2_Usq - psi)
+
+      # Turbine
+      cpTo_Usq = np.array([cpTo1_Usq, cpTo2_Usq, cpTo3_Usq])
       
-      for index, row in dataframe.iterrows():
-         phi = row['phi']                                             # Flow coefficient [--]
-         psi = row['psi']                                             # Stage loading coefficient [--]
-         Al13 = (row['Al1'],row['Al3'])                               # Yaw angles [deg]
-         Ma2 = row['M']                                               # Vane exit Mach number [--]
-         ga = 1.33                                                    # Ratio of specific heats [--]
-         eta = 1.0 - row['eta_lost']                                  # Polytropic efficiency [--]
-         Vx_rat = (row['zeta_stator'],row['zeta_rotor'])              # Axial velocity ratios [--]
-         loss_rat = row['loss_rat']                                   # Fraction of stator loss [--]
-         
-         # Get absolute flow angles using Euler work eqn
-         tanAl2 = (np.tan(np.radians(Al13[1])) * Vx_rat[1] + psi / phi)
-         Al2 = np.degrees(np.arctan(tanAl2))
-         Al = np.insert(Al13, 1, Al2)
-         cosAl = np.cos(np.radians(Al))
-         
-         # Get non-dimensional velocities from definition of flow coefficient
-         Vx_U1,Vx_U2,Vx_U3 = Vx_rat[0]*phi, phi, Vx_rat[1]*phi
-         Vx_U = np.array([Vx_U1,Vx_U2,Vx_U3])
-         Vt_U = Vx_U * np.tan(np.radians(Al))
-         V_U = np.sqrt(Vx_U ** 2.0 + Vt_U ** 2.0)
+      # Mach numbers and capacity from compressible flow relations
+      Ma = compflow.Ma_from_V_cpTo(V_U / np.sqrt(cpTo_Usq), ga)
+      Marel = Ma * Vrel_U / V_U
+      Q = compflow.mcpTo_APo_from_Ma(Ma, ga)
+      Q_Q1 = Q / Q[0]
 
-         # Change reference frame for rotor-relative velocities and angles
-         Vtrel_U = Vt_U - 1.0
-         Vrel_U = np.sqrt(Vx_U ** 2.0 + Vtrel_U ** 2.0)
-         Alrel = np.degrees(np.arctan2(Vtrel_U, Vx_U))
+      # Use polytropic effy to get entropy change
+      To_To1 = cpTo_Usq / cpTo_Usq[0]
+      Ds_cp = -(1.0 - 1.0 / eta) * np.log(To_To1[-1])
 
-         # Use Mach number to get U/cpTo1
-         V_sqrtcpTo2 = compflow.V_cpTo_from_Ma(Ma2, ga)
-         U_sqrtcpTo1 = V_sqrtcpTo2 / V_U[1]
-         Usq_cpTo1 = U_sqrtcpTo1 ** 2.0
+      # Somewhat arbitrarily, split loss using loss ratio (default 0.5)
+      s_cp = np.hstack((0.0, loss_ratio, 1.0)) * Ds_cp
 
-         # Non-dimensional temperatures from U/cpTo Ma and stage loading definition
-         cpTo1_Usq = 1.0 / Usq_cpTo1
-         cpTo2_Usq = cpTo1_Usq
-         cpTo3_Usq = (cpTo2_Usq - psi)
+      # Convert to stagnation pressures
+      Po_Po1 = np.exp((ga / (ga - 1.0)) * (np.log(To_To1) + s_cp))
 
-         # Turbine
-         cpTo_Usq = np.array([cpTo1_Usq, cpTo2_Usq, cpTo3_Usq])
-         
-         # Mach numbers and capacity from compressible flow relations
-         Ma = compflow.Ma_from_V_cpTo(V_U / np.sqrt(cpTo_Usq), ga)
-         Marel = Ma * Vrel_U / V_U
-         Q = compflow.mcpTo_APo_from_Ma(Ma, ga)
-         Q_Q1 = Q / Q[0]
+      # Account for cooling or bleed flows
+      mdot_mdot1 = np.array([1.0, 1.0, 1.0])
 
-         # Use polytropic effy to get entropy change
-         To_To1 = cpTo_Usq / cpTo_Usq[0]
-         Ds_cp = -(1.0 - 1.0 / eta) * np.log(To_To1[-1])
+      # Use definition of capacity to get flow area ratios
+      # Area ratios = span ratios because rm = const
+      Dr_Drin = mdot_mdot1 * np.sqrt(To_To1) / Po_Po1 / Q_Q1 * cosAl[0] / cosAl
 
-         # Somewhat arbitrarily, split loss using loss ratio (default 0.5)
-         s_cp = np.hstack((0.0, loss_rat, 1.0)) * Ds_cp
+      # Evaluate some other useful secondary aerodynamic parameters
+      T_To1 = To_To1 / compflow.To_T_from_Ma(Ma, ga)
+      P_Po1 = Po_Po1 / compflow.Po_P_from_Ma(Ma, ga)
+      Porel_Po1 = P_Po1 * compflow.Po_P_from_Ma(Marel, ga)
+      
+      # Turbine
+      Lam = (T_To1[2] - T_To1[1]) / (T_To1[2] - T_To1[0])
+      
+      if iterating==False:
+         df.loc[index,'Al1'],df.loc[index,'Al2'],df.loc[index,'Al3'] = Al  #3
+         df.loc[index,'Alrel1'],df.loc[index,'Alrel2'],df.loc[index,'Alrel3'] = Alrel  #3
+         df.loc[index,'M1'],df.loc[index,'M2'],df.loc[index,'M3'] = Ma  #3
+         df.loc[index,'M1rel'],df.loc[index,'M2rel'],df.loc[index,'M3rel'] = Marel  #3
+         df.loc[index,'Ax1_Ax1'],df.loc[index,'Ax2_Ax1'],df.loc[index,'Ax3_Ax1'] = Dr_Drin  #3
+         df.loc[index,'Po1_Po1'],df.loc[index,'Po2_Po1'],df.loc[index,'Po3_Po1'] = Po_Po1  #3
+         df.loc[index,'To1_To1'],df.loc[index,'To2_To1'],df.loc[index,'To3_To1'] = To_To1  #3
+         df.loc[index,'Vt1_U'],df.loc[index,'Vt2_U'],df.loc[index,'Vt3_U'] = Vt_U  #3
+         df.loc[index,'Vt1rel_U'],df.loc[index,'Vt2rel_U'],df.loc[index,'Vt3rel_U'] = Vtrel_U  #3
+         df.loc[index,'V1_U'],df.loc[index,'V2_U'],df.loc[index,'V3_U'] = V_U  #3
+         df.loc[index,'V1rel_U'],df.loc[index,'V2rel_U'],df.loc[index,'V3rel_U'] = Vrel_U  #3
+         df.loc[index,'P1_Po1'],df.loc[index,'P2_Po1'],df.loc[index,'P3_Po1'] = P_Po1  #3
+         df.loc[index,'Po1rel_Po1'],df.loc[index,'Po2rel_Po1'],df.loc[index,'Po3rel_Po1'] = Porel_Po1  #3
+         df.loc[index,'T1_To1'],df.loc[index,'T2_To1'],df.loc[index,'T3_To1'] = T_To1  #3
+         df.loc[index,'mdot1_mdot1'],df.loc[index,'mdot2_mdot1'],df.loc[index,'mdot3_mdot1'] = mdot_mdot1  #3
+         return df
+      else:
+         return Lam
+      
+   # Iteration step: returns error in reaction as function of exit yaw angle
+   def iter_Al(x):
+      Lam_guess = vars_from_Al(x,index,dataframe,iterating=True)
 
-         # Convert to stagnation pressures
-         Po_Po1 = np.exp((ga / (ga - 1.0)) * (np.log(To_To1) + s_cp))
+      return Lam_guess - dataframe.loc[index,'Lambda'] 
+   
+   for index, row in dataframe.iterrows():
 
-         # Account for cooling or bleed flows
-         mdot_mdot1 = np.array([1.0, 1.0, 1.0])
+      # Solving for Lam in general is tricky
+      # Our strategy is to map out a coarse curve first, pick a point
+      # close to the desired reaction, then Newton iterate
 
-         # Use definition of capacity to get flow area ratios
-         # Area ratios = span ratios because rm = const
-         Dr_Drin = mdot_mdot1 * np.sqrt(To_To1) / Po_Po1 / Q_Q1 * cosAl[0] / cosAl
+      # Evaluate guesses over entire possible yaw angle range
+      Al_guess = np.linspace(-89.0, 89.0, 21)
+      Lam_guess = np.zeros_like(Al_guess)
 
-         # Evaluate some other useful secondary aerodynamic parameters
-         T_To1 = To_To1 / compflow.To_T_from_Ma(Ma, ga)
-         P_Po1 = Po_Po1 / compflow.Po_P_from_Ma(Ma, ga)
-         Porel_Po1 = P_Po1 * compflow.Po_P_from_Ma(Marel, ga)
-         
-         # Assemble all of the data into the output object
-         row['Al1'],row['Al2'],row['Al3'] = Al  #3
-         row['Alrel1'],row['Alrel2'],row['Alrel3'] = Alrel  #3
-         row['M1'],row['M2'],row['M3'] = Ma  #3
-         row['M1rel'],row['M1rel'],row['M1rel'] = Marel  #3
-         row['Ax_Ax1'],row['Ax_Ax1'],row['Ax_Ax1'] = Dr_Drin  #3
-         row['Po_Po1'],row['Po_Po1'],row['Po_Po1'] = Po_Po1  #3
-         row['To_To1'],row['To_To1'],row['To_To1'] = To_To1  #3
-         row['Vt_U'],row['Vt_U'],row['Vt_U'] = Vt_U  #3
-         row['Vtrel_U'],row['Vtrel_U'],row['Vtrel_U'] = Vtrel_U  #3
-         row['V_U'],row['V_U'],row['V_U'] = V_U  #3
-         row['Vrel_U'],row['Vrel_U'],row['Vrel_U'] = Vrel_U  #3
-         row['P3_Po1'] = P_Po1[2]  #1
-         row['mdot_mdot1'],row['mdot_mdot1'],row['mdot_mdot1'] = mdot_mdot1  #3
+      # Catch errors if this guess of angle is horrible/non-physical
+      for i in range(len(Al_guess)):
+         with np.errstate(invalid="ignore"):
+            try:
+                  Lam_guess[i] = iter_Al(Al_guess[i])
+            except (ValueError, FloatingPointError):
+                  Lam_guess[i] = np.nan
 
-      return dataframe
+      # Remove invalid values
+      Al_guess = Al_guess[~np.isnan(Lam_guess)]
+      Lam_guess = Lam_guess[~np.isnan(Lam_guess)]
+
+      # Trim to the region between minimum and maximum reaction
+      # Now the slope will be monotonic
+      i1, i2 = np.argmax(Lam_guess), np.argmin(Lam_guess)
+      Al_guess, Lam_guess = Al_guess[i1:i2], Lam_guess[i1:i2]
+
+      # Start the Newton iteration at minimum error point
+      i0 = np.argmin(np.abs(Lam_guess))
+      Al_soln = sciop.newton(iter_Al, 
+                             x0=Al_guess[i0], 
+                             x1=Al_guess[i0 - 1]
+                             )
+      # # Catch the warning from scipy that derivatives are zero
+      # with warnings.catch_warnings():
+      #    warnings.filterwarnings("error")
+      #    try:
+      #       Al_soln = sciop.newton(
+      #             iter_Al, x0=Al_guess[i0], x1=Al_guess[i0 - 1]
+      #       )
+      #    except:
+      #       print("scipy warns derivatives are zero.")
+      #       print("debug info..")
+      #       print("Al_guess", Al_guess[i0], Al_guess[i0 - 1.0])
+      #       print("Lam errors", iter_Al[i0 : (i0 + 2)])
+      #       print("Al_soln", Al_soln)
+      
+      vars_from_Al(Al_soln,index,dataframe)
+
+   return dataframe

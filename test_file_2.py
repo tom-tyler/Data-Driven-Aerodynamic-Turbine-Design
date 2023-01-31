@@ -1,25 +1,33 @@
-from dd_turb_design import fit_data, read_in_data, split_data
+from dd_turb_design import fit_data, read_in_data, split_data, nondim_stage_from_Lam
 
-data = read_in_data('2D','Data',5)
+data = read_in_data('5D only')
 
 traindf,testdf = split_data(data,
                             random_seed_state=0,
                             fraction_training=1.0)
 
 fit = fit_data(training_dataframe=traindf,
-               variables=['phi','psi'])
-
-# print(fit.nondim_to_dim(data))
+               variables=['phi','psi','Lambda','M','Co'])
 
 print(fit.optimised_kernel)
 
-fit.plot_vars(phi='vary',
-              psi='vary',
-              num_points=500,
-              efficiency_step=0.1,
-              plot_training_points=True,
-              CI_percent=95
-              )
+# print(nondim_stage_from_Lam(data))
+
+# fit.plot_vars(phi='vary',
+#               num_points=500,
+#               efficiency_step=0.1,
+#               plot_training_points=True,
+#               CI_percent=95,
+#               superpose_variable='T1_To1'
+#               )
+
+fit.plot_vars(x='phi',
+              z2='M1',
+              constants={'psi':'mean',
+                         'Lambda':'mean',
+                         'M':'mean',
+                         'Co':'mean'},
+              num_points=400)
 
 # print(fit.find_global_max_min_values())
 
