@@ -21,12 +21,12 @@ print(fit.optimised_kernel)
 #               superpose_variable='T1_To1'
 #               )
 
-fit.plot_vars(x='phi',
-              z2='M1',
+fit.plot_vars(x1='phi',
+              x2='M',
               constants={'psi':'mean',
                          'Lambda':'mean',
-                         'M':'mean',
                          'Co':'mean'},
+              efficiency_step=0.1,
               num_points=400)
 
 # print(fit.find_global_max_min_values())

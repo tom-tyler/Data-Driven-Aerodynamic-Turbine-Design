@@ -350,10 +350,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       return self.max_output_row,self.min_output_row
         
    def plot_vars(self,
-                 x=None,
-                 y=None,
-                 z1='predicted_output',
-                 z2=None,
+                 x1=None,
+                 x2=None,
                  constants=[],
                  limit_dict=None,
                  axis=None,
@@ -388,17 +386,16 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          efficiency_step = efficiency_step*0.01
          show_max=False
          show_min=True
+         contour_textlabel = '\\eta_{lost}'
+      else:
+         contour_textlabel = '\\eta'
+            
       
       cmap_norm=plt.Normalize(min(color_limits),max(color_limits))
       cmap_tuples = list(zip(map(cmap_norm,color_limits), cmap_colors))
       efficiency_cmap = mcol.LinearSegmentedColormap.from_list("", cmap_tuples)
       
       plot_dataframe = pd.DataFrame({})
-      
-      if (z1 in [None,'predicted_output']) and (z2 in [None,'predicted_output']):
-         bonus_variables = False
-      else:
-         bonus_variables = True
       
       if limit_dict == None:
          limit_dict = self.limit_dict
@@ -409,26 +406,22 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
 
       constants_check=self.variables.copy()
                     
-      if (x != None) and (y == None):
-         plot_key1 = x
-         x1 = np.linspace(start=limit_dict[plot_key1][0], stop=limit_dict[plot_key1][1], num=num_points)
-         plot_dataframe[plot_key1] = x1
+      if (x1 != None) and (x2 == None):
+         plot_key1 = x1
+         plot_dataframe[plot_key1] = np.linspace(start=limit_dict[plot_key1][0], stop=limit_dict[plot_key1][1], num=num_points)
          constants_check.remove(plot_key1)  
          dimensions=1   
-      elif (y != None) and (x == None):
-         plot_key1 = y
-         x1 = np.linspace(start=limit_dict[plot_key1][0], stop=limit_dict[plot_key1][1], num=num_points)
-         plot_dataframe[plot_key1] = x1
+      elif (x1 == None) and (x2 != None):
+         plot_key1 = x2
+         plot_dataframe[plot_key1] = np.linspace(start=limit_dict[plot_key1][0], stop=limit_dict[plot_key1][1], num=num_points)
          constants_check.remove(plot_key1)
          dimensions=1
-      elif (y != None) and (x != None):
-         plot_key1 = x
-         x1 = np.linspace(start=limit_dict[plot_key1][0], stop=limit_dict[plot_key1][1], num=num_points)
-         plot_dataframe[plot_key1] = x1
+      elif (x1 != None) and (x2 != None):
+         plot_key1 = x1
+         plot_dataframe[plot_key1] = np.linspace(start=limit_dict[plot_key1][0], stop=limit_dict[plot_key1][1], num=num_points)
          constants_check.remove(plot_key1)
-         plot_key2 = y
-         x2 = np.linspace(start=limit_dict[plot_key2][0], stop=limit_dict[plot_key2][1], num=num_points)
-         plot_dataframe[plot_key2] = x2
+         plot_key2 = x2
+         plot_dataframe[plot_key2] = np.linspace(start=limit_dict[plot_key2][0], stop=limit_dict[plot_key2][1], num=num_points)
          constants_check.remove(plot_key2)
          dimensions=2
       else:
@@ -456,12 +449,13 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       
       if dimensions == 2:
 
-         X1,X2 = np.meshgrid(x1,x2) # creates two matrices which vary across in x and y
+         X1,X2 = np.meshgrid(plot_dataframe[plot_key1],
+                             plot_dataframe[plot_key2]) # creates two matrices which vary across in x and y
          X1_vector = X1.ravel() #vector of "all" x coordinates from meshgrid
          X2_vector = X2.ravel() #vector of "all" y coordinates from meshgrid
          plot_dataframe = pd.DataFrame({})
-         plot_dataframe[x] = X1_vector
-         plot_dataframe[y] = X2_vector
+         plot_dataframe[plot_key1] = X1_vector
+         plot_dataframe[plot_key2] = X2_vector
          
       for constant_key in constants:
          if (constants[constant_key] == 'mean'):
@@ -471,8 +465,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       
       self.predict(plot_dataframe,
                    display_efficiency=display_efficiency,
-                   CI_percent=CI_percent,
-                   bonus_variables=bonus_variables)
+                   CI_percent=CI_percent)
             
       if dimensions == 1:
          
@@ -482,100 +475,48 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                          marker='x',
                          color='red',
                          label='Training data points')
+
+         if show_max == True:
+            max_i = np.squeeze(self.max_output_indices)
+            axis.text(plot_dataframe[plot_key1][max_i], self.mean_prediction[max_i], f'{self.max_output:.2f}', size=12, color='darkblue')
+
+         if show_min == True:
+            min_i = np.squeeze(self.min_output_indices)
+            axis.text(plot_dataframe[plot_key1][min_i], self.mean_prediction[min_i], f'{self.min_output:.2f}', size=12, color='darkblue')
+      
+         axis.plot(plot_dataframe[plot_key1], 
+                   self.mean_prediction, 
+                   label=r'Mean prediction', 
+                   color='blue'
+                   )
          
-         if z1 != None:
-            axis.set_ylabel(z1)
-            z1_vector = self.predicted_dataframe[z1]
+         axis.fill_between(x=plot_dataframe[plot_key1],
+                           y1=self.upper,
+                           y2=self.lower,
+                           alpha=opacity,                       
+                           label=fr"{self.CI_percent}% confidence interval",
+                           color='blue'
+                           )
          
-            max_z1 = np.amax(z1_vector)
-            if show_max == True:
-               max_z1_i = np.squeeze(np.where(z1_vector == max_z1))
-               axis.text(x1[max_z1_i], z1_vector[max_z1_i], f'{max_z1:.2f}', size=12, color='darkblue')
-               
-            min_z1 = np.amin(z1_vector)
-            if show_min == True:
-               min_z1_i = np.squeeze(np.where(z1_vector == min_z1))
-               axis.text(x1[min_z1_i], z1_vector[min_z1_i], f'{min_z1:.2f}', size=12, color='darkblue')
-         
-            axis.plot(x1, 
-                     z1_vector, 
-                     label=z1, 
-                     color='blue'
-                     )
+         y_range = np.amax(self.upper) - np.amin(self.lower)
+         axis.set_xlim(limit_dict[plot_key1][0],
+                       limit_dict[plot_key1][1],
+                       auto=True)
+         axis.set_ylim(bottom=np.amin(self.lower)-0.1*y_range,
+                        top=np.amax(self.upper)+0.1*y_range,
+                        auto=True)
             
-            if z1 == 'predicted_output':
-               axis.fill_between(x=x1,
-                                 y1=self.upper,
-                                 y2=self.lower,
-                                 alpha=opacity,                       
-                                 label=fr"{self.CI_percent}% confidence interval",
-                                 color='blue'
-                                 )
-               y_range = np.amax(self.upper) - np.amin(self.lower)
-               axis.set_ylim(bottom=np.amin(self.lower)-0.1*y_range,
-                              top=np.amax(self.upper)+0.1*y_range,
-                              auto=True)
+         if plotting_grid_value==[0,0]:
+            if legend_outside == True:
+               leg = axis.legend(loc='upper left',
+                                 bbox_to_anchor=(1.02,1.0),
+                                 borderaxespad=0,
+                                 frameon=True,
+                                 ncol=1,
+                                 prop={'size': 10})
             else:
-               y_range = max_z1-min_z1
-               if not np.isclose(y_range, 0.0,rtol=1e-09, atol=0.0):
-                  axis.set_ylim(bottom=min_z1-0.1*y_range,
-                                 top=max_z1+0.1*y_range,
-                                 auto=True)
-            axis.legend(loc='upper right')
-            
-         if (z2 != None) and (z1 != None):
-            
-            axis2=axis.twinx()
-            axis2.set_ylabel(z2)
-            z2_vector = self.predicted_dataframe[z2]
-            
-            max_z2 = np.amax(z2_vector)
-            if show_max == True:
-               max_z2_i = np.squeeze(np.where(z2_vector == max_z2))
-               axis2.text(x1[max_z2_i], z2_vector[max_z2_i], f'{max_z2:.2f}', size=12, color='darkgreen')
-            
-            min_z2 = np.amin(z2_vector)
-            if show_min == True:
-               min_z2_i = np.squeeze(np.where(z2_vector == min_z2))
-               axis2.text(x1[min_z2_i], z2_vector[min_z2_i], f'{min_z2:.2f}', size=12, color='darkgreen')
-               
-            axis2.plot(x1, 
-                     z2_vector, 
-                     label=z2, 
-                     color='green'
-                     )
-            
-            if z2 == 'predicted_output':
-               axis2.fill_between(x=x1,
-                                 y1=self.upper,
-                                 y2=self.lower,
-                                 alpha=opacity,                       
-                                 label=fr"{self.CI_percent}% confidence interval",
-                                 color='green'
-                                 )
-               y_range = np.amax(self.upper) - np.amin(self.lower)
-               axis2.set_ylim(bottom=np.amin(self.lower)-0.1*y_range,
-                              top=np.amax(self.upper)+0.1*y_range,
-                              auto=True)
-            else:
-               if not np.isclose(y_range, 0.0,rtol=1e-09, atol=0.0):
-                  axis2.set_ylim(bottom=min_z2-0.1*y_range,
-                                 top=max_z2+0.1*y_range,
-                                 auto=True)
-            
-            axis2.legend(loc='upper left')
-            
-         # if plotting_grid_value==[0,0]:
-         #    if legend_outside == True:
-         #       leg = axis.legend(loc='upper left',
-         #                         bbox_to_anchor=(1.02,1.0),
-         #                         borderaxespad=0,
-         #                         frameon=True,
-         #                         ncol=1,
-         #                         prop={'size': 10})
-         #    else:
-         #       leg = axis.legend()
-         #    leg.set_draggable(state=True)
+               leg = axis.legend()
+            leg.set_draggable(state=True)
          
          if plotting_grid_value[0] == (grid_height-1):
             if (plot_key1 == 'M') or (plot_key1 == 'Co'):
@@ -584,26 +525,15 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                xlabel_string = '\\'+plot_key1
                axis.set_xlabel(fr"$ {xlabel_string} $")
                
-         # if plotting_grid_value[1] == 0:
-         #    if display_efficiency == True:
-         #       axis.set_ylabel('$ \\eta $')
-         #    else:
-         #       axis.set_ylabel('$ \\eta_{lost} $')
-            
-            
-         axis.set_xlim(limit_dict[plot_key1][0],
-                       limit_dict[plot_key1][1],
-                       auto=True)
-         
+         if plotting_grid_value[1] == 0:
+            if display_efficiency == True:
+               axis.set_ylabel('$ \\eta $')
+            else:
+               axis.set_ylabel('$ \\eta_{lost} $')
 
          axis.grid(linestyle = '--', linewidth = 0.5)
          
       elif dimensions == 2:
-         
-         if display_efficiency == True:
-            contour_textlabel = '\\eta'
-         else:
-            contour_textlabel = '\\eta_{lost}'
          
          min_level = np.floor(self.min_output/efficiency_step)*efficiency_step
          max_level = np.ceil(self.max_output/efficiency_step)*efficiency_step
@@ -612,40 +542,44 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          mean_prediction_grid = self.mean_prediction.reshape(num_points,num_points)
          upper_grid = self.upper.reshape(num_points,num_points)
          lower_grid = self.lower.reshape(num_points,num_points)
-
-         xvar,yvar=X1,X2
          
-         xvar_max,yvar_max=[],[]
-         for index in self.max_output_indices:
-            xvar_max.append(xvar.ravel()[index])
-            yvar_max.append(yvar.ravel()[index])
-            axis.text(xvar.ravel()[index], yvar.ravel()[index], f'{self.max_output:.2f}', size=12, color='darkgreen')
+         # if show_max == True:
+         #    max_i = np.squeeze(self.max_output_indices)
+         #    axis.text(X1.ravel()[max_i], X2.ravel()[max_i], f'{self.max_output:.2f}', size=12, color='dark'+cmap_colors[2])
+         #    axis.scatter(X1.ravel()[max_i], X2.ravel()[max_i],color=cmap_colors[2],marker='x')
+
+         # if show_min == True:
+         #    min_i = np.squeeze(self.min_output_indices)
+         #    axis.text(X1.ravel()[min_i], X2.ravel()[min_i], f'{self.min_output:.2f}', size=12, color='dark'+cmap_colors[0])
+         #    axis.scatter(X1.ravel()[min_i], X2.ravel()[min_i],color=cmap_colors[0],marker='x')
          
          if plot_training_points == True:
             training_points_plot = axis.scatter(x=self.input_array_train[plot_key1],
-                         y=self.input_array_train[plot_key2],
-                         marker='x',
-                         color='blue'
-                         )
+                                                y=self.input_array_train[plot_key2],
+                                                marker='x',
+                                                color='blue'
+                                                )
          
          if contour_type=='line':
-            predicted_plot = axis.contour(xvar, yvar, mean_prediction_grid,levels=contour_levels,cmap=efficiency_cmap,norm=cmap_norm)
+            predicted_plot = axis.contour(X1, X2, mean_prediction_grid,levels=contour_levels,cmap=efficiency_cmap,norm=cmap_norm)
             axis.clabel(predicted_plot, inline=1, fontsize=14)
-            for contour_level_index,contour_level in enumerate(contour_levels):
+            for contour_level_index,contour_level in enumerate(contour_levels):  #clear this up
 
                confidence_array = (upper_grid>=contour_level) & (lower_grid<=contour_level)
 
                contour_color = efficiency_cmap(cmap_norm(contour_level))
 
-               confidence_plot = axis.contourf(xvar,yvar,confidence_array, levels=[0.5, 2], alpha=opacity,cmap = mcol.ListedColormap([contour_color])) 
+               confidence_plot = axis.contourf(X1,X2,confidence_array, levels=[0.5, 2], alpha=opacity,cmap = mcol.ListedColormap([contour_color])) 
                h2,_ = confidence_plot.legend_elements()
                
          elif contour_type=='continuous':
-            predicted_plot = axis.contourf(xvar, yvar, mean_prediction_grid,cmap=efficiency_cmap,norm=cmap_norm,levels=contour_levels,extend='both')
+            predicted_plot = axis.contourf(X1, X2, mean_prediction_grid,cmap=efficiency_cmap,norm=cmap_norm,levels=contour_levels,extend='both')
+         
+         else:
+            sys.exit('Please specify "continuous" or "line" for contour_type')
             
          h1,_ = predicted_plot.legend_elements()
-         axis.scatter(xvar_max,yvar_max,color='green',marker='x')
-
+         
          if plotting_grid_value==[0,0]:
             
             if plot_training_points == True:
@@ -667,6 +601,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                else:
                   handles = [h1[0]]
                   labels = [fr'$ {contour_textlabel} $, Mean prediction']
+                  
             if legend_outside == True:
                leg = axis.legend(handles=handles,
                                  labels=labels,
@@ -706,14 +641,14 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          axis.grid(linestyle = '--', linewidth = 0.5)
           
       else:
-         print('INVALID')
+         sys.exit('Somehow wrong number of dimensions')
       
       if len(self.variables)>2:
          axis.set_title(fr'$ {plot_title} $',size=10)
       
       if plot_now == True:
          fig.suptitle(f'n = {self.no_points}')
-         # fig.tight_layout()
+         fig.tight_layout()
          plt.show()
       
    def plot_accuracy(self,
