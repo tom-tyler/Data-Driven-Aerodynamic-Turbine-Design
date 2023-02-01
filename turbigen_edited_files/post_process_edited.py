@@ -1,4 +1,3 @@
-# Call this script using
 # $ python post_process_example.py
 """Post process a steady Turbostream solution"""
 
@@ -31,6 +30,8 @@ def param(variable, section):
         return section.pstag_rel
     elif variable == 'T0rel':
         return section.tstag_rel
+    elif variable == 'rovx':
+        return section.rovx
     else:
         print(str(variable)+' not currently implimented')
     
@@ -77,8 +78,129 @@ def plot_contour_XT(variable,cut_height=0.5,num_levels = 11):
     plot_name = 'contour_'+variable+'.pdf'
     plt.savefig(os.path.join(plot_directory,plot_name))
     print('Plotted: ', variable)
+
+
     
+def loss_breakdown():
     
+    # Extract cut (r, rt) or (y, z) planes upstream and downstream of each row
+    (stator_in, stator_out), (rotor_in, rotor_out) = g.cut_rows()
+    
+
+    #get rovx for stator_out,rotor_in and rotor_out and plot these like
+    # how phi was plotted
+    
+    rovx = np.array(stator_out.rovx)
+    RT = np.array(stator_out.rt)
+    R = np.array(stator_out.r)
+    rt = RT[0,:]
+    r = R[:,0]
+    
+    rt_integral = np.trapz(rovx,rt,axis=1)
+    total_mdot = np.trapz(rt_integral,r,axis=0)
+    third_mdot = total_mdot/3
+    mdot = 0
+    r_low = 0
+    r_high = 0
+    r_hub = r[0]
+    r_tip = r[-1]
+    for i in range(len(r)-1):
+        mdot += 0.5*(r[i+1]-r[i])*(rt_integral[i]+rt_integral[i+1])
+        if (mdot > third_mdot) and (r_low==0):
+            r_low = r[i]
+        if (mdot > 2*third_mdot) and (r_high==0):
+            r_high = r[i]
+    print('r: ',r_hub,r_low,r_high,r_tip)
+            
+
+    fig, ax = plt.subplots()
+    hc = ax.contourf(
+        RT,
+        R,
+        rovx,
+        np.linspace(np.amin(rovx), np.amax(rovx), num_levels))
+    ax.axis("equal")
+    ax.set_xlim(np.amin(rt),np.amax(rt))
+    ax.set_ylim(np.amin(r),np.amax(r))
+    plt.colorbar(hc)
+    plot_name = "rovx_stator_out.pdf"
+    plt.savefig(os.path.join(plot_directory,plot_name))
+    print('Plotted: ', plot_name[:-4])
+    
+    rovx = np.array(rotor_in.rovx)
+    RT = np.array(rotor_in.rt)
+    R = np.array(rotor_in.r)
+    rt = RT[0,:]
+    r = R[:,0]
+    
+    rt_integral = np.trapz(rovx,rt,axis=1)
+    total_mdot = np.trapz(rt_integral,r,axis=0)
+    third_mdot = total_mdot/3
+    mdot = 0
+    r_low = 0
+    r_high = 0
+    r_hub = r[0]
+    r_tip = r[-1]
+    for i in range(len(r)-1):
+        mdot += 0.5*(r[i+1]-r[i])*(rt_integral[i]+rt_integral[i+1])
+        if (mdot > third_mdot) and (r_low==0):
+            r_low = r[i]
+        if (mdot > 2*third_mdot) and (r_high==0):
+            r_high = r[i]
+    print('r: ',r_hub,r_low,r_high,r_tip)
+            
+
+    fig, ax = plt.subplots()
+    hc = ax.contourf(
+        RT,
+        R,
+        rovx,
+        np.linspace(np.amin(rovx), np.amax(rovx), num_levels))
+    ax.axis("equal")
+    ax.set_xlim(np.amin(rt),np.amax(rt))
+    ax.set_ylim(np.amin(r),np.amax(r))
+    plt.colorbar(hc)
+    plot_name = "rovx_rotor_in.pdf"
+    plt.savefig(os.path.join(plot_directory,plot_name))
+    print('Plotted: ', plot_name[:-4])
+    
+    rovx = np.array(rotor_out.rovx)
+    RT = np.array(rotor_out.rt)
+    R = np.array(rotor_out.r)
+    rt = RT[0,:]
+    r = R[:,0]
+    
+    rt_integral = np.trapz(rovx,rt,axis=1)
+    total_mdot = np.trapz(rt_integral,r,axis=0)
+    third_mdot = total_mdot/3
+    mdot = 0
+    r_low = 0
+    r_high = 0
+    r_hub = r[0]
+    r_tip = r[-1]
+    for i in range(len(r)-1):
+        mdot += 0.5*(r[i+1]-r[i])*(rt_integral[i]+rt_integral[i+1])
+        if (mdot > third_mdot) and (r_low==0):
+            r_low = r[i]
+        if (mdot > 2*third_mdot) and (r_high==0):
+            r_high = r[i]
+    print('r: ',r_hub,r_low,r_high,r_tip)
+            
+
+    fig, ax = plt.subplots()
+    hc = ax.contourf(
+        RT,
+        R,
+        rovx,
+        np.linspace(np.amin(rovx), np.amax(rovx), num_levels))
+    ax.axis("equal")
+    ax.set_xlim(np.amin(rt),np.amax(rt))
+    ax.set_ylim(np.amin(r),np.amax(r))
+    plt.colorbar(hc)
+    plot_name = "rovx_rotor_out.pdf"
+    plt.savefig(os.path.join(plot_directory,plot_name))
+    print('Plotted: ', plot_name[:-4])
+
 
 # Load grid file manually by typing in runid
 datapoint_runid = str(input('Enter run id (e.g. 002803602529): '))
@@ -116,8 +238,8 @@ phi = stator_out.vx / rotor_in.mix_out().U
 # Make a contour plot of flow coefficient distribution
 fig, ax = plt.subplots()
 hc = ax.contourf(
-    stator_out.y,
-    stator_out.z,
+    stator_out.rt,
+    stator_out.r,
     phi,
     np.linspace(np.amin(phi), np.amax(phi), num_levels),
 )
@@ -156,5 +278,7 @@ plot_contour_XT('p0rel')
 plot_contour_XT('T')
 plot_contour_XT('T0')
 plot_contour_XT('T0rel')
+
+loss_breakdown()
 
 print('Figures stored in: ', plot_directory)
