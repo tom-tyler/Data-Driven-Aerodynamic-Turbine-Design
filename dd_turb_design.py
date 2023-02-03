@@ -1,19 +1,15 @@
-from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process import GaussianProcessRegressor, kernels
+from sklearn.metrics import mean_squared_error
+import sklearn.preprocessing as pre
 import numpy as np
 import pandas as pd
-from sklearn.metrics import mean_squared_error
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-from operator import countOf
 import scipy.stats as st
-from sklearn.gaussian_process import kernels
-from collections import OrderedDict
-import os
-import matplotlib.colors as mcol
-import sklearn.preprocessing as pre
-import compflow_native as compflow
-import warnings
 import scipy.optimize as sciop
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcol
+from collections import OrderedDict
+import compflow_native as compflow
+import os
 import sys
 
 def read_in_data(dataset='all',
@@ -159,7 +155,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                 noise_bounds=(1e-8,1e-1),
                 nu='optimise',
                 normalize_y=False,           #seems to make things worse if normalize_y=True
-                scale_name='minmax',
+                scale_name=None,
                 ):
       
       if variables==None:
@@ -473,6 +469,20 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                    display_efficiency=display_efficiency,
                    CI_percent=CI_percent)
             
+      if plot_actual_data == True:
+            # filter by factor% error
+            lower_factor = 1 - plot_actual_data_filter_factor/100
+            upper_factor = 1 + plot_actual_data_filter_factor/100
+            actual_data_df = pd.concat([self.input_array_train.copy(),self.output_array_train.copy()],axis=1)
+            
+            for constant_key in constants_check:
+               val = constant_value[constant_key]
+               actual_data_df = actual_data_df[actual_data_df[constant_key] < upper_factor*val]
+               actual_data_df = actual_data_df[actual_data_df[constant_key] > lower_factor*val]
+
+            if display_efficiency==True:
+               actual_data_df[self.output_key] = (1 - actual_data_df[self.output_key])*100
+            
       if dimensions == 1:
          
          if plot_training_points == True:
@@ -490,30 +500,30 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             min_i = np.squeeze(self.min_output_indices)
             axis.text(plot_dataframe[plot_key1][min_i], self.mean_prediction[min_i], f'{self.min_output:.2f}', size=12, color='darkblue')
 
-         if plot_actual_data == True:
-            # filter by factor% error
-            lower_factor = 1 - plot_actual_data_filter_factor/100
-            upper_factor = 1 + plot_actual_data_filter_factor/100
-            actual_data_df = pd.concat([self.input_array_train.copy(),self.output_array_train.copy()],axis=1)
-            
-            for constant_key in constants_check:
-               val = constant_value[constant_key]
-               print('key=',constant_key,'   val=',val)
+         if plot_actual_data==True:
                
-               actual_data_df = actual_data_df[actual_data_df[constant_key] < upper_factor*val]
-               print(actual_data_df.shape)
-               actual_data_df = actual_data_df[actual_data_df[constant_key] > lower_factor*val]
-               print(actual_data_df.shape)
-            print('=====')
-            print(actual_data_df[plot_key1])
-            print(actual_data_df[self.output_key])
-            if display_efficiency==True:
-               actual_data_df[self.output_key] = (1 - actual_data_df[self.output_key])*100
+            poly_degree = int(0.25*actual_data_df.shape[0])
+            if poly_degree > 4:
+               poly_degree = 4
+               
+            coefs = np.polynomial.polynomial.polyfit(x=actual_data_df[plot_key1],
+                                                     y=actual_data_df[self.output_key],
+                                                     deg=poly_degree)
+
+            fit_function = np.polynomial.polynomial.Polynomial(coefs)    # instead of np.poly1d
+
+            x_actual_fit = np.linspace(np.min(actual_data_df[plot_key1]),np.max(actual_data_df[plot_key1]),50)
+            y_actual_fit = fit_function(x_actual_fit)
+               
             axis.scatter(actual_data_df[plot_key1],
                       actual_data_df[self.output_key],
-                      label=r'Curve from actual data',
-                      color='green',
+                      color='darkorange',
                       marker='x')
+            axis.plot(x_actual_fit,
+                      y_actual_fit,
+                      label=r'Polynomial curve from actual data',
+                      color='orange',
+                      zorder=1e3)
          
          axis.plot(plot_dataframe[plot_key1], 
                    self.mean_prediction, 
@@ -808,7 +818,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             show_max=True,
             show_min=False,
             state_no_points=False,
-            plot_actual_data=False
+            plot_actual_data=False,
+            plot_actual_data_filter_factor=15
             ):
 
       grid_constants=self.variables.copy()
@@ -893,7 +904,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                         show_max=show_max,
                         show_min=show_min,
                         state_no_points=state_no_points,
-                        plot_actual_data=plot_actual_data
+                        plot_actual_data=plot_actual_data,
+                        plot_actual_data_filter_factor=plot_actual_data_filter_factor
                         )
 
       if (num_columns>1) or (num_rows>1):
