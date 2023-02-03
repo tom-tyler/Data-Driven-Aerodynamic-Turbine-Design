@@ -34,7 +34,7 @@ def read_in_data(dataset='all',
          if data_name[:15] != '5D_turbine_data':
             continue
       elif dataset=='4D only':
-         if data_name[:7] != '4D_data':
+         if (data_name[:7] != '4D_data'):
             continue
       elif dataset=='2D only':
          if data_name[:15] != '2D_phi_psi_data':
@@ -370,7 +370,9 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                  contour_type='line',
                  show_max=True,
                  show_min=False,
-                 state_no_points=False
+                 state_no_points=False,
+                 plot_actual_data=False,
+                 plot_actual_data_filter_factor=15
                  ):
       
       if axis == None:
@@ -487,7 +489,32 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          if show_min == True:
             min_i = np.squeeze(self.min_output_indices)
             axis.text(plot_dataframe[plot_key1][min_i], self.mean_prediction[min_i], f'{self.min_output:.2f}', size=12, color='darkblue')
-      
+
+         if plot_actual_data == True:
+            # filter by factor% error
+            lower_factor = 1 - plot_actual_data_filter_factor/100
+            upper_factor = 1 + plot_actual_data_filter_factor/100
+            actual_data_df = pd.concat([self.input_array_train.copy(),self.output_array_train.copy()],axis=1)
+            
+            for constant_key in constants_check:
+               val = constant_value[constant_key]
+               print('key=',constant_key,'   val=',val)
+               
+               actual_data_df = actual_data_df[actual_data_df[constant_key] < upper_factor*val]
+               print(actual_data_df.shape)
+               actual_data_df = actual_data_df[actual_data_df[constant_key] > lower_factor*val]
+               print(actual_data_df.shape)
+            print('=====')
+            print(actual_data_df[plot_key1])
+            print(actual_data_df[self.output_key])
+            if display_efficiency==True:
+               actual_data_df[self.output_key] = (1 - actual_data_df[self.output_key])*100
+            axis.scatter(actual_data_df[plot_key1],
+                      actual_data_df[self.output_key],
+                      label=r'Curve from actual data',
+                      color='green',
+                      marker='x')
+         
          axis.plot(plot_dataframe[plot_key1], 
                    self.mean_prediction, 
                    label=r'Mean prediction', 
@@ -762,8 +789,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          plt.show()
       
    def plot(self,
-            x1,
-            x2,
+            x1=None,
+            x2=None,
             constants='mean',          # form: {'M':0.5,'Co':0.5}
             gridvars={},               # form: {'M':[0.5,0.6,0.7],'Co:[0.6,0.7]}
             rotate_grid=False,
@@ -779,7 +806,9 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             legend_outside=False,
             contour_type='line',
             show_max=True,
-            show_min=False
+            show_min=False,
+            state_no_points=False,
+            plot_actual_data=False
             ):
 
       grid_constants=self.variables.copy()
@@ -862,7 +891,9 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                         legend_outside=legend_outside,
                         contour_type=contour_type,
                         show_max=show_max,
-                        show_min=show_min
+                        show_min=show_min,
+                        state_no_points=state_no_points,
+                        plot_actual_data=plot_actual_data
                         )
 
       if (num_columns>1) or (num_rows>1):

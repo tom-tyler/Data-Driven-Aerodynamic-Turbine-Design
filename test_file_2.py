@@ -11,7 +11,8 @@ traindf,testdf = split_data(data,
                             fraction_training=1.0)
 
 fit = fit_data(training_dataframe=traindf,
-               variables=['phi','psi','M2','Co'])
+               variables=['phi','psi','M2','Co'],
+               scale_name='minmax')
 
 print(fit.optimised_kernel)
 
@@ -26,9 +27,12 @@ print(fit.optimised_kernel)
 #                   identify_outliers=True,
 #                   plot_errorbars=True)
 
-fit.plot(x1='Co',
-         x2='psi',
-         num_points=400)
+fit.plot(x1='phi',
+         num_points=500,
+         constants={'M2':0.694,
+                    'Co':0.583,
+                    'psi':1.6},
+         plot_actual_data=True)
 
 # print(dim_2_non_dim(shaft_power=20e6,
 #                     stagnation_pressure_ratio=2.0,
