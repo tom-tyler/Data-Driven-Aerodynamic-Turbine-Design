@@ -156,6 +156,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                 nu='optimise',
                 normalize_y=False,           #seems to make things worse if normalize_y=True
                 scale_name=None,
+                extra_variable_options=False
                 ):
       
       if variables==None:
@@ -176,6 +177,19 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                                          noise_level_bounds=noise_bounds)
 
       kernel_form = self.matern_kernel(len(variables),bounds=length_bounds) + noise_kernel
+      
+      if extra_variable_options==True:
+         training_dataframe = extra_nondim_params(training_dataframe)
+         self.scale_name=None
+         
+         # Currently, this is overcomplicated as it iterates over 
+         # alpha to be able to use Lambda as an input. However, we already have 
+         # alpha in large initially dataset, so this could be improved.
+         
+         # This version of the function is not useless though, as 'trained' the '
+         # predicted' dataset does not have alpha 3 value in it, so maybe this could be used later.
+         # However, need to think about which values have been fixed etc before being able to do this 
+         # as constants are not the same any more
       
       if self.scale_name == 'standard':
          self.scale = pre.StandardScaler()
@@ -232,8 +246,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                include_output=False,
                display_efficiency=True,
                CI_in_dataframe=False,
-               CI_percent=95,
-               bonus_variables=False
+               CI_percent=95
                ):
       
       dataframe = drop_columns(dataframe,self.variables,self.output_key)
@@ -267,7 +280,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          elif self.scale_name == 'robust':
             self.mean_prediction = mean_scaled * self.scale.scale_[-1] + self.scale.center_[-1]
             self.std_prediction = std_scaled * self.scale.scale_[-1]
-            pre.MinMaxScaler()
          elif self.scale_name == 'minmax':
             self.mean_prediction = (mean_scaled - self.scale.min_[-1])/self.scale.scale_[-1]
             self.std_prediction = std_scaled/self.scale.scale_[-1]
@@ -315,9 +327,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       
       self.max_output = np.amax(self.mean_prediction)
       self.max_output_indices = np.where(self.mean_prediction == self.max_output)
-      
-      if bonus_variables == True:
-         self.predicted_dataframe = nondim_stage_from_Lam(self.predicted_dataframe)
       
       return self.predicted_dataframe
       
@@ -368,7 +377,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                  show_min=False,
                  state_no_points=False,
                  plot_actual_data=False,
-                 plot_actual_data_filter_factor=15
+                 plot_actual_data_filter_factor=5,
+                 show_actual_with_model=True
                  ):
       
       if axis == None:
@@ -443,11 +453,11 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                constant_value[constant_key] = constants[constant_key]
                
       for constant_key in constants_check:
-         if (constant_key == 'M2') or (constant_key == 'Co'):
-            plot_title += f'{constant_key} = {constant_value[constant_key]:.3f}'
+         if constant_key in ['phi','psi','Lambda']:
+            plot_title += '\\' + f'{constant_key} = {constant_value[constant_key]:.3f}'
             plot_title += '\; '*title_variable_spacing
          else:
-            plot_title += '\\' + f'{constant_key} = {constant_value[constant_key]:.3f}'
+            plot_title += f'{constant_key} = {constant_value[constant_key]:.3f}'
             plot_title += '\; '*title_variable_spacing
       
       plot_dataframe = drop_columns(plot_dataframe,self.variables,self.output_key)
@@ -502,9 +512,9 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
 
          if plot_actual_data==True:
                
-            poly_degree = int(0.25*actual_data_df.shape[0])
-            if poly_degree > 4:
-               poly_degree = 4
+            poly_degree = int(0.75*actual_data_df.shape[0])
+            if poly_degree > 3:
+               poly_degree = 3
                
             coefs = np.polynomial.polynomial.polyfit(x=actual_data_df[plot_key1],
                                                      y=actual_data_df[self.output_key],
@@ -524,28 +534,30 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                       label=r'Polynomial curve from actual data',
                       color='orange',
                       zorder=1e3)
-         
-         axis.plot(plot_dataframe[plot_key1], 
-                   self.mean_prediction, 
-                   label=r'Mean prediction', 
-                   color='blue'
-                   )
-         
-         axis.fill_between(x=plot_dataframe[plot_key1],
-                           y1=self.upper,
-                           y2=self.lower,
-                           alpha=opacity,                       
-                           label=fr"{self.CI_percent}% confidence interval",
-                           color='blue'
-                           )
-         
-         y_range = np.amax(self.upper) - np.amin(self.lower)
-         axis.set_xlim(limit_dict[plot_key1][0],
-                       limit_dict[plot_key1][1],
-                       auto=True)
-         axis.set_ylim(bottom=np.amin(self.lower)-0.1*y_range,
-                        top=np.amax(self.upper)+0.1*y_range,
+            
+         if show_actual_with_model == True:
+            
+            axis.plot(plot_dataframe[plot_key1], 
+                     self.mean_prediction, 
+                     label=r'Mean prediction', 
+                     color='blue'
+                     )
+            
+            axis.fill_between(x=plot_dataframe[plot_key1],
+                              y1=self.upper,
+                              y2=self.lower,
+                              alpha=opacity,                       
+                              label=fr"{self.CI_percent}% confidence interval",
+                              color='blue'
+                              )
+            
+            y_range = np.amax(self.upper) - np.amin(self.lower)
+            axis.set_xlim(limit_dict[plot_key1][0],
+                        limit_dict[plot_key1][1],
                         auto=True)
+            axis.set_ylim(bottom=np.amin(self.lower)-0.1*y_range,
+                           top=np.amax(self.upper)+0.1*y_range,
+                           auto=True)
             
          if plotting_grid_value==[0,0]:
             if legend_outside == True:
@@ -560,11 +572,11 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             leg.set_draggable(state=True)
          
          if plotting_grid_value[0] == (grid_height-1):
-            if (plot_key1 == 'M2') or (plot_key1 == 'Co'):
-               axis.set_xlabel(fr"${plot_key1}$")
-            else:
+            if plot_key1 in ['phi','psi','Lambda']:
                xlabel_string = '\\'+plot_key1
                axis.set_xlabel(fr"$ {xlabel_string} $")
+            else:
+               axis.set_xlabel(fr"${plot_key1}$")
                
          if plotting_grid_value[1] == 0:
             if display_efficiency == True:
@@ -659,18 +671,18 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             leg.set_draggable(state=True)
          
          if plotting_grid_value[0] == (grid_height-1):
-            if (plot_key1 == 'M2') or (plot_key1 == 'Co'):
-               axis.set_xlabel(f"${plot_key1}$")
-            else:
+            if plot_key1 in ['phi','psi','Lambda']:
                xlabel_string1 = '\\'+plot_key1
                axis.set_xlabel(fr"$ {xlabel_string1} $")
+            else:
+               axis.set_xlabel(f"${plot_key1}$")
          
          if plotting_grid_value[1] == 0:
-            if (plot_key2 == 'M2') or (plot_key2 == 'Co'):
-               axis.set_ylabel(f"${plot_key2}$")
-            else:
+            if plot_key2 in ['phi','psi','Lambda']:
                xlabel_string2 = '\\'+plot_key2
                axis.set_ylabel(fr"$ {xlabel_string2} $")
+            else:
+               axis.set_ylabel(f"${plot_key2}$")
          
          axis.set_xlim(limit_dict[plot_key1][0],
                        limit_dict[plot_key1][1],
@@ -733,17 +745,17 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             newline=' $\n$ '
             for col_index,col in enumerate(outliers):
                
-               if (col == 'M2') or (col == 'Co'):
+               if col in ['phi','psi','Lambda']:
+                  if (col_index%2==0) and (col_index!=0):
+                     value_string += newline
+                  value_string += '\\' + f'{col}={row[col]:.3f}'
+                  value_string += '\; '*title_variable_spacing
+               else:
                   if (col_index%2==0) and (col_index!=0):
                      value_string += newline
                   value_string += f'{col}={row[col]:.3f}'
                   value_string += '\; '*title_variable_spacing
                   
-               elif (col == 'phi') or (col == 'psi') or (col == 'Lambda'):
-                  if (col_index%2==0) and (col_index!=0):
-                     value_string += newline
-                  value_string += '\\' + f'{col}={row[col]:.3f}'
-                  value_string += '\; '*title_variable_spacing
                
             ax.scatter(row['actual_output'], row['predicted_output'],color='blue',marker=f'${row_index}$',s=160,label=fr'$ runID={row["runid"]:.0f} $',linewidths=0.1)
       
@@ -819,7 +831,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             show_min=False,
             state_no_points=False,
             plot_actual_data=False,
-            plot_actual_data_filter_factor=15
+            plot_actual_data_filter_factor=5,
+            show_actual_with_model=True
             ):
 
       grid_constants=self.variables.copy()
@@ -905,36 +918,37 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                         show_min=show_min,
                         state_no_points=state_no_points,
                         plot_actual_data=plot_actual_data,
-                        plot_actual_data_filter_factor=plot_actual_data_filter_factor
+                        plot_actual_data_filter_factor=plot_actual_data_filter_factor,
+                        show_actual_with_model=show_actual_with_model
                         )
 
       if (num_columns>1) or (num_rows>1):
          if with_arrows==True:
             if num_columns >1:
-               if (grid_keys[1] == 'M2') or (grid_keys[1] == 'Co'):
-                  fig.supxlabel(f"$ {grid_keys[1]} \\rightarrow $")
-               else:
+               if grid_keys[1] in ['phi','psi','Lambda']:
                   xlabel_string1 = '\\'+grid_keys[1]+' \\rightarrow'
                   fig.supxlabel(fr"$ {xlabel_string1} $")
-            if num_rows >1:
-               if (grid_keys[0] == 'M2') or (grid_keys[0] == 'Co'):
-                  fig.supylabel(f"$\\leftarrow {grid_keys[0]} $")
                else:
+                  fig.supxlabel(f"$ {grid_keys[1]} \\rightarrow $")
+            if num_rows >1:
+               if grid_keys[0] in ['phi','psi','Lambda']:
                   xlabel_string2 = '\\leftarrow \\'+grid_keys[0]
                   fig.supylabel(fr"$ {xlabel_string2} $")
+               else:
+                  fig.supylabel(f"$\\leftarrow {grid_keys[0]} $")
          else:
             if num_columns >1:
-               if (grid_keys[1] == 'M2') or (grid_keys[1] == 'Co'):
-                  fig.supxlabel(f"${grid_keys[1]} $")
-               else:
+               if grid_keys[1] in ['phi','psi','Lambda']:
                   xlabel_string1 = '\\'+grid_keys[1]
                   fig.supxlabel(fr"$ {xlabel_string1} $")
-            if num_rows >1:   
-               if (grid_keys[0] == 'M2') or (grid_keys[0] == 'Co'):
-                  fig.supylabel(f"${grid_keys[0]} $")
                else:
+                  fig.supxlabel(f"${grid_keys[1]} $")
+            if num_rows >1:   
+               if grid_keys[0] in ['phi','psi','Lambda']:
                   xlabel_string2 = '\\'+grid_keys[0]
                   fig.supylabel(fr"$ {xlabel_string2} $")
+               else:
+                  fig.supylabel(f"${grid_keys[0]} $")
 
       plt.show()
       
@@ -951,7 +965,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                             nu=2.5
                             )
 
-def dim_2_non_dim(shaft_power=25e6,
+def dim_2_nondim(shaft_power=25e6,
                   stagnation_pressure_ratio=1.5,
                   blade_number=40,
                   turbine_diameter=1.6,
@@ -1045,26 +1059,38 @@ def dim_2_non_dim(shaft_power=25e6,
    
    return [phi,psi,Lambda,M2,Co]
    
-def nondim_stage_from_Lam(dataframe):
+def extra_nondim_params(dataframe, iterate=False):
       
    def vars_from_Al(x,index,df,iterating=False):
 
-      phi = df.loc[index,'phi']                   # Flow coefficient [--]
-      psi = df.loc[index,'psi']                   # Stage loading coefficient [--]
-      Al13 = (0.0,x)                                     # Yaw angles [deg]
-      Ma2 = df.loc[index,'M2']                     # Vane exit Mach number [--]
-      ga = 1.33                                          # Ratio of specific heats [--]
-      eta = 1.0 - df.loc[index,'eta_lost']        # Polytropic efficiency [--]
-      loss_ratio=0.4
+      if iterating==True:
+         Al13 = (0.0,x)                            
+         loss_ratio=0.4
+         zeta_stator=1
+         zeta_rotor=1
+      else:                          
+         loss_ratio=df.loc[index,'loss_rat']  
+         zeta_stator=df.loc[index,'zeta_stator']  
+         zeta_rotor=df.loc[index,'zeta_rotor']  
       
-      # Get absolute flow angles using Euler work eqn
-      tanAl2 = (np.tan(np.radians(Al13[1])) + psi / phi)
-      Al2 = np.degrees(np.arctan(tanAl2))
-      Al = np.insert(Al13, 1, Al2)
+      phi = df.loc[index,'phi']                
+      psi = df.loc[index,'psi']          
+      Ma2 = df.loc[index,'M2']                  
+      ga = 1.33                          
+      
+      if iterating==True:
+         # Get absolute flow angles using Euler work eqn
+         tanAl2 = (np.tan(np.radians(Al13[1]))*zeta_rotor + psi / phi)
+         Al2 = np.degrees(np.arctan(tanAl2))
+         Al = np.insert(Al13, 1, Al2)
+      else:
+         Al2 = np.mean([df.loc[index,'Al2a'],df.loc[index,'Al2b']])
+         Al = np.array([df.loc[index,'Al1'], Al2, df.loc[index,'Al3']])
+         
       cosAl = np.cos(np.radians(Al))
       
       # Get non-dimensional velocities from definition of flow coefficient
-      Vx_U1,Vx_U2,Vx_U3 = phi, phi, phi
+      Vx_U1,Vx_U2,Vx_U3 = phi*zeta_stator, phi, phi*zeta_rotor
       Vx_U = np.array([Vx_U1,Vx_U2,Vx_U3])
       Vt_U = Vx_U * np.tan(np.radians(Al))
       V_U = np.sqrt(Vx_U ** 2.0 + Vt_U ** 2.0)
@@ -1095,7 +1121,7 @@ def nondim_stage_from_Lam(dataframe):
 
       # Use polytropic effy to get entropy change
       To_To1 = cpTo_Usq / cpTo_Usq[0]
-      Ds_cp = -(1.0 - 1.0 / eta) * np.log(To_To1[-1])
+      Ds_cp = -(1.0 - 1.0 / (1.0 - df.loc[index,'eta_lost'] )) * np.log(To_To1[-1])
 
       # Somewhat arbitrarily, split loss using loss ratio (default 0.5)
       s_cp = np.hstack((0.0, loss_ratio, 1.0)) * Ds_cp
@@ -1146,51 +1172,42 @@ def nondim_stage_from_Lam(dataframe):
    
    for index, row in dataframe.iterrows():
 
-      # Solving for Lam in general is tricky
-      # Our strategy is to map out a coarse curve first, pick a point
-      # close to the desired reaction, then Newton iterate
+      if iterate==True:
+         # Solving for Lam in general is tricky
+         # Our strategy is to map out a coarse curve first, pick a point
+         # close to the desired reaction, then Newton iterate
 
-      # Evaluate guesses over entire possible yaw angle range
-      Al_guess = np.linspace(-89.0, 89.0, 21)
-      Lam_guess = np.zeros_like(Al_guess)
+         # Evaluate guesses over entire possible yaw angle range
+         Al_guess = np.linspace(-89.0, 89.0, 21)
+         Lam_guess = np.zeros_like(Al_guess)
 
-      # Catch errors if this guess of angle is horrible/non-physical
-      for i in range(len(Al_guess)):
-         with np.errstate(invalid="ignore"):
-            try:
-                  Lam_guess[i] = iter_Al(Al_guess[i])
-            except (ValueError, FloatingPointError):
-                  Lam_guess[i] = np.nan
+         # Catch errors if this guess of angle is horrible/non-physical
+         for i in range(len(Al_guess)):
+            with np.errstate(invalid="ignore"):
+               try:
+                     Lam_guess[i] = iter_Al(Al_guess[i])
+               except (ValueError, FloatingPointError):
+                     Lam_guess[i] = np.nan
 
-      # Remove invalid values
-      Al_guess = Al_guess[~np.isnan(Lam_guess)]
-      Lam_guess = Lam_guess[~np.isnan(Lam_guess)]
+         # Remove invalid values
+         Al_guess = Al_guess[~np.isnan(Lam_guess)]
+         Lam_guess = Lam_guess[~np.isnan(Lam_guess)]
 
-      # Trim to the region between minimum and maximum reaction
-      # Now the slope will be monotonic
-      i1, i2 = np.argmax(Lam_guess), np.argmin(Lam_guess)
-      Al_guess, Lam_guess = Al_guess[i1:i2], Lam_guess[i1:i2]
+         # Trim to the region between minimum and maximum reaction
+         # Now the slope will be monotonic
+         i1, i2 = np.argmax(Lam_guess), np.argmin(Lam_guess)
+         Al_guess, Lam_guess = Al_guess[i1:i2], Lam_guess[i1:i2]
 
-      # Start the Newton iteration at minimum error point
-      i0 = np.argmin(np.abs(Lam_guess))
-      Al_soln = sciop.newton(iter_Al, 
-                             x0=Al_guess[i0], 
-                             x1=Al_guess[i0 - 1]
-                             )
-      # # Catch the warning from scipy that derivatives are zero
-      # with warnings.catch_warnings():
-      #    warnings.filterwarnings("error")
-      #    try:
-      #       Al_soln = sciop.newton(
-      #             iter_Al, x0=Al_guess[i0], x1=Al_guess[i0 - 1]
-      #       )
-      #    except:
-      #       print("scipy warns derivatives are zero.")
-      #       print("debug info..")
-      #       print("Al_guess", Al_guess[i0], Al_guess[i0 - 1.0])
-      #       print("Lam errors", iter_Al[i0 : (i0 + 2)])
-      #       print("Al_soln", Al_soln)
+         # Start the Newton iteration at minimum error point
+         i0 = np.argmin(np.abs(Lam_guess))
+         Al_soln = sciop.newton(iter_Al, 
+                              x0=Al_guess[i0], 
+                              x1=Al_guess[i0 - 1]
+                              )
+         
+         vars_from_Al(Al_soln,index,dataframe)
       
-      vars_from_Al(Al_soln,index,dataframe)
+      else:
+         dataframe = vars_from_Al(None,index,dataframe)
 
    return dataframe

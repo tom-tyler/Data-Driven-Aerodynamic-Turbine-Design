@@ -1,4 +1,4 @@
-from dd_turb_design import fit_data, read_in_data, split_data, dim_2_non_dim
+from dd_turb_design import fit_data, read_in_data, split_data, dim_2_nondim
 import time
 import numpy as np
 # t1 = time.time()
@@ -11,7 +11,7 @@ traindf,testdf = split_data(data,
                             fraction_training=1.0)
 
 fit = fit_data(training_dataframe=traindf,
-               variables=['phi','psi','M2','Co'])
+               variables=['M2','psi','Co','phi'])
 
 print(fit.optimised_kernel)
 
@@ -26,12 +26,24 @@ print(fit.optimised_kernel)
 #                   identify_outliers=True,
 #                   plot_errorbars=True)
 
-fit.plot(x1='M2',
-         num_points=500,
-         constants='mean',
-         plot_actual_data=True,
-         plot_actual_data_filter_factor=10)
+# fit.plot(x1='Co',
+#          gridvars={'phi':[0.5,0.8,1.1]},
+#          rotate_grid=True,
+#          num_points=500,
+#          constants={'M2':0.7,
+#                     'psi':1.8},
+#          plot_actual_data=True,
+#          show_actual_with_model=False)
 
-# print(dim_2_non_dim(shaft_power=20e6,
+fit.plot(x1='Co',
+         gridvars={'psi':[1.2,1.6,2.0]},
+         rotate_grid=True,
+         num_points=500,
+         constants={'M2':0.7,
+                    'phi':0.8},
+         plot_actual_data=True,
+         show_actual_with_model=False)
+
+# print(dim_2_nondim(shaft_power=20e6,
 #                     stagnation_pressure_ratio=2.0,
 #                     blade_number=40))
