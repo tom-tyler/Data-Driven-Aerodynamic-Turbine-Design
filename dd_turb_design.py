@@ -18,7 +18,8 @@ import sys
 
 def read_in_data(dataset='all',
                  path='Data Complete',
-                 factor=5
+                 factor=5,
+                 state_retention_statistics=False
                  ):
    
    dataframe_dict = {}
@@ -122,7 +123,8 @@ def read_in_data(dataset='all',
       
       dataframe_dict[data_name] = df
 
-   # print(f'n_before = {n_before}\nn_after = {n_after}\n%retained = {n_after/n_before*100:.2f} %')
+   if state_retention_statistics==True:
+      print(f'n_before = {n_before}\nn_after = {n_after}\n%retained = {n_after/n_before*100:.2f} %')
    dataframe_list = dataframe_dict.values()   
    data = pd.concat(dataframe_list,ignore_index=True)
 
@@ -161,9 +163,9 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                 ):
       
       if variables==None:
-         print('Please state variable to fit over.')
+         sys.exit('Please state variable to fit over.')
       elif output_key==None:
-         print('Please state output to fit to.')
+         sys.exit('Please state output to fit to.')
       
       self.number_of_restarts = number_of_restarts
       self.noise_magnitude = noise_magnitude
@@ -188,8 +190,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       elif self.scale_name == None:
          pass
       else:
-         print('INVALID SCALE NAME')
-         quit()
+         sys.exit('INVALID SCALE NAME')
       
       training_dataframe = drop_columns(training_dataframe,variables,output_key)
 
@@ -275,7 +276,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             self.mean_prediction = (mean_scaled - self.scale.min_[-1])/self.scale.scale_[-1]
             self.std_prediction = std_scaled/self.scale.scale_[-1]
          else:
-            print('SCALE?')
+            sys.exit('Incorrect scale?')
          if include_output == True:
             self.input_array_test = dataframe.drop(columns=[self.output_key])
             self.output_array_test = dataframe[self.output_key]
@@ -368,7 +369,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                  legend_outside=False,
                  contour_type='line',
                  show_max=True,
-                 show_min=False
+                 show_min=False,
+                 state_no_points=False
                  ):
       
       if axis == None:
@@ -401,8 +403,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          limit_dict = self.limit_dict
       
       plot_title = ' '
-      
-      # var_dict_full = {'phi':phi,'psi':psi,'Lambda':Lambda,'M2':M2,'Co':Co}
 
       constants_check=self.variables.copy()
                     
@@ -651,7 +651,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          axis.set_title(fr'$ {plot_title} $',size=10)
       
       if plot_now == True:
-         # fig.suptitle(f'n = {self.no_points}')
+         if state_no_points==True:
+            fig.suptitle(f'n = {self.no_points}')
          fig.tight_layout()
          plt.show()
       

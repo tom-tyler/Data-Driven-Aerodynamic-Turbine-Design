@@ -4,7 +4,7 @@ import numpy as np
 # t1 = time.time()
 # print("--- %s seconds ---" % (time.time() - t1))
 
-data = read_in_data('4D only')
+data = read_in_data('4D',state_retention_statistics=True)
 
 traindf,testdf = split_data(data,
                             random_seed_state=0,
@@ -26,10 +26,10 @@ print(fit.optimised_kernel)
 #                   identify_outliers=True,
 #                   plot_errorbars=True)
 
-# fit.plot(x1='phi',
-#          x2='psi',
-#          num_points=400)
+fit.plot(x1='Co',
+         x2='psi',
+         num_points=400)
 
-print(dim_2_non_dim(shaft_power=20e6,
-                    stagnation_pressure_ratio=2.0,
-                    blade_number=40))
+# print(dim_2_non_dim(shaft_power=20e6,
+#                     stagnation_pressure_ratio=2.0,
+#                     blade_number=40))
