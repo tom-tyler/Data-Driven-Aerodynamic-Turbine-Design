@@ -1,23 +1,23 @@
 from dd_turb_design import fit_data, read_in_data, split_data, dim_2_nondim
 import time
 import numpy as np
+import pandas as pd
 # t1 = time.time()
 # print("--- %s seconds ---" % (time.time() - t1))
 
-data = read_in_data('4D',state_retention_statistics=True)
+data = read_in_data(state_retention_statistics=True,
+                    ignore_incomplete=True)
 
 traindf,testdf = split_data(data,
                             random_seed_state=0,
                             fraction_training=1.0)
 
 fit = fit_data(training_dataframe=traindf,
-               variables=['M2','psi','Co','phi'])
+               variables=['phi','psi','Po3_Po1','Co'],
+               extra_variable_options=True)
 
 print(fit.optimised_kernel)
-
-# print(nondim_stage_from_Lam(data))
-
-# print(fit.find_global_max_min_values())
+# print(fit.scale)
 
 # fit.plot_accuracy(testing_dataframe=testdf,
 #                   line_error_percent=10,
@@ -25,25 +25,15 @@ print(fit.optimised_kernel)
 #                   display_efficiency=False,
 #                   identify_outliers=True,
 #                   plot_errorbars=True)
-
-# fit.plot(x1='Co',
-#          gridvars={'phi':[0.5,0.8,1.1]},
-#          rotate_grid=True,
-#          num_points=500,
-#          constants={'M2':0.7,
-#                     'psi':1.8},
-#          plot_actual_data=True,
-#          show_actual_with_model=False)
-
-fit.plot(x1='Co',
-         gridvars={'psi':[1.2,1.6,2.0]},
-         rotate_grid=True,
+fit.plot(x1='Po3_Po1',
+         gridvars={},
          num_points=500,
-         constants={'M2':0.7,
-                    'phi':0.8},
-         plot_actual_data=True,
-         show_actual_with_model=False)
+         state_no_points=True)
 
-# print(dim_2_nondim(shaft_power=20e6,
-#                     stagnation_pressure_ratio=2.0,
-#                     blade_number=40))
+
+# The culprit of bug is fitted_function
+# robust scaling seemed to fix it
+
+#need to fix limits of 1D plots with confidence intervals
+
+#need to fix scaling

@@ -12,10 +12,11 @@ import compflow_native as compflow
 import os
 import sys
 
-def read_in_data(dataset='all',
+def read_in_data(dataset='4D',
                  path='Data Complete',
                  factor=5,
-                 state_retention_statistics=False
+                 state_retention_statistics=False,
+                 ignore_incomplete=False
                  ):
    
    dataframe_dict = {}
@@ -44,7 +45,7 @@ def read_in_data(dataset='all',
       filepath = os.path.join(path, filename)
       df = pd.read_csv(filepath)
 
-      if path == 'Data Complete':
+      if df.shape[1] == 20:
          df.columns=["phi",
                      "psi", 
                      "Lambda", 
@@ -66,26 +67,55 @@ def read_in_data(dataset='all',
                      'Al2b',
                      'Al3']
          
-      elif path == 'Data':
-         if df.shape[1] == 6:
-            df.columns=["phi",
+      elif df.shape[1] == 6:
+         df.columns=["phi",
+                  "psi", 
+                  "Lambda", 
+                  "M2", 
+                  "Co", 
+                  "eta_lost"]
+         df['runid'] = 0
+         df['Yp_stator'] = 0 
+         df['Yp_rotor'] = 0 
+         df['zeta_stator'] = 0
+         df['zeta_rotor'] = 0
+         df['s_cx_stator'] = 0
+         df['s_cx_rotor'] = 0
+         df['AR_stator'] = 0
+         df['AR_rotor'] = 0
+         df['loss_rat'] = 0
+         df['Al1'] = 0
+         df['Al2a'] = 0
+         df['Al2b'] = 0
+         df['Al3'] = 0
+         if ignore_incomplete==True:
+            continue
+            
+      elif df.shape[1] == 7:
+         df.columns=["phi",
                      "psi", 
                      "Lambda", 
                      "M2", 
                      "Co", 
-                     "eta_lost"]
-            df['runid'] = 0
-            
-         elif df.shape[1] == 7:
-            df.columns=["phi",
-                        "psi", 
-                        "Lambda", 
-                        "M2", 
-                        "Co", 
-                        "eta_lost",
-                        "runid"]
-         else:
+                     "eta_lost",
+                     "runid"]
+         df['Yp_stator'] = 0 
+         df['Yp_rotor'] = 0 
+         df['zeta_stator'] = 0
+         df['zeta_rotor'] = 0
+         df['s_cx_stator'] = 0
+         df['s_cx_rotor'] = 0
+         df['AR_stator'] = 0
+         df['AR_rotor'] = 0
+         df['loss_rat'] = 0
+         df['Al1'] = 0
+         df['Al2a'] = 0
+         df['Al2b'] = 0
+         df['Al3'] = 0
+         if ignore_incomplete==True:
             continue
+      else:
+         sys.exit('Invalid dataframe')
       
       # filter by factor% error
       lower_factor = 1 - factor/100
@@ -114,6 +144,8 @@ def read_in_data(dataset='all',
          val_l=0.65
          df = df[df["Co"] < upper_factor*val_h]
          df = df[df["Co"] > lower_factor*val_l]
+         
+      df = df.reindex(sorted(df.columns), axis=1)
          
       n_after += len(df.index)
       
@@ -156,7 +188,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                 nu='optimise',
                 normalize_y=False,           #seems to make things worse if normalize_y=True
                 scale_name=None,
-                extra_variable_options=False
+                extra_variable_options=False,
+                iterate_extra_params=False
                 ):
       
       if variables==None:
@@ -172,6 +205,9 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       self.variables = variables
       self.fit_dimensions = len(self.variables)
       self.no_points = len(training_dataframe.index)
+      # print('traindf\n',training_dataframe.head())
+      
+      
       
       noise_kernel = kernels.WhiteKernel(noise_level=noise_magnitude,
                                          noise_level_bounds=noise_bounds)
@@ -179,7 +215,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       kernel_form = self.matern_kernel(len(variables),bounds=length_bounds) + noise_kernel
       
       if extra_variable_options==True:
-         training_dataframe = extra_nondim_params(training_dataframe)
+         training_dataframe = extra_nondim_params(training_dataframe,iterate=iterate_extra_params)
          self.scale_name=None
          
          # Currently, this is overcomplicated as it iterates over 
@@ -193,53 +229,83 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       
       if self.scale_name == 'standard':
          self.scale = pre.StandardScaler()
+         scales = [self.scale]
       elif self.scale_name == 'robust':
          self.scale = pre.RobustScaler()
+         scales = [self.scale]
       elif self.scale_name == 'minmax':
          self.scale = pre.MinMaxScaler()
+         scales = [self.scale]
       elif self.scale_name == None:
          pass
+         scales = [None]
+      elif self.scale_name == 'optimise':
+         scales=[pre.StandardScaler(),pre.RobustScaler(),pre.MinMaxScaler()]
+         scale_name_list = ['standard','robust','minmax']
+         maxLMLV=0
       else:
          sys.exit('INVALID SCALE NAME')
       
       training_dataframe = drop_columns(training_dataframe,variables,output_key)
-
-      if self.scale!=None:
-         scaled_dataframe = pd.DataFrame(self.scale.fit_transform(training_dataframe.to_numpy()),
-                                           columns=training_dataframe.columns)
-         self.input_array_train = scaled_dataframe.drop(columns=[self.output_key])
-         self.output_array_train = scaled_dataframe[self.output_key]
-      else:
-         self.input_array_train = training_dataframe.drop(columns=[self.output_key])
-         self.output_array_train = training_dataframe[self.output_key]
+      training_dataframe = training_dataframe.reindex(sorted(training_dataframe.columns), axis=1)
+      # print('traindf\n',training_dataframe.head())
+      
+      for i,scale_type in enumerate(scales):
+      
+         if scale_type!=None:
+            scaled_dataframe = pd.DataFrame(scale_type.fit_transform(training_dataframe.to_numpy()),
+                                             columns=training_dataframe.columns)
+            self.input_array_train = scaled_dataframe.drop(columns=[self.output_key])
+            self.output_array_train = scaled_dataframe[self.output_key]
+         else:
+            self.input_array_train = training_dataframe.drop(columns=[self.output_key])
+            self.output_array_train = training_dataframe[self.output_key]
+            
+         self.limit_dict = {}
+         for column in self.input_array_train:
+            self.limit_dict[column] = (np.around(training_dataframe[column].min(),decimals=1),
+                                       np.around(training_dataframe[column].max(),decimals=1)
+                                       )
          
-      self.limit_dict = {}
-      for column in self.input_array_train:
-         self.limit_dict[column] = (np.around(training_dataframe[column].min(),decimals=1),
-                                    np.around(training_dataframe[column].max(),decimals=1)
-                                    )
+         nu_dict = {1.5:None,2.5:None,np.inf:None}
+         
+         gaussian_process = GaussianProcessRegressor(kernel=kernel_form,
+                                                   n_restarts_optimizer=number_of_restarts,
+                                                   normalize_y=normalize_y,
+                                                   random_state=0
+                                                   )
       
-      nu_dict = {1.5:None,2.5:None,np.inf:None}
-      gaussian_process = GaussianProcessRegressor(kernel=kernel_form,
-                                                  n_restarts_optimizer=number_of_restarts,
-                                                  normalize_y=normalize_y,
-                                                  random_state=0
-                                                  )
-      if nu=='optimise':
-         for nui in nu_dict:
-            gaussian_process.set_params(kernel__k1__nu=nui)
-            fitted_function = gaussian_process.fit(self.input_array_train.to_numpy(), self.output_array_train.to_numpy())
-            nu_dict[nui] = fitted_function.log_marginal_likelihood_value_
-         nu = max(nu_dict, key=nu_dict.get)
+         if nu=='optimise':
+            for nui in nu_dict:
+               gaussian_process.set_params(kernel__k1__nu=nui)
+               fitted_function = gaussian_process.fit(self.input_array_train.to_numpy(), self.output_array_train.to_numpy())
+               nu_dict[nui] = fitted_function.log_marginal_likelihood_value_
+            nu = max(nu_dict, key=nu_dict.get)
+         
+         gaussian_process.set_params(kernel__k1__nu=nu) # kernel__k1__k1__nu if more than 1 kernel (not white), kernel__k1__nu otherwise
+
+         self.fitted_function = gaussian_process.fit(self.input_array_train.to_numpy(), self.output_array_train.to_numpy())
+         
+         if self.scale_name == 'optimise':
+            LMLV = fitted_function.log_marginal_likelihood_value_
+            # print('scale_type',scale_type,LMLV)
+            if LMLV > maxLMLV:
+               maxLMLV=LMLV
+               optimum_scale_type = scale_type
+               opt_scale_i = i
+            
+         self.optimised_kernel = self.fitted_function.kernel_
+         
+         if scale_type!=None:
+            self.input_array_train = training_dataframe.drop(columns=[self.output_key])
+            self.output_array_train = training_dataframe[self.output_key]
       
-      gaussian_process.set_params(kernel__k1__nu=nu) # kernel__k1__k1__nu if more than 1 kernel (not white), kernel__k1__nu otherwise
-      self.fitted_function = gaussian_process.fit(self.input_array_train.to_numpy(), self.output_array_train.to_numpy())
-      
-      self.optimised_kernel = self.fitted_function.kernel_
-      
-      if self.scale!=None:
-         self.input_array_train = training_dataframe.drop(columns=[self.output_key])
-         self.output_array_train = training_dataframe[self.output_key]
+      if self.scale_name == 'optimise':
+         self.scale = optimum_scale_type
+         self.scale_name = scale_name_list[opt_scale_i]
+         
+      self.min_train_output = np.min([self.output_array_train])
+      self.max_train_output = np.max([self.output_array_train])
       
    def predict(self,
                dataframe,
@@ -248,12 +314,17 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                CI_in_dataframe=False,
                CI_percent=95
                ):
-      
+      # print('predictdf\n',dataframe.head())
+      dataframe = dataframe.reindex(sorted(dataframe.columns), axis=1)
+      # print('predictdf\n',dataframe.head())
       dataframe = drop_columns(dataframe,self.variables,self.output_key)
+      # print('predictdf\n',dataframe.head())
       
       if self.scale!=None:
          if include_output == False:
-            dataframe[self.output_key] = np.ones(len(dataframe.index))
+            dataframe[self.output_key] = np.ones(len(dataframe.index)) #this is a 'dummy' output for 
+                                                                       #the data scaling, as it was fitted with 5 inputs.
+                                                                       # Is removed after
             
          scaled_dataframe = pd.DataFrame(self.scale.transform(dataframe.to_numpy()),
                                            columns=dataframe.columns)
@@ -292,8 +363,9 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             self.input_array_test = dataframe
             
       else:
+
          self.mean_prediction, self.std_prediction = self.fitted_function.predict(self.input_array_test.to_numpy(), return_std=True)
-      
+
       self.upper = self.mean_prediction + self.confidence_scalar * self.std_prediction
       self.lower = self.mean_prediction - self.confidence_scalar * self.std_prediction
 
@@ -327,7 +399,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       
       self.max_output = np.amax(self.mean_prediction)
       self.max_output_indices = np.where(self.mean_prediction == self.max_output)
-      
+
       return self.predicted_dataframe
       
    def find_global_max_min_values(self,
@@ -386,8 +458,14 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          plot_now = True
       else:
          plot_now = False
-         
-      color_limits  = np.array([88, 92, 96])
+      
+      
+      
+      # color_limits  = np.array([(100-100*self.max_train_output)*0.9,
+      #                           np.mean([(100-100*self.min_train_output),(100-100*self.max_train_output)]),
+      #                           (100-100*self.min_train_output)*1.1])
+      # print(color_limits)
+      color_limits = [88,92,96]
       cmap_colors = ["red","orange","green"]
       
       if display_efficiency == False:
@@ -459,8 +537,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          else:
             plot_title += f'{constant_key} = {constant_value[constant_key]:.3f}'
             plot_title += '\; '*title_variable_spacing
-      
-      plot_dataframe = drop_columns(plot_dataframe,self.variables,self.output_key)
       
       if dimensions == 2:
 
@@ -538,10 +614,10 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          if show_actual_with_model == True:
             
             axis.plot(plot_dataframe[plot_key1], 
-                     self.mean_prediction, 
-                     label=r'Mean prediction', 
-                     color='blue'
-                     )
+                      self.mean_prediction, 
+                      label=r'Mean prediction', 
+                      color='blue'
+                      )
             
             axis.fill_between(x=plot_dataframe[plot_key1],
                               y1=self.upper,
@@ -700,10 +776,10 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          axis.set_title(fr'$ {plot_title} $',size=10)
       
       if plot_now == True:
-         if state_no_points==True:
-            fig.suptitle(f'n = {self.no_points}')
          fig.tight_layout()
          plt.show()
+         
+      return plot_dataframe
       
    def plot_accuracy(self,
                      testing_dataframe,
@@ -897,7 +973,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                   constant_dict[var] = 'mean'
                else:
                   constant_dict[var] = constants[var]
-
          self.plot_vars(x1=x1,
                         x2=x2,
                         constants=constant_dict,
@@ -949,7 +1024,9 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                   fig.supylabel(fr"$ {xlabel_string2} $")
                else:
                   fig.supylabel(f"${grid_keys[0]} $")
-
+                  
+      if state_no_points==True:
+         fig.suptitle(f'n = {self.no_points}')
       plt.show()
       
    def matern_kernel(self,

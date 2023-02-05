@@ -43,6 +43,8 @@ for ax in [ax1,ax2,ax3,ax4]:
     
     gaussian_process = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=hyperparameter_iterations,alpha=alpha_value)
     gaussian_process.fit(P_train, Q_train)
+    print(P_train)
+    print(Q_train)
     print(gaussian_process.kernel_)
 
     mean_prediction, std_prediction = gaussian_process.predict(P, return_std=True)

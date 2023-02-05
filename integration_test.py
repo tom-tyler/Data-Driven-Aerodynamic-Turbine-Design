@@ -1,18 +1,27 @@
+from sklearn.gaussian_process import GaussianProcessRegressor, kernels
+from sklearn.metrics import mean_squared_error
+import sklearn.preprocessing as pre
 import numpy as np
+import pandas as pd
+import scipy.stats as st
+import scipy.optimize as sciop
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcol
+from collections import OrderedDict
+import compflow_native as compflow
+import os
+import sys
 
-rovx = np.array([[1,200,300],
-                 [7,6,8],
-                 [5,6,9]])
+length_bounds=(1e-1,1e3)
+noise_magnitude=1e-3
+noise_bounds=(1e-8,1e-1)
 
-p0 = np.array([[1,200,300],
-                 [7,6,8],
-                 [5,6,9]])
+noise_kernel = kernels.WhiteKernel(noise_level=noise_magnitude,
+                                         noise_level_bounds=noise_bounds)
 
-r = np.array([0.2,0.3,0.4])
-rt = np.array([2,5,8])
+matern_kernel = kernels.Matern(length_scale = (1,1,1,1,1),
+                    length_scale_bounds=((1e-2,1e2),(1e-2,1e3),(1e-2,1e2),(1e-2,1e2),(1e-2,1e2)),
+                    nu=2.5
+                    )
 
-integral = np.trapz(rovx,r,axis=0)
-
-print(integral)
-
-print(p0*rovx)
+kernel_form = matern_kernel + noise_kernel
