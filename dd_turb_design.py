@@ -36,7 +36,7 @@ def read_in_data(dataset='4D',
       elif dataset=='2D only':
          if data_name[:15] != '2D_phi_psi_data':
             continue
-      elif dataset in ['2D','4D','5D']:
+      elif dataset in ['2D','3D','4D','5D']:
          pass
       else:
          if data_name not in dataset:
@@ -124,6 +124,16 @@ def read_in_data(dataset='4D',
       n_before += len(df.index)
       
       if dataset in ['4D','4D only']:
+         # Lambda = 0.5
+         val = 0.5
+         df = df[df["Lambda"] < upper_factor*val]
+         df = df[df["Lambda"] > lower_factor*val]
+         
+      elif dataset in ['3D']:
+         # Co = 0.65
+         val=0.65
+         df = df[df["Co"] < upper_factor*val]
+         df = df[df["Co"] > lower_factor*val]
          # Lambda = 0.5
          val = 0.5
          df = df[df["Lambda"] < upper_factor*val]
@@ -581,10 +591,12 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          if show_max == True:
             max_i = np.squeeze(self.max_output_indices)
             axis.text(plot_dataframe[plot_key1][max_i], self.mean_prediction[max_i], f'{self.max_output:.2f}', size=12, color='darkblue')
+            axis.scatter(plot_dataframe[plot_key1][max_i], self.mean_prediction[max_i],marker='x',color='darkblue')
 
          if show_min == True:
             min_i = np.squeeze(self.min_output_indices)
             axis.text(plot_dataframe[plot_key1][min_i], self.mean_prediction[min_i], f'{self.min_output:.2f}', size=12, color='darkblue')
+            axis.scatter(plot_dataframe[plot_key1][max_i], self.mean_prediction[max_i],marker='x',color='darkblue')
 
          if plot_actual_data==True:
                
@@ -788,7 +800,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                      CI_percent=95,
                      identify_outliers=True,
                      title_variable_spacing=3,
-                     display_efficiency=True,
+                     display_efficiency=False,
                      plot_errorbars=True,
                      score_variable='both'
                      ):

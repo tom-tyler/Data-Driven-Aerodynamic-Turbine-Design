@@ -5,34 +5,30 @@ import pandas as pd
 # t1 = time.time()
 # print("--- %s seconds ---" % (time.time() - t1))
 
-data = read_in_data(state_retention_statistics=True,
-                    ignore_incomplete=True)
+data = read_in_data(state_retention_statistics=True)
 
 traindf,testdf = split_data(data,
                             random_seed_state=0,
-                            fraction_training=1.0)
+                            fraction_training=0.75)
+#for final report, take 100 (for example) randome seeds, and
+#and compute average R^2 and RMSE as these vary with random seed,
+#(sensitive to what randome sample is taken)
 
 fit = fit_data(training_dataframe=traindf,
-               variables=['phi','psi','Po3_Po1','Co'],
-               extra_variable_options=True)
+               variables=['phi','psi','M2','Co'])
 
-print(fit.optimised_kernel)
-# print(fit.scale)
+# print(fit.optimised_kernel)
 
-# fit.plot_accuracy(testing_dataframe=testdf,
-#                   line_error_percent=10,
-#                   CI_percent=95,
-#                   display_efficiency=False,
-#                   identify_outliers=True,
-#                   plot_errorbars=True)
-fit.plot(x1='Po3_Po1',
-         gridvars={},
-         num_points=500,
-         state_no_points=True)
+fit.plot_accuracy(testing_dataframe=testdf,
+                  line_error_percent=10)
+
+# fit.plot(x1='phi',
+#          x2='psi',
+#          gridvars={},
+#          num_points=500,
+#          state_no_points=True)
 
 
-# The culprit of bug is fitted_function
-# robust scaling seemed to fix it
 
 #need to fix limits of 1D plots with confidence intervals
 
