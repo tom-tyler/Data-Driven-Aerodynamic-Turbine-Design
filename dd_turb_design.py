@@ -194,12 +194,13 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                 number_of_restarts=0,            #do not need to be >0 to optimise parameters. this saves so much time
                 length_bounds=(1e-1,1e3),
                 noise_magnitude=1e-3,
-                noise_bounds=(1e-8,1e-1),
+                noise_bounds=(1e-20,1e-3),
                 nu='optimise',
                 normalize_y=False,           #seems to make things worse if normalize_y=True
                 scale_name=None,
                 extra_variable_options=False,
-                iterate_extra_params=False
+                iterate_extra_params=False,
+                limit_dict='auto'
                 ):
       
       if variables==None:
@@ -271,11 +272,14 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             self.input_array_train = training_dataframe.drop(columns=[self.output_key])
             self.output_array_train = training_dataframe[self.output_key]
             
-         self.limit_dict = {}
-         for column in self.input_array_train:
-            self.limit_dict[column] = (np.around(training_dataframe[column].min(),decimals=1),
-                                       np.around(training_dataframe[column].max(),decimals=1)
-                                       )
+         if limit_dict=='auto':
+            self.limit_dict = {}
+            for column in self.input_array_train:
+               self.limit_dict[column] = (np.around(training_dataframe[column].min(),decimals=1),
+                                          np.around(training_dataframe[column].max(),decimals=1)
+                                          )
+         else:
+            self.limit_dict = limit_dict
          
          nu_dict = {1.5:None,2.5:None,np.inf:None}
          
@@ -290,6 +294,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                gaussian_process.set_params(kernel__k1__nu=nui)
                fitted_function = gaussian_process.fit(self.input_array_train.to_numpy(), self.output_array_train.to_numpy())
                nu_dict[nui] = fitted_function.log_marginal_likelihood_value_
+
             nu = max(nu_dict, key=nu_dict.get)
          
          gaussian_process.set_params(kernel__k1__nu=nu) # kernel__k1__k1__nu if more than 1 kernel (not white), kernel__k1__nu otherwise
@@ -317,6 +322,31 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       self.min_train_output = np.min([self.output_array_train])
       self.max_train_output = np.max([self.output_array_train])
       
+      # length_fitted = gaussian_process.get_params()['kernel__k1__length_scale']
+      # lengthb_fitted = gaussian_process.get_params()['kernel__k1__length_scale_bounds']
+      # nu_fitted = [gaussian_process.get_params()['kernel__k1__nu']]
+      # noise_fitted = [gaussian_process.get_params()['kernel__k2__noise_level']]
+      # noiseb_fitted = gaussian_process.get_params()['kernel__k2__noise_level_bounds']
+      # kernel_values_list = [length_fitted,
+      #                       lengthb_fitted,
+      #                       nu_fitted,
+      #                       noise_fitted,
+      #                       noiseb_fitted]
+      # kernel_values = [(str(item)+'\n') for sublist in kernel_values_list for item in sublist]
+
+      # with open("kernel_hyperparameters.txt", "w") as file:
+      #    file.writelines(kernel_values)
+         
+      # with open("kernel_hyperparameters.txt") as file:
+      #    saved_kernel_values = [float(line.strip()) for line in file.readlines()]
+      # D = self.fit_dimensions
+      # gaussian_process.set_params(kernel__k1__length_scale=list(saved_kernel_values[0:(D-1)]))
+      # gaussian_process.set_params(kernel__k1__length_scale_bounds=list(saved_kernel_values[D:(3*D-1)]))
+      # gaussian_process.set_params(kernel__k1__nu=float(saved_kernel_values[3*D]))
+      # gaussian_process.set_params(kernel__k2__noise_level=float(saved_kernel_values[(3*D+1)]))
+      # gaussian_process.set_params(kernel__k2__noise_level_bounds=list(saved_kernel_values[(3*D+2),(3*D+3)]))
+      
+
    def predict(self,
                dataframe,
                include_output=False,
@@ -596,7 +626,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          if show_min == True:
             min_i = np.squeeze(self.min_output_indices)
             axis.text(plot_dataframe[plot_key1][min_i], self.mean_prediction[min_i], f'{self.min_output:.2f}', size=12, color='darkblue')
-            axis.scatter(plot_dataframe[plot_key1][max_i], self.mean_prediction[max_i],marker='x',color='darkblue')
+            axis.scatter(plot_dataframe[plot_key1][min_i], self.mean_prediction[min_i],marker='x',color='darkblue')
 
          if plot_actual_data==True:
                
@@ -920,7 +950,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             state_no_points=False,
             plot_actual_data=False,
             plot_actual_data_filter_factor=5,
-            show_actual_with_model=True
+            show_actual_with_model=True,
+            optimum_plot=False
             ):
 
       grid_constants=self.variables.copy()
@@ -961,6 +992,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       
       for indices, axis in np.ndenumerate(axes):
          
+         print(indices)
+         
          if (num_columns == 1) and (num_rows > 1):
             i = np.squeeze(indices)
             j = 0
@@ -985,29 +1018,43 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                   constant_dict[var] = 'mean'
                else:
                   constant_dict[var] = constants[var]
-         self.plot_vars(x1=x1,
-                        x2=x2,
-                        constants=constant_dict,
-                        limit_dict=limit_dict,
-                        axis=axis,
-                        num_points=num_points,
-                        efficiency_step=efficiency_step,
-                        opacity=opacity,
-                        display_efficiency=display_efficiency,
-                        title_variable_spacing=title_variable_spacing,
-                        plotting_grid_value=[i,j],
-                        grid_height=num_rows,
-                        CI_percent=CI_percent,
-                        plot_training_points=plot_training_points,
-                        legend_outside=legend_outside,
-                        contour_type=contour_type,
-                        show_max=show_max,
-                        show_min=show_min,
-                        state_no_points=state_no_points,
-                        plot_actual_data=plot_actual_data,
-                        plot_actual_data_filter_factor=plot_actual_data_filter_factor,
-                        show_actual_with_model=show_actual_with_model
-                        )
+         if optimum_plot == True:
+            self.plot_optimum(opt_var=x1,
+                              vary_var=x2,
+                              constants=constant_dict,
+                              limit_dict=limit_dict,
+                              plot_actual_data_filter_factor=plot_actual_data_filter_factor,
+                              title_variable_spacing=title_variable_spacing,
+                              num_points=num_points,
+                              axis=axis,
+                              plotting_grid_value=[i,j],
+                              grid_height=num_rows,
+                              plot_actual_data=plot_actual_data,
+                              legend_outside=legend_outside)
+         else:
+            self.plot_vars(x1=x1,
+                           x2=x2,
+                           constants=constant_dict,
+                           limit_dict=limit_dict,
+                           axis=axis,
+                           num_points=num_points,
+                           efficiency_step=efficiency_step,
+                           opacity=opacity,
+                           display_efficiency=display_efficiency,
+                           title_variable_spacing=title_variable_spacing,
+                           plotting_grid_value=[i,j],
+                           grid_height=num_rows,
+                           CI_percent=CI_percent,
+                           plot_training_points=plot_training_points,
+                           legend_outside=legend_outside,
+                           contour_type=contour_type,
+                           show_max=show_max,
+                           show_min=show_min,
+                           state_no_points=state_no_points,
+                           plot_actual_data=plot_actual_data,
+                           plot_actual_data_filter_factor=plot_actual_data_filter_factor,
+                           show_actual_with_model=show_actual_with_model
+                           )
 
       if (num_columns>1) or (num_rows>1):
          if with_arrows==True:
@@ -1053,6 +1100,148 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                             length_scale_bounds=L_bounds,
                             nu=2.5
                             )
+
+   def plot_optimum(self,
+                    opt_var,
+                    vary_var,
+                    constants,
+                    limit_dict=None,
+                    plot_actual_data_filter_factor=15,
+                    title_variable_spacing=3,
+                    num_points=50,
+                    axis=None,
+                    plotting_grid_value=[0,0],
+                    grid_height=1,
+                    plot_actual_data=False,
+                    legend_outside = False):
+      
+      
+      if axis == None:
+         fig,axis = plt.subplots(1,1,sharex=True,sharey=True)
+         plot_now = True
+      else:
+         plot_now = False
+         
+      if limit_dict == None:
+         limit_dict = self.limit_dict
+
+      constants_check=self.variables.copy()
+      constants_check.remove(vary_var) 
+      constants_check.remove(opt_var) 
+      plot_title = ''
+      # filter by factor% error
+      lower_factor = 1 - plot_actual_data_filter_factor/100
+      upper_factor = 1 + plot_actual_data_filter_factor/100
+      actual_data_df_datum = pd.concat([self.input_array_train.copy(),self.output_array_train.copy()],axis=1)
+      
+      vary_var_values = np.linspace(np.min(actual_data_df_datum[vary_var]),np.max(actual_data_df_datum[vary_var]),num_points)
+      opt_values = np.zeros(num_points)
+      opt_values_GPR = np.zeros(num_points)
+      plot_dataframe = pd.DataFrame({})
+      plot_dataframe[opt_var] = np.linspace(np.min(actual_data_df_datum[opt_var]),np.max(actual_data_df_datum[opt_var]),num_points)
+      
+      constant_value = {}
+      
+      if constants == 'mean':
+         for constant_key in constants_check:
+            constant_value[constant_key] = np.mean(self.input_array_train[constant_key])
+         
+      elif set(constants_check) != set(constants):
+         sys.exit("Constants specified are incorrect")
+         
+      else:
+         # format of constants is {'M2':0.7,'Co':0.6, ...}
+         for constant_key in constants:
+            if (constants[constant_key] == 'mean'):
+               constant_value[constant_key] = np.mean(self.input_array_train[constant_key])
+            else:
+               constant_value[constant_key] = constants[constant_key]
+               
+      for constant_key in constants_check:
+         plot_dataframe[constant_key] = constant_value[constant_key]*np.ones(num_points)
+         val = constant_value[constant_key]
+
+         actual_data_df_datum = actual_data_df_datum[actual_data_df_datum[constant_key] < upper_factor*val]
+         actual_data_df_datum = actual_data_df_datum[actual_data_df_datum[constant_key] > lower_factor*val]
+         if constant_key in ['phi','psi','Lambda']:
+            plot_title += '\\' + f'{constant_key} = {constant_value[constant_key]:.3f}'
+            plot_title += '\; '*title_variable_spacing
+         else:
+            plot_title += f'{constant_key} = {constant_value[constant_key]:.3f}'
+            plot_title += '\; '*title_variable_spacing
+            
+      for i,vary_var_val in enumerate(vary_var_values):
+         
+         actual_data_df = actual_data_df_datum.copy()
+
+         # vary var
+         plot_dataframe[vary_var] = vary_var_val*np.ones(num_points)
+
+         actual_data_df = actual_data_df[actual_data_df[vary_var] < upper_factor*vary_var_val]
+         actual_data_df = actual_data_df[actual_data_df[vary_var] > lower_factor*vary_var_val]
+         
+         if actual_data_df.shape[0] >= 5:
+
+            poly_degree = 3
+               
+            coefs = np.polynomial.polynomial.polyfit(x=actual_data_df[opt_var],
+                                                      y=actual_data_df[self.output_key],
+                                                      deg=poly_degree)
+
+            fit_function = np.polynomial.polynomial.Polynomial(coefs)    # instead of np.poly1d
+
+            x_actual_fit = np.linspace(np.min(actual_data_df[opt_var]),np.max(actual_data_df[opt_var]),num_points)
+            y_actual_fit = fit_function(x_actual_fit)
+            
+            
+            y_min = np.amin(y_actual_fit)
+            opt_val = x_actual_fit[np.where(y_actual_fit == y_min)][0]
+            opt_values[i] = opt_val
+            
+         self.predict(plot_dataframe,
+                     display_efficiency=False)
+         min_i = np.squeeze(self.min_output_indices)
+         opt_val_GPR = plot_dataframe[opt_var][min_i]
+         opt_values_GPR[i] = opt_val_GPR
+         
+      axis.scatter(vary_var_values[opt_values !=0],
+                   opt_values[opt_values !=0],
+                   marker='x',
+                   color='red',
+                   label=f'CFD datapoints (margin={plot_actual_data_filter_factor}%)')
+
+      axis.plot(vary_var_values,
+                opt_values_GPR,
+                color='darkblue',
+                label='GPR model')
+      axis.set_xlabel(vary_var)
+      axis.set_ylabel('$'+opt_var+r'_{\mathrm{optimum}}$')
+      axis.set_title(fr'$ {plot_title} $',size=10)
+      if plotting_grid_value==[0,0]:
+         if legend_outside == True:
+            leg = axis.legend(loc='upper left',
+                              bbox_to_anchor=(1.02,1.0),
+                              borderaxespad=0,
+                              frameon=True,
+                              ncol=1,
+                              prop={'size': 10})
+         else:
+            leg = axis.legend()
+         leg.set_draggable(state=True)
+      
+      # axis.scatter(actual_data_df[opt_var],
+      #             actual_data_df[self.output_key],
+      #             color='darkorange',
+      #             marker='x')
+      # axis.plot(x_actual_fit,
+      #             y_actual_fit,
+      #             label=r'Polynomial curve from actual data',
+      #             color='orange',
+      #             zorder=1e3)
+      
+      if plot_now == True:
+         fig.tight_layout()
+         plt.show()
 
 def dim_2_nondim(shaft_power=25e6,
                   stagnation_pressure_ratio=1.5,

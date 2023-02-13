@@ -1,0 +1,14 @@
+alpha
+copy_X_train
+kernel__k1
+kernel__k2
+kernel__k1__length_scale
+kernel__k1__length_scale_bounds
+kernel__k1__nu
+kernel__k2__noise_level
+kernel__k2__noise_level_bounds
+kernel
+n_restarts_optimizer
+normalize_y
+optimizer
+random_state
