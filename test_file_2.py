@@ -14,14 +14,17 @@ traindf,testdf = split_data(data,
 #and compute average R^2 and RMSE as these vary with random seed,
 #(sensitive to what randome sample is taken)
 
-fit = fit_data(training_dataframe=traindf,
-               variables=['phi','psi','M2','Co'],
-               limit_dict={'phi':(0.5,1.0),
-                           'psi':(1.0,2.0),
-                           'M2':(0.5,0.85),
-                           'Co':(0.55,0.7)})
+fit = fit_data.no_points
+print(fit)
 
-print(fit.optimised_kernel)
+# fit = fit_data(training_dataframe=traindf,
+#                variables=['phi','psi','M2','Co'],
+#                limit_dict={'phi':(0.5,1.0),
+#                            'psi':(1.0,2.0),
+#                            'M2':(0.5,0.85),
+#                            'Co':(0.55,0.7)})
+
+# print(fit.optimised_kernel)
 # print(fit.find_global_max_min_values(30))
 
 # fit.plot_accuracy(testing_dataframe=testdf,
@@ -65,12 +68,12 @@ print(fit.optimised_kernel)
 #          num_points=500,
 #          plot_actual_data_filter_factor=15)
 
-fit.plot(x1='phi',
-         x2='psi',
-         constants={'Co':0.66,
-                    'M2':0.7},
-         num_points=400,
-         efficiency_step=0.25)
+# fit.plot(x1='phi',
+#          x2='psi',
+#          constants={'Co':0.66,
+#                     'M2':0.7},
+#          num_points=400,
+#          efficiency_step=0.25)
 
 #need to fix limits of 1D plots with confidence intervals
 
