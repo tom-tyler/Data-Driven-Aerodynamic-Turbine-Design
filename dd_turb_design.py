@@ -192,15 +192,16 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                 variables=None,
                 output_key='eta_lost',
                 number_of_restarts=0,            #do not need to be >0 to optimise parameters. this saves so much time
-                length_bounds=(1e-1,1e3),
+                length_bounds=[1e-1,1e3],
                 noise_magnitude=1e-3,
-                noise_bounds=(1e-20,1e-3),
+                noise_bounds=[1e-20,1e-3],
                 nu='optimise',
                 normalize_y=False,           #seems to make things worse if normalize_y=True
                 scale_name=None,
                 extra_variable_options=False,
                 iterate_extra_params=False,
-                limit_dict='auto'
+                limit_dict='auto',
+                fit=True
                 ):
       
       if variables==None:
@@ -322,30 +323,59 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       self.min_train_output = np.min([self.output_array_train])
       self.max_train_output = np.max([self.output_array_train])
       
-      # length_fitted = gaussian_process.get_params()['kernel__k1__length_scale']
-      # lengthb_fitted = gaussian_process.get_params()['kernel__k1__length_scale_bounds']
-      # nu_fitted = [gaussian_process.get_params()['kernel__k1__nu']]
-      # noise_fitted = [gaussian_process.get_params()['kernel__k2__noise_level']]
-      # noiseb_fitted = gaussian_process.get_params()['kernel__k2__noise_level_bounds']
-      # kernel_values_list = [length_fitted,
-      #                       lengthb_fitted,
-      #                       nu_fitted,
-      #                       noise_fitted,
-      #                       noiseb_fitted]
+      length_fitted = gaussian_process.get_params()['kernel__k1__length_scale']
+      lengthb_fitted = gaussian_process.get_params()['kernel__k1__length_scale_bounds']
+      nu_fitted = gaussian_process.get_params()['kernel__k1__nu']
+      noise_fitted = gaussian_process.get_params()['kernel__k2__noise_level']
+      noiseb_fitted = gaussian_process.get_params()['kernel__k2__noise_level_bounds']
+      print(lengthb_fitted)
+      length_lower_bound,length_upper_bound=zip(*lengthb_fitted)
+      kernel_list_1 = [[self.fit_dimensions],
+                       length_fitted,
+                       length_lower_bound,
+                       length_upper_bound,
+                       [nu_fitted],
+                       [noise_fitted],
+                       noiseb_fitted]
+      kernel_list_2  = [item for sublist in kernel_list_1 for item in sublist]
+      print(kernel_list_2)
+      
+      kernel_values = pd.DataFrame(kernel_list_2)
       # kernel_values = [(str(item)+'\n') for sublist in kernel_values_list for item in sublist]
 
+      kernel_values.to_csv('kernel_parameters.csv',index=False,header=None)
+      
       # with open("kernel_hyperparameters.txt", "w") as file:
       #    file.writelines(kernel_values)
          
       # with open("kernel_hyperparameters.txt") as file:
       #    saved_kernel_values = [float(line.strip()) for line in file.readlines()]
       # D = self.fit_dimensions
+      saved_kernel_values = pd.read_csv('kernel_parameters.csv')
       # gaussian_process.set_params(kernel__k1__length_scale=list(saved_kernel_values[0:(D-1)]))
       # gaussian_process.set_params(kernel__k1__length_scale_bounds=list(saved_kernel_values[D:(3*D-1)]))
       # gaussian_process.set_params(kernel__k1__nu=float(saved_kernel_values[3*D]))
       # gaussian_process.set_params(kernel__k2__noise_level=float(saved_kernel_values[(3*D+1)]))
       # gaussian_process.set_params(kernel__k2__noise_level_bounds=list(saved_kernel_values[(3*D+2),(3*D+3)]))
+      saved_dimensions=saved_kernel_values.iloc[0]
+      saved_length=[]
+      saved_lower_bound_length=[]
+      saved_upper_bound_length=[]
+      for i in range(len(saved_dimensions)):
+         saved_length.append(saved_kernel_values.iloc[i+1])
+         saved_lower_bound_length.append(saved_kernel_values.iloc[i+1+saved_dimensions])
+         saved_upper_bound_length.append(saved_kernel_values.iloc[i+1+2*saved_dimensions])
+      saved_lengthb = zip(saved_lower_bound_length,saved_upper_bound_length)
+      saved_nu = saved_kernel_values.iloc[saved_dimensions*3+2]
+      saved_noise = saved_kernel_values.iloc[saved_dimensions*3+3]
+      saved_noiseb = [saved_kernel_values.iloc[saved_dimensions*3+4],saved_kernel_values.iloc[saved_dimensions*3+5]]
       
+      gaussian_process.set_params(kernel__k1__length_scale=saved_length)
+      gaussian_process.set_params(kernel__k1__length_scale_bounds=saved_lengthb)
+      gaussian_process.set_params(kernel__k1__nu=saved_nu)
+      gaussian_process.set_params(kernel__k2__noise_level=saved_noise)
+      gaussian_process.set_params(kernel__k2__noise_level_bounds=saved_noiseb)
+
 
    def predict(self,
                dataframe,
