@@ -36,7 +36,7 @@ def read_in_data(dataset='4D',
       elif dataset=='2D only':
          if data_name[:15] != '2D_phi_psi_data':
             continue
-      elif dataset in ['2D','3D','4D','5D']:
+      elif dataset in ['2D','3D','4D','5D','2D_tip_gap']:
          pass
       else:
          if data_name not in dataset:
@@ -155,6 +155,20 @@ def read_in_data(dataset='4D',
          df = df[df["Co"] < upper_factor*val_h]
          df = df[df["Co"] > lower_factor*val_l]
          
+      elif dataset in ['2D_tip_gap']:
+         # Lambda = 0.5
+         val=0.5
+         df = df[df["Lambda"] < upper_factor*val]
+         df = df[df["Lambda"] > lower_factor*val]
+         # M2 = 0.7 or 0.65
+         val=0.67
+         df = df[df["M2"] < upper_factor*val]
+         df = df[df["M2"] > lower_factor*val]
+         # Co = 0.65 or 0.7
+         val=0.65
+         df = df[df["Co"] < upper_factor*val]
+         df = df[df["Co"] > lower_factor*val]
+         
       df = df.reindex(sorted(df.columns), axis=1)
          
       n_after += len(df.index)
@@ -187,63 +201,8 @@ def drop_columns(df,variables,output_key):
    return df
 
 class fit_data:  #rename this turb_design and turn init into a new method to fit the data. This will help as model will already be made
-   def __init__(self):
-      
-      saved_kernel_values = pd.read_csv('kernel_parameters.csv')
-
-      saved_dimensions=saved_kernel_values.iloc[0]
-      saved_length=[]
-      saved_lower_bound_length=[]
-      saved_upper_bound_length=[]
-      for i in range(len(saved_dimensions)):
-         saved_length.append(saved_kernel_values.iloc[i+1])
-         saved_lower_bound_length.append(saved_kernel_values.iloc[i+1+saved_dimensions])
-         saved_upper_bound_length.append(saved_kernel_values.iloc[i+1+2*saved_dimensions])
-      saved_lengthb = zip(saved_lower_bound_length,saved_upper_bound_length)
-      saved_nu = saved_kernel_values.iloc[saved_dimensions*3+2]
-      saved_noise = saved_kernel_values.iloc[saved_dimensions*3+3]
-      saved_noiseb = [saved_kernel_values.iloc[saved_dimensions*3+4],saved_kernel_values.iloc[saved_dimensions*3+5]]
-      
-      noise_kernel = kernels.WhiteKernel(noise_level=saved_noise,
-                                         noise_level_bounds=saved_noiseb)
-
-      kernel_form = self.matern_kernel(int(saved_dimensions),bounds=saved_lengthb) + noise_kernel
-      
-      gaussian_process = GaussianProcessRegressor(kernel=kernel_form,
-                                                  n_restarts_optimizer=0,
-                                                  random_state=0
-                                                  )
-      
-      gaussian_process.set_params(kernel__k1__length_scale=saved_length)
-      gaussian_process.set_params(kernel__k1__length_scale_bounds=saved_lengthb)
-      gaussian_process.set_params(kernel__k1__nu=saved_nu)
-      gaussian_process.set_params(kernel__k2__noise_level=saved_noise)
-      gaussian_process.set_params(kernel__k2__noise_level_bounds=saved_noiseb)
-      
-      with open("df_headers.txt") as file:
-         headers = [str(line.strip()) for line in file.readlines()]
-      self.output_key = headers[-1]
-      self.variables = headers[:-1]
-         
-      training_dataframe = pd.read_csv('training_dataframe.csv',names=headers)
-      self.input_array_train = training_dataframe.drop(columns=[self.output_key])
-      self.output_array_train = training_dataframe[self.output_key]
-      self.fit_dimensions = saved_dimensions
-      self.no_points = len(training_dataframe.index)
-      
-      self.limit_dict = {}
-      for column in self.input_array_train:
-         self.limit_dict[column] = (np.around(training_dataframe[column].min(),decimals=1),
-                                    np.around(training_dataframe[column].max(),decimals=1)
-                                    )
-         
-      self.fitted_function = gaussian_process
-      self.optimised_kernel = self.fitted_function.kernel_
-         
-      self.min_train_output = np.min([self.output_array_train])
-      self.max_train_output = np.max([self.output_array_train])
    
-   def fit(self,
+   def __init__(self,
                 training_dataframe,
                 variables=None,
                 output_key='eta_lost',
@@ -1453,3 +1412,111 @@ def extra_nondim_params(dataframe, iterate=False):
          dataframe = vars_from_Al(None,index,dataframe)
 
    return dataframe
+
+
+def dim_2_nondim_V2(phi=0.81,
+                    psi=1.78,
+                    Lambda=0.5,
+                    M2=0.67,
+                    Co=0.65,
+                    shaft_power=25e6,
+                    stagnation_pressure_ratio=1.5,
+                    blade_number=40,
+                    turbine_diameter=1.6,
+                    mdot=275,
+                    T01=1600,
+                    p01=1600000,
+                    shaft_speed=100*np.pi,
+                    aspect_ratio=1.6,
+                    hub_to_tip_ratio=0.9):
+   
+   M2 = np.squeeze(compflow.to_Ma("To_T",T02/T2,gamma))
+
+   phi = Vx/U
+   psi = -1*dh0/U**2
+   Lambda = np.abs((h3-h2)/(h3-h1))
+   
+   a1=0
+   a2=np.arctan(Vt2/Vx)
+   a3=np.arctan(Vt3/Vx)
+   
+   # chord below should be replaced by suction surface length
+   Co = [(pitch/chord)*(np.tan(a1)-np.tan(a2))*np.cos(a2), (pitch/chord)*(np.tan(a2)-np.tan(a3))*np.cos(a3)]
+   
+   
+   gamma = 1.33
+   R = 272.9
+   cp = R / (1 - 1/gamma)
+
+   tip_radius = 0.5*turbine_diameter
+   hub_radius = hub_to_tip_ratio*tip_radius
+   mean_radius = (tip_radius+hub_radius)/2
+   span = tip_radius-hub_radius
+   chord = span/aspect_ratio
+   
+   A = np.pi*2*mean_radius*span
+   
+   T02 = T01
+   T03 = T01 - shaft_power/(mdot*cp)
+   h01 = cp*T01
+   h02 = cp*T02
+   h03 = cp*T03
+   
+   U = mean_radius*shaft_speed
+   
+   
+
+   # print('U=',U)
+
+   pitch = mean_radius*2*np.pi/blade_number
+   dh0 = h03 - h01
+   
+   mcpT01_Ap01 = mdot*np.sqrt(cp*T01) / (A * p01)
+   # print('mcpT01_Ap01=',mcpT01_Ap01)
+   if mcpT01_Ap01 > 1.28:
+      sys.exit('Too large a mass flow function - flow will choke first')
+   
+   M1 = compflow.to_Ma("mcpTo_APo",mcpT01_Ap01,gamma)
+   p1 = p01 / compflow.from_Ma('Po_P',M1,gamma)
+   T1 = T01 / compflow.from_Ma('To_T',M1,gamma)
+   
+   p03 = p01/stagnation_pressure_ratio
+   mcpT03_Ap03 = mdot*np.sqrt(cp*T03) / (A * p03)
+
+   if mcpT03_Ap03 > 1.28:
+      sys.exit('Too large a mass flow function - flow will choke first')
+   
+   M3 = compflow.to_Ma("mcpTo_APo",mcpT03_Ap03,gamma)
+   T3 = T03 / compflow.from_Ma('To_T',M3,gamma)
+   
+   #assume axial stator inflow, and constant Vx
+   V1 = M1*np.sqrt(gamma*R*T1)
+   Vx = V1
+   Vt1 = 0
+   V3 = M3*np.sqrt(gamma*R*T3)
+   
+   Vt3 = np.sqrt(V3**2-Vx**2)
+   Vt2 = Vt3 - dh0/U
+   V2 = np.sqrt(Vt2**2+Vx**2)
+   
+   h1 = h01 - 0.5*V1**2
+   h2 = h02 - 0.5*V2**2
+   h3 = h03 - 0.5*V3**2
+
+   T2 = h2/cp
+
+   M2 = np.squeeze(compflow.to_Ma("To_T",T02/T2,gamma))
+
+   phi = Vx/U
+   psi = -1*dh0/U**2
+   Lambda = np.abs((h3-h2)/(h3-h1))
+   
+   a1=0
+   a2=np.arctan(Vt2/Vx)
+   a3=np.arctan(Vt3/Vx)
+   
+   # chord below should be replaced by suction surface length
+   Co = [(pitch/chord)*(np.tan(a1)-np.tan(a2))*np.cos(a2), (pitch/chord)*(np.tan(a2)-np.tan(a3))*np.cos(a3)]
+   
+   return [phi,psi,Lambda,M2,Co]
+   

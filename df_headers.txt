@@ -1,5 +1,4 @@
 phi
 psi
 M2
-Co
 eta_lost
