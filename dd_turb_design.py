@@ -11,6 +11,7 @@ from collections import OrderedDict
 import compflow_native as compflow
 import os
 import sys
+import joblib
 
 def read_in_data(dataset='4D',
                  path='Data Complete',
@@ -182,6 +183,122 @@ def read_in_data(dataset='4D',
 
    return data
 
+def read_in_large_dataset(dataset='4D',
+                          data_filename='turbine_data.csv',
+                          factor=5,
+                          state_retention_statistics=False
+                          ):
+
+   df = pd.read_csv(data_filename)
+
+   df.columns=["phi",
+               "psi", 
+               "Lambda", 
+               "M2", 
+               "Co", 
+               "eta_lost",
+               "runid",
+               'Yp_stator', 
+               'Yp_rotor', 
+               'zeta_stator',
+               'zeta_rotor',
+               's_cx_stator',
+               's_cx_rotor',
+               'AR_stator',
+               'AR_rotor',
+               'loss_rat',
+               'Al1',
+               'Al2a',
+               'Al2b',
+               'Al3',
+               'tau_c',
+               'fc_1',
+               'fc_2',
+               'htr',
+               'spf_stator',
+               'stagger_stator',
+               'recamber_le_stator',
+               'recamber_te_stator',
+               'Rle_stator',
+               'beta_stator',
+               't_ps_stator',
+               't_ss_stator',
+               'max_t_loc_ps_stator',
+               'max_t_loc_ss_stator',
+               'lean_stator',
+               'spf_rotor',
+               'stagger_rotor',
+               'recamber_le_rotor',
+               'recamber_te_rotor',
+               'Rle_rotor',
+               'beta_rotor',
+               't_ps_rotor',
+               't_ss_rotor',
+               'max_t_loc_ps_rotor',
+               'max_t_loc_ss_rotor',
+               'lean_rotor']
+      
+   # filter by factor% error
+   lower_factor = 1 - factor/100
+   upper_factor = 1 + factor/100
+   
+   n_before = len(df.index)
+   
+   if dataset in ['4D']:
+      # Lambda = 0.5
+      val = 0.5
+      df = df[df["Lambda"] < upper_factor*val]
+      df = df[df["Lambda"] > lower_factor*val]
+      
+   elif dataset in ['3D']:
+      # Co = 0.65
+      val=0.65
+      df = df[df["Co"] < upper_factor*val]
+      df = df[df["Co"] > lower_factor*val]
+      # Lambda = 0.5
+      val = 0.5
+      df = df[df["Lambda"] < upper_factor*val]
+      df = df[df["Lambda"] > lower_factor*val]
+      
+   elif dataset in ['2D']:
+      # Lambda = 0.5
+      val=0.5
+      df = df[df["Lambda"] < upper_factor*val]
+      df = df[df["Lambda"] > lower_factor*val]
+      # M2 = 0.7 or 0.65
+      val_h=0.7
+      val_l=0.65
+      df = df[df["M2"] < upper_factor*val_h]
+      df = df[df["M2"] > lower_factor*val_l]
+      # Co = 0.65 or 0.7
+      val_h=0.7
+      val_l=0.65
+      df = df[df["Co"] < upper_factor*val_h]
+      df = df[df["Co"] > lower_factor*val_l]
+      
+   elif dataset in ['2D_tip_gap']:
+      # Lambda = 0.5
+      val=0.5
+      df = df[df["Lambda"] < upper_factor*val]
+      df = df[df["Lambda"] > lower_factor*val]
+      # M2 = 0.7 or 0.65
+      val=0.67
+      df = df[df["M2"] < upper_factor*val]
+      df = df[df["M2"] > lower_factor*val]
+      # Co = 0.65 or 0.7
+      val=0.65
+      df = df[df["Co"] < upper_factor*val]
+      df = df[df["Co"] > lower_factor*val]
+      
+   df = df.reindex(sorted(df.columns), axis=1)
+      
+   n_after = len(df.index)
+
+   if state_retention_statistics==True:
+      print(f'n_before = {n_before}\nn_after = {n_after}\n%retained = {n_after/n_before*100:.2f} %')
+
+   return df
+
 def split_data(df,
                fraction_training=0.75,
                random_seed_state=2
@@ -205,15 +322,16 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
    def __init__(self,
                 training_dataframe,
                 variables=None,
-                output_key='eta_lost',
-                number_of_restarts=0,            #do not need to be >0 to optimise parameters. this saves so much time
+                output_key=None,
+                number_of_restarts=0,           
                 length_bounds=[1e-1,1e3],
-                noise_magnitude=1e-3,
+                noise_magnitude=1e-6,
                 noise_bounds=[1e-20,1e-3],
                 nu='optimise',
                 extra_variable_options=False,
                 iterate_extra_params=False,
-                limit_dict='auto'
+                limit_dict='auto',
+                save_fit=False
                 ):
       
       if variables==None:
@@ -231,9 +349,12 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                                          noise_level_bounds=noise_bounds)
 
       kernel_form = self.matern_kernel(len(variables),bounds=length_bounds) + noise_kernel
-      
+      if noise_magnitude == None:
+         kernel_form = self.matern_kernel(len(variables),bounds=length_bounds)
+
       if extra_variable_options==True:
-         training_dataframe = extra_nondim_params(training_dataframe,iterate=iterate_extra_params)
+         training_dataframe = extra_nondim_params(training_dataframe,
+                                                  iterate=iterate_extra_params)
          
          # Currently, this is overcomplicated as it iterates over 
          # alpha to be able to use Lambda as an input. However, we already have 
@@ -244,7 +365,10 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          # However, need to think about which values have been fixed etc before being able to do this 
          # as constants are not the same any more
             
-      training_dataframe = drop_columns(training_dataframe,variables,output_key)
+      training_dataframe = drop_columns(training_dataframe,
+                                        variables,
+                                        output_key)
+      
       training_dataframe = training_dataframe.reindex(sorted(training_dataframe.columns), axis=1)
       
       self.input_array_train = training_dataframe.drop(columns=[self.output_key])
@@ -262,59 +386,69 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       nu_dict = {1.5:None,2.5:None,np.inf:None}
       
       gaussian_process = GaussianProcessRegressor(kernel=kernel_form,
-                                                n_restarts_optimizer=number_of_restarts,
-                                                random_state=0
-                                                )
+                                                  n_restarts_optimizer=number_of_restarts,
+                                                  random_state=0
+                                                  )
    
       if nu=='optimise':
          for nui in nu_dict:
-            gaussian_process.set_params(kernel__k1__nu=nui)
-            fitted_function = gaussian_process.fit(self.input_array_train.to_numpy(), self.output_array_train.to_numpy())
+            if noise_magnitude == None:
+               gaussian_process.set_params(kernel__nu=nui)
+            else:
+               gaussian_process.set_params(kernel__k1__nu=nui)
+            fitted_function = gaussian_process.fit(self.input_array_train.to_numpy(),
+                                                   self.output_array_train.to_numpy()
+                                                   )
             nu_dict[nui] = fitted_function.log_marginal_likelihood_value_
 
          nu = max(nu_dict, key=nu_dict.get)
-      
-      gaussian_process.set_params(kernel__k1__nu=nu) # kernel__k1__k1__nu if more than 1 kernel (not white), kernel__k1__nu otherwise
+      if noise_magnitude == None:
+         gaussian_process.set_params(kernel__nu=nu)
+      else:
+         gaussian_process.set_params(kernel__k1__nu=nu)
 
-      self.fitted_function = gaussian_process.fit(self.input_array_train.to_numpy(), self.output_array_train.to_numpy())
+      self.fitted_function = gaussian_process.fit(self.input_array_train.to_numpy(),
+                                                  self.output_array_train.to_numpy()
+                                                  )
          
       self.optimised_kernel = self.fitted_function.kernel_
          
       self.min_train_output = np.min([self.output_array_train])
       self.max_train_output = np.max([self.output_array_train])
       
-      length_fitted = gaussian_process.get_params()['kernel__k1__length_scale']
-      lengthb_fitted = gaussian_process.get_params()['kernel__k1__length_scale_bounds']
-      nu_fitted = gaussian_process.get_params()['kernel__k1__nu']
-      noise_fitted = gaussian_process.get_params()['kernel__k2__noise_level']
-      noiseb_fitted = gaussian_process.get_params()['kernel__k2__noise_level_bounds']
+      joblib.dump(self.fitted_function,f'Models/{self.output_key}.joblib')
+      if save_fit==True:
+         length_fitted = gaussian_process.get_params()['kernel__k1__length_scale']
+         lengthb_fitted = gaussian_process.get_params()['kernel__k1__length_scale_bounds']
+         nu_fitted = gaussian_process.get_params()['kernel__k1__nu']
+         noise_fitted = gaussian_process.get_params()['kernel__k2__noise_level']
+         noiseb_fitted = gaussian_process.get_params()['kernel__k2__noise_level_bounds']
 
-      length_lower_bound,length_upper_bound=zip(*lengthb_fitted)
-      kernel_list_1 = [[self.fit_dimensions],
-                       length_fitted,
-                       length_lower_bound,
-                       length_upper_bound,
-                       [nu_fitted],
-                       [noise_fitted],
-                       noiseb_fitted]
-      kernel_list_2  = [item for sublist in kernel_list_1 for item in sublist]
-      
-      kernel_values = pd.DataFrame(kernel_list_2)
+         length_lower_bound,length_upper_bound=zip(*lengthb_fitted)
+         kernel_list_1 = [[self.fit_dimensions],
+                        length_fitted,
+                        length_lower_bound,
+                        length_upper_bound,
+                        [nu_fitted],
+                        [noise_fitted],
+                        noiseb_fitted]
+         kernel_list_2  = [item for sublist in kernel_list_1 for item in sublist]
+         
+         kernel_values = pd.DataFrame(kernel_list_2)
 
-      kernel_values.to_csv('kernel_parameters.csv',index=False,header=None)
-      df_headers = variables.copy()
-      df_headers += [output_key]
-      text_df_headers = [str(item)+'\n' for item in df_headers]
+         kernel_values.to_csv('kernel_parameters.csv',index=False,header=None)
+         df_headers = variables.copy()
+         df_headers += [output_key]
+         text_df_headers = [str(item)+'\n' for item in df_headers]
 
-      with open("df_headers.txt", "w") as file:
-         file.writelines(text_df_headers)
-      
-      training_dataframe.to_csv('training_dataframe.csv',index=False,header=None)
+         with open("df_headers.txt", "w") as file:
+            file.writelines(text_df_headers)
+         
+         training_dataframe.to_csv('training_dataframe.csv',index=False,header=None)
 
    def predict(self,
                dataframe,
                include_output=False,
-               display_efficiency=True,
                CI_in_dataframe=False,
                CI_percent=95
                ):
@@ -335,16 +469,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
 
       self.upper = self.mean_prediction + self.confidence_scalar * self.std_prediction
       self.lower = self.mean_prediction - self.confidence_scalar * self.std_prediction
-
-      
-      if display_efficiency == True:
-         self.mean_prediction = (np.ones(len(self.mean_prediction)) - self.mean_prediction)*100
-         self.lower, self.upper = (np.ones(len(self.upper)) - self.upper)*100, (np.ones(len(self.lower)) - self.lower)*100
-         if include_output == True:
-            self.output_array_test = (np.ones(len(self.output_array_test)) - self.output_array_test)*100
-         self.training_output = (np.ones(len(self.output_array_train)) - self.output_array_train)*100
-      else:
-         self.training_output = self.output_array_train
+      self.training_output = self.output_array_train
             
       self.predicted_dataframe = self.input_array_test
       self.predicted_dataframe['predicted_output'] = self.mean_prediction
@@ -399,9 +524,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                  limit_dict=None,
                  axis=None,
                  num_points=100,
-                 efficiency_step=0.5,
+                 contour_step=0.5,
                  opacity=0.2,
-                 display_efficiency=True,
                  title_variable_spacing=3,
                  plotting_grid_value=[0,0],
                  grid_height=1,
@@ -423,29 +547,27 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       else:
          plot_now = False
       
-      
-      
-      # color_limits  = np.array([(100-100*self.max_train_output)*0.9,
-      #                           np.mean([(100-100*self.min_train_output),(100-100*self.max_train_output)]),
-      #                           (100-100*self.min_train_output)*1.1])
+      color_limits = [self.max_train_output,
+                      np.mean([self.min_train_output,self.max_train_output]),
+                      self.min_train_output]
       # print(color_limits)
-      color_limits = [88,92,96]
+      # color_limits = [88,92,96]
       cmap_colors = ["red","orange","green"]
       
-      if display_efficiency == False:
-         color_limits = np.flip(1 - (color_limits/100),0)
-         cmap_colors = np.flip(cmap_colors)
-         efficiency_step = efficiency_step*0.01
-         show_max=False
-         show_min=True
-         contour_textlabel = '\\eta_{lost}'
-      else:
-         contour_textlabel = '\\eta'
+      # if display_efficiency == False:
+      #    color_limits = np.flip(1 - (color_limits/100),0)
+      #    cmap_colors = np.flip(cmap_colors)
+      #    efficiency_step = efficiency_step*0.01
+      #    show_max=False
+      #    show_min=True
+      #    contour_textlabel = '\\eta_{lost}'
+      # else:
+      contour_textlabel = self.output_key
             
       
       cmap_norm=plt.Normalize(min(color_limits),max(color_limits))
       cmap_tuples = list(zip(map(cmap_norm,color_limits), cmap_colors))
-      efficiency_cmap = mcol.LinearSegmentedColormap.from_list("", cmap_tuples)
+      output_cmap = mcol.LinearSegmentedColormap.from_list("", cmap_tuples)
       
       plot_dataframe = pd.DataFrame({})
       
@@ -516,22 +638,17 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          plot_dataframe[constant_key] = constant_value[constant_key]*np.ones(num_points**dimensions)
 
       self.predict(plot_dataframe,
-                   display_efficiency=display_efficiency,
                    CI_percent=CI_percent)
             
       if plot_actual_data == True:
-            # filter by factor% error
-            lower_factor = 1 - plot_actual_data_filter_factor/100
-            upper_factor = 1 + plot_actual_data_filter_factor/100
-            actual_data_df = pd.concat([self.input_array_train.copy(),self.output_array_train.copy()],axis=1)
-            
-            for constant_key in constants_check:
-               val = constant_value[constant_key]
-               actual_data_df = actual_data_df[actual_data_df[constant_key] < upper_factor*val]
-               actual_data_df = actual_data_df[actual_data_df[constant_key] > lower_factor*val]
-
-            if display_efficiency==True:
-               actual_data_df[self.output_key] = (1 - actual_data_df[self.output_key])*100
+         lower_factor = 1 - plot_actual_data_filter_factor/100
+         upper_factor = 1 + plot_actual_data_filter_factor/100
+         actual_data_df = pd.concat([self.input_array_train.copy(),self.output_array_train.copy()],axis=1)
+         
+         for constant_key in constants_check:
+            val = constant_value[constant_key]
+            actual_data_df = actual_data_df[actual_data_df[constant_key] < upper_factor*val]
+            actual_data_df = actual_data_df[actual_data_df[constant_key] > lower_factor*val]
             
       if dimensions == 1:
          
@@ -621,18 +738,15 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                axis.set_xlabel(fr"${plot_key1}$")
                
          if plotting_grid_value[1] == 0:
-            if display_efficiency == True:
-               axis.set_ylabel('$ \\eta $')
-            else:
-               axis.set_ylabel('$ \\eta_{lost} $')
+            axis.set_ylabel(self.output_key)
 
          axis.grid(linestyle = '--', linewidth = 0.5)
          
       elif dimensions == 2:
          
-         min_level = np.floor(self.min_output/efficiency_step)*efficiency_step
-         max_level = np.ceil(self.max_output/efficiency_step)*efficiency_step
-         contour_levels = np.arange(min_level,max_level,efficiency_step)
+         min_level = np.floor(self.min_output/contour_step)*contour_step
+         max_level = np.ceil(self.max_output/contour_step)*contour_step
+         contour_levels = np.arange(min_level,max_level,contour_step)
          
          mean_prediction_grid = self.mean_prediction.reshape(num_points,num_points)
          upper_grid = self.upper.reshape(num_points,num_points)
@@ -656,18 +770,18 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                                                 )
          
          if contour_type=='line':
-            predicted_plot = axis.contour(X1, X2, mean_prediction_grid,levels=contour_levels,cmap=efficiency_cmap,norm=cmap_norm)
+            predicted_plot = axis.contour(X1, X2, mean_prediction_grid,levels=contour_levels,cmap=output_cmap,norm=cmap_norm)
             axis.clabel(predicted_plot, inline=1, fontsize=14)
             for contour_level_index,contour_level in enumerate(contour_levels):  #clear this up
                confidence_array = (upper_grid>=contour_level) & (lower_grid<=contour_level)
 
-               contour_color = efficiency_cmap(cmap_norm(contour_level))
+               contour_color = output_cmap(cmap_norm(contour_level))
 
                confidence_plot = axis.contourf(X1,X2,confidence_array, levels=[0.5, 2], alpha=opacity,cmap = mcol.ListedColormap([contour_color])) 
                h2,_ = confidence_plot.legend_elements()
                
          elif contour_type=='continuous':
-            predicted_plot = axis.contourf(X1, X2, mean_prediction_grid,cmap=efficiency_cmap,norm=cmap_norm,levels=contour_levels,extend='both')
+            predicted_plot = axis.contourf(X1, X2, mean_prediction_grid,cmap=output_cmap,norm=cmap_norm,levels=contour_levels,extend='both')
          
          else:
             sys.exit('Please specify "continuous" or "line" for contour_type')
@@ -753,9 +867,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                      CI_percent=95,
                      identify_outliers=True,
                      title_variable_spacing=3,
-                     display_efficiency=False,
                      plot_errorbars=True,
-                     score_variable='both'
+                     score_variable='R2'
                      ):
       
       runid_dataframe = testing_dataframe['runid']   
@@ -765,7 +878,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                    include_output=True,
                    CI_in_dataframe=True,
                    CI_percent=CI_percent,
-                   display_efficiency=display_efficiency
                    )
       
       if axis == None:
@@ -830,12 +942,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       else:
          sys.exit("Enter suitable score variable from ['both','R2','RMSE']")
       
-      if display_efficiency== True:
-         ax.set_xlabel('$ \\eta $ (actual)')
-         ax.set_ylabel('$ \\eta $ (prediction)')
-      else:
-         ax.set_xlabel('$ \\eta_{lost} $ (actual)')
-         ax.set_ylabel('$ \\eta_{lost} $ (prediction)')
+      ax.set_xlabel(f'{self.output_key} (actual)')
+      ax.set_ylabel(f'{self.output_key} (prediction)')
          
       leg = ax.legend(loc='upper left',
                       bbox_to_anchor=(1.02,1.0),
@@ -859,9 +967,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             rotate_grid=False,
             limit_dict=None,
             num_points=100,
-            efficiency_step=0.5,
+            contour_step=0.5,
             opacity=0.3,
-            display_efficiency=True, 
             title_variable_spacing=3,
             with_arrows=True,
             CI_percent=95,
@@ -961,9 +1068,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                            limit_dict=limit_dict,
                            axis=axis,
                            num_points=num_points,
-                           efficiency_step=efficiency_step,
+                           contour_step=contour_step,
                            opacity=opacity,
-                           display_efficiency=display_efficiency,
                            title_variable_spacing=title_variable_spacing,
                            plotting_grid_value=[i,j],
                            grid_height=num_rows,
@@ -1121,8 +1227,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             opt_val = x_actual_fit[np.where(y_actual_fit == y_min)][0]
             opt_values[i] = opt_val
             
-         self.predict(plot_dataframe,
-                     display_efficiency=False)
+         self.predict(plot_dataframe)
          min_i = np.squeeze(self.min_output_indices)
          opt_val_GPR = plot_dataframe[opt_var][min_i]
          opt_values_GPR[i] = opt_val_GPR
