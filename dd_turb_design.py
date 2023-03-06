@@ -244,6 +244,10 @@ def read_in_large_dataset(dataset='4D',
    
    n_before = len(df.index)
    
+   df = df[df['tau_c'] == 0.0]
+   df = df[df['fc_1'] == 0.0]
+   df = df[df['fc_2'] == 0.0]
+
    if dataset in ['4D']:
       # Lambda = 0.5
       val = 0.5
@@ -317,22 +321,59 @@ def drop_columns(df,variables,output_key):
          df=df.drop(columns=str(dataframe_variable))
    return df
 
-class fit_data:  #rename this turb_design and turn init into a new method to fit the data. This will help as model will already be made
+class turbine_GPR: 
    
    def __init__(self,
-                training_dataframe,
-                variables=None,
-                output_key=None,
-                number_of_restarts=0,           
-                length_bounds=[1e-1,1e3],
-                noise_magnitude=1e-6,
-                noise_bounds=[1e-20,1e-3],
-                nu='optimise',
-                extra_variable_options=False,
-                iterate_extra_params=False,
-                limit_dict='auto',
-                save_fit=False
-                ):
+                model_name=None,
+                limit_dict='auto'):
+      
+      if model_name==None:
+         pass
+      else:   
+         with open(f"Models/{model_name}_variables.txt", "r") as file:
+            variables = [line.rstrip() for line in file]
+
+         self.variables = variables
+         self.output_key = model_name
+         self.fit_dimensions = len(self.variables)
+         
+         model = joblib.load(f'Models/{model_name}_model.joblib')
+         
+         self.input_array_train = pd.DataFrame(data=model.X_train_,
+                                               columns=sorted(self.variables))
+         
+         self.output_array_train = model.y_train_
+         
+         if limit_dict=='auto':
+            self.limit_dict = {}
+            for column in self.input_array_train:
+               self.limit_dict[column] = (np.around(self.input_array_train[column].min(),decimals=1),
+                                          np.around(self.input_array_train[column].max(),decimals=1)
+                                          )
+         else:
+            self.limit_dict = limit_dict
+            
+         self.optimised_kernel = model.kernel_
+         
+         self.fitted_function = model
+            
+         self.min_train_output = np.min([self.output_array_train])
+         self.max_train_output = np.max([self.output_array_train])
+   
+   def fit(self,
+           training_dataframe,
+           variables=None,
+           output_key=None,
+           number_of_restarts=0,           
+           length_bounds=[1e-1,1e3],
+           noise_magnitude=1e-6,
+           noise_bounds=[1e-20,1e-3],
+           nu='optimise',
+           extra_variable_options=False,
+           iterate_extra_params=False,
+           limit_dict='auto',
+           overwrite=False
+           ):
       
       if variables==None:
          sys.exit('Please state variable to fit over.')
@@ -342,15 +383,11 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       self.output_key = output_key
       self.variables = variables
       self.fit_dimensions = len(self.variables)
-      self.no_points = len(training_dataframe.index)
-      
       
       noise_kernel = kernels.WhiteKernel(noise_level=noise_magnitude,
                                          noise_level_bounds=noise_bounds)
 
       kernel_form = self.matern_kernel(len(variables),bounds=length_bounds) + noise_kernel
-      if noise_magnitude == None:
-         kernel_form = self.matern_kernel(len(variables),bounds=length_bounds)
 
       if extra_variable_options==True:
          training_dataframe = extra_nondim_params(training_dataframe,
@@ -392,20 +429,15 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
    
       if nu=='optimise':
          for nui in nu_dict:
-            if noise_magnitude == None:
-               gaussian_process.set_params(kernel__nu=nui)
-            else:
-               gaussian_process.set_params(kernel__k1__nu=nui)
+            gaussian_process.set_params(kernel__k1__nu=nui)
             fitted_function = gaussian_process.fit(self.input_array_train.to_numpy(),
                                                    self.output_array_train.to_numpy()
                                                    )
             nu_dict[nui] = fitted_function.log_marginal_likelihood_value_
 
          nu = max(nu_dict, key=nu_dict.get)
-      if noise_magnitude == None:
-         gaussian_process.set_params(kernel__nu=nu)
-      else:
-         gaussian_process.set_params(kernel__k1__nu=nu)
+
+      gaussian_process.set_params(kernel__k1__nu=nu)
 
       self.fitted_function = gaussian_process.fit(self.input_array_train.to_numpy(),
                                                   self.output_array_train.to_numpy()
@@ -416,35 +448,14 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       self.min_train_output = np.min([self.output_array_train])
       self.max_train_output = np.max([self.output_array_train])
       
-      joblib.dump(self.fitted_function,f'Models/{self.output_key}.joblib')
-      if save_fit==True:
-         length_fitted = gaussian_process.get_params()['kernel__k1__length_scale']
-         lengthb_fitted = gaussian_process.get_params()['kernel__k1__length_scale_bounds']
-         nu_fitted = gaussian_process.get_params()['kernel__k1__nu']
-         noise_fitted = gaussian_process.get_params()['kernel__k2__noise_level']
-         noiseb_fitted = gaussian_process.get_params()['kernel__k2__noise_level_bounds']
+      if overwrite==True:
+         joblib.dump(self.fitted_function,f'Models/{self.output_key}_model.joblib')
 
-         length_lower_bound,length_upper_bound=zip(*lengthb_fitted)
-         kernel_list_1 = [[self.fit_dimensions],
-                        length_fitted,
-                        length_lower_bound,
-                        length_upper_bound,
-                        [nu_fitted],
-                        [noise_fitted],
-                        noiseb_fitted]
-         kernel_list_2  = [item for sublist in kernel_list_1 for item in sublist]
-         
-         kernel_values = pd.DataFrame(kernel_list_2)
+         model_variables = variables.copy()
+         text_model_variables = [str(item)+'\n' for item in model_variables]
 
-         kernel_values.to_csv('kernel_parameters.csv',index=False,header=None)
-         df_headers = variables.copy()
-         df_headers += [output_key]
-         text_df_headers = [str(item)+'\n' for item in df_headers]
-
-         with open("df_headers.txt", "w") as file:
-            file.writelines(text_df_headers)
-         
-         training_dataframe.to_csv('training_dataframe.csv',index=False,header=None)
+         with open(f"Models/{self.output_key}_variables.txt", "w") as file:
+            file.writelines(text_model_variables)
 
    def predict(self,
                dataframe,
@@ -524,7 +535,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                  limit_dict=None,
                  axis=None,
                  num_points=100,
-                 contour_step=0.5,
+                 contour_step=None,
                  opacity=0.2,
                  title_variable_spacing=3,
                  plotting_grid_value=[0,0],
@@ -535,7 +546,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                  contour_type='line',
                  show_max=True,
                  show_min=False,
-                 state_no_points=False,
                  plot_actual_data=False,
                  plot_actual_data_filter_factor=5,
                  show_actual_with_model=True
@@ -546,21 +556,22 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
          plot_now = True
       else:
          plot_now = False
+         
+      if contour_step==None:
+         contour_step = abs(self.max_train_output - self.min_train_output)/10
       
-      color_limits = [self.max_train_output,
+      color_limits = np.array([self.min_train_output,
                       np.mean([self.min_train_output,self.max_train_output]),
-                      self.min_train_output]
+                      self.max_train_output])
       # print(color_limits)
-      # color_limits = [88,92,96]
-      cmap_colors = ["red","orange","green"]
+      # color_limits = np.array([88,92,96])
+      cmap_colors = ["green","orange","red"]
       
-      # if display_efficiency == False:
-      #    color_limits = np.flip(1 - (color_limits/100),0)
-      #    cmap_colors = np.flip(cmap_colors)
-      #    efficiency_step = efficiency_step*0.01
-      #    show_max=False
-      #    show_min=True
-      #    contour_textlabel = '\\eta_{lost}'
+      # color_limits = np.flip(1 - (color_limits/100),0)
+      # cmap_colors = np.flip(cmap_colors)
+      # show_max=False
+      # show_min=True
+      # contour_textlabel = '\\eta_{lost}'
       # else:
       contour_textlabel = self.output_key
             
@@ -967,7 +978,7 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             rotate_grid=False,
             limit_dict=None,
             num_points=100,
-            contour_step=0.5,
+            contour_step=None,
             opacity=0.3,
             title_variable_spacing=3,
             with_arrows=True,
@@ -977,7 +988,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
             contour_type='line',
             show_max=True,
             show_min=False,
-            state_no_points=False,
             plot_actual_data=False,
             plot_actual_data_filter_factor=5,
             show_actual_with_model=True,
@@ -1079,7 +1089,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                            contour_type=contour_type,
                            show_max=show_max,
                            show_min=show_min,
-                           state_no_points=state_no_points,
                            plot_actual_data=plot_actual_data,
                            plot_actual_data_filter_factor=plot_actual_data_filter_factor,
                            show_actual_with_model=show_actual_with_model
@@ -1113,8 +1122,6 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
                else:
                   fig.supylabel(f"${grid_keys[0]} $")
                   
-      if state_no_points==True:
-         fig.suptitle(f'n = {self.no_points}')
       plt.show()
       
    def matern_kernel(self,
@@ -1270,6 +1277,8 @@ class fit_data:  #rename this turb_design and turn init into a new method to fit
       if plot_now == True:
          fig.tight_layout()
          plt.show()
+
+   
 
 def dim_2_nondim(shaft_power=25e6,
                   stagnation_pressure_ratio=1.5,
@@ -1517,7 +1526,6 @@ def extra_nondim_params(dataframe, iterate=False):
          dataframe = vars_from_Al(None,index,dataframe)
 
    return dataframe
-
 
 def dim_2_nondim_V2(phi=0.81,
                     psi=1.78,

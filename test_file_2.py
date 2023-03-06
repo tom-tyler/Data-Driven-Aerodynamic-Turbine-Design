@@ -1,11 +1,11 @@
-from dd_turb_design import fit_data, read_in_data, split_data, dim_2_nondim
+from dd_turb_design import turbine_GPR, read_in_data, split_data, dim_2_nondim
 import time
 import numpy as np
 import pandas as pd
 # t1 = time.time()
 # print("--- %s seconds ---" % (time.time() - t1))
 
-data = read_in_data('3D',state_retention_statistics=True)
+data = read_in_data(state_retention_statistics=True)
 
 
 traindf,testdf = split_data(data,
@@ -14,12 +14,8 @@ traindf,testdf = split_data(data,
 #for final report, take 100 (for example) randome seeds, and
 #and compute average R^2 and RMSE as these vary with random seed,
 #(sensitive to what randome sample is taken)
+fit = turbine_GPR('eta_lost')
 
-fit = fit_data(training_dataframe=traindf,
-               variables=['phi','psi','M2'],
-               limit_dict={'phi':(0.5,1.0),
-                           'psi':(1.0,2.0),
-                           'M2':(0.5,0.85)})
 
 # print(fit.optimised_kernel)
 # print(fit.find_global_max_min_values(30))
@@ -67,9 +63,7 @@ fit = fit_data(training_dataframe=traindf,
 
 fit.plot(x1='phi',
          x2='psi',
-         constants={'M2':0.7},
-         num_points=400,
-         efficiency_step=0.5)
+         num_points=400)
 
 #need to fix limits of 1D plots with confidence intervals
 
