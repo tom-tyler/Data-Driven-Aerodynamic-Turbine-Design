@@ -2,7 +2,7 @@ from dd_turb_design import turbine_GPR, read_in_data,read_in_large_dataset, spli
 import numpy as np
 from itertools import combinations
 import pandas as pd
-from extra_params import turbine_info_4D
+from extra_params import turbine_params
 import matplotlib.pyplot as plt
 
 data = read_in_large_dataset(state_retention_statistics=True)
@@ -49,18 +49,29 @@ training_inputs_rotor = ["phi",
                          'Al2a',
                          'Al3']
 
-inputs = ['M2','s_cx_stator','stagger_stator','Al2a']
+inputs = ['phi','M2','s_cx_stator','Al2a']
 
-turb_info = turbine_info_4D(traindf['phi'],
+turb_info = turbine_params(traindf['phi'],
                             traindf['psi'],
                             traindf['M2'],
                             traindf['Co'])
-traindf['stagger_stator'] = np.array(turb_info.get_stagger())[0]
-traindf['s_cx_stator'] = np.array(turb_info.get_s_cx())[0]
-traindf['Al2a'] = turb_info.get_Al()[1]
+turb_info.get_stagger()
+turb_info.get_s_cx()
+turb_info.get_Al()
+turb_info.get_Yp()
+traindf['stagger_rotor'] = turb_info.stagger_rotor
+traindf['stagger_stator'] = turb_info.stagger_stator
+traindf['s_cx_rotor'] = turb_info.s_cx_rotor
+traindf['s_cx_stator'] = turb_info.s_cx_stator
+traindf['Al2a'] = turb_info.Al2
+traindf['Al3'] = turb_info.Al3
+traindf['Yp_stator'] = turb_info.Yp_stator
+traindf['Yp_rotor'] = turb_info.Yp_rotor
 
 # inputs.extend(['Al3'])
-output_variable = 'Yp_stator'
+output_variable = 'recamber_te_stator'
+overwrite_t_or_f = False
+print(f'======== {output_variable} ========')
 training_inputs = inputs
 
 def pre_trained(var_list):
@@ -74,7 +85,7 @@ def pre_trained(var_list):
 multidim_scoremax = 0
 multidim_max_row = None
 max_per_dim_list = []
-dim_list = [4,5,6]
+dim_list = [4,5]
 total_comb = 0
 for dimensions in dim_list:
   comb = list(combinations(training_inputs,dimensions))
@@ -105,11 +116,11 @@ for j,dimensions in enumerate(dim_list):
               variables=training_vars,
               output_key=output_variable,
               number_of_restarts=0,           
-              length_bounds=[1e-3,1e4],
-              noise_magnitude=1e-5,
+              length_bounds=[1e-2,1e4],
+              noise_magnitude=1e-7,
               noise_bounds='fixed',
               nu='optimise', 
-              overwrite=False)
+              overwrite=overwrite_t_or_f)
 
     model.predict(testdf,
                   include_output=True)
@@ -139,6 +150,6 @@ print(max_per_dim_list)
 # print(scores)
 # print(np.max(np.array(scores)))
 
-model.plot_accuracy(testdf,
-                    line_error_percent=10,
-                    identify_outliers=False)
+# model.plot_accuracy(testdf,
+#                     line_error_percent=10,
+#                     identify_outliers=False)

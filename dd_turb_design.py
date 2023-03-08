@@ -381,6 +381,7 @@ class turbine_GPR:
          sys.exit('Please state output to fit to.')
       
       self.output_key = output_key
+      variables = list(variables)
       self.variables = variables
       self.fit_dimensions = len(self.variables)
       

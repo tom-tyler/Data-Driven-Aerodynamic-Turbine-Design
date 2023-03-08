@@ -1,0 +1,4 @@
+M2
+s_cx_stator
+stagger_stator
+Al2a

@@ -2,50 +2,55 @@ from dd_turb_design import turbine_GPR
 import numpy as np
 import pandas as pd
 import compflow_native as compflow
+import sys
 
-#specify 2 of:
-# - mass flow rate
-# - shaft speed, omega
-# - inlet enthalpy
-# - mean radius
 
 #NEED STILL
-# "eta_lost",
-# 'Yp_stator', 
-# 'Yp_rotor', 
-# 'loss_rat',
 # 'recamber_te_stator',
-# 'beta_stator',
-# 't_ps_stator',
-# 't_ss_stator',
-# 'max_t_loc_ps_stator',
-# 'max_t_loc_ss_stator',
-# 'lean_stator',
-# 'stagger_rotor',
 # 'recamber_te_rotor',
+
 # 'beta_rotor',
+
 # 't_ps_rotor',
+
+# 't_ss_stator',
 # 't_ss_rotor',
+
+# 'max_t_loc_ps_stator',
 # 'max_t_loc_ps_rotor',
+
+# 'max_t_loc_ss_stator',
 # 'max_t_loc_ss_rotor'
+
+# 'lean_stator',
 
 class turbine_params:
     def __init__(self,phi,psi,M2,Co):
-        self.phi = np.array(phi)
-        self.psi = np.array(psi)
-        self.M2 = np.array(M2)
-        self.Co = np.array(Co)
+        
+        if np.isscalar(phi) and np.isscalar(psi) and np.isscalar(M2) and np.isscalar(Co):
+            self.no_points = 1
+            self.phi = np.array([phi])
+            self.psi = np.array([psi])
+            self.M2 = np.array([M2])
+            self.Co = np.array([Co])
+        elif not np.isscalar(phi) and not np.isscalar(psi) and not np.isscalar(M2) and not np.isscalar(Co):
+            self.phi = np.array(phi)
+            self.psi = np.array(psi)
+            self.M2 = np.array(M2)
+            self.Co = np.array(Co)
+            self.no_points = len(self.phi)
+        else:
+            sys.exit('Incorrect input types')
+            
         self.htr = 0.9
         self.AR = [1.6,1.6]
-        
-        self.no_points = len(self.phi)
         
         self.spf_stator,self.spf_rotor = 0.5,0.5
         self.spf = [self.spf_stator,self.spf_rotor]
         
-        self.recamber_le_stator,self.recamber_le_rotor = 0.0,0.0 #PUT THIS IN RECAMBER FUNCTION
-        self.recamber_le = [self.recamber_le_stator,self.recamber_le_rotor] #^^^
-        self.lean_rotor = 0.0 #PUT THIS IN ROTOR FUNCTION
+        self.recamber_le_stator,self.recamber_le_rotor = 0.0,0.0
+        self.recamber_le = [self.recamber_le_stator,self.recamber_le_rotor]
+        
         self.ga = 1.33
         self.Rgas = 272.9
         self.cp = self.Rgas * self.ga / (self.ga - 1.0)
@@ -96,7 +101,7 @@ class turbine_params:
         return self.stagger
 
     def get_zeta(self):
-        zeta_stator_model = turbine_GPR('zeta_stator')
+        zeta_stator_model = turbine_GPR('zeta_stator') #maybe improve this model
         
         zeta_stator = np.array(zeta_stator_model.predict(pd.DataFrame(data={'phi':self.phi,
                                                     'psi':self.psi,
@@ -132,9 +137,12 @@ class turbine_params:
     def get_loss_rat(self):
         loss_rat_model = turbine_GPR('loss_rat')
         
+        self.get_Yp()
+        
         self.loss_rat = np.array(loss_rat_model.predict(pd.DataFrame(data={'phi':self.phi,
                                                     'psi':self.psi,
-                                                    'M2':self.M2,
+                                                    'Yp_stator':self.Yp_stator,
+                                                    'Yp_rotor':self.Yp_rotor,
                                                     'Co':self.Co}))['predicted_output'])
         
         return self.loss_rat
@@ -142,42 +150,77 @@ class turbine_params:
     def get_eta_lost(self):
         eta_lost_model = turbine_GPR('eta_lost')
         
+        self.get_Yp()
+        
         self.eta_lost = np.array(eta_lost_model.predict(pd.DataFrame(data={'phi':self.phi,
                                                     'psi':self.psi,
                                                     'M2':self.M2,
-                                                    'Co':self.Co}))['predicted_output'])
+                                                    'Co':self.Co,
+                                                    'Yp_stator':self.Yp_stator,
+                                                    'Yp_rotor':self.Yp_rotor}))['predicted_output'])
         
         return self.eta_lost
-
-    def get_Rle(self):
-        return self.Rle
     
     def get_t_ps(self):
+        self.t_ps_stator = 0.205*np.ones(self.no_points)
+        self.t_ps_rotor = 0.250*np.ones(self.no_points)
+        self.t_ps = np.array([self.t_ps_stator,self.t_ps_rotor])
         return self.t_ps
     
     def get_t_ss(self):
+        self.t_ss_stator = 0.29*np.ones(self.no_points)
+        self.t_ss_rotor = 0.30*np.ones(self.no_points)
+        self.t_ss = np.array([self.t_ss_stator,self.t_ps_rotor])
         return self.t_ss
 
     def get_Yp(self):
+        Yp_stator_model = turbine_GPR('Yp_stator')
+        Yp_rotor_model = turbine_GPR('Yp_rotor')
+        
+        self.get_stagger()
+        self.get_s_cx()
+        self.get_Al()
+        
+        Yp_stator = np.array(Yp_stator_model.predict(pd.DataFrame(data={'s_cx_stator':self.s_cx_stator,
+                                                                        'stagger_stator':self.stagger_stator,
+                                                                        'M2':self.M2,
+                                                                        'Al2a':self.Al2}))['predicted_output'])
+        Yp_rotor = np.array(Yp_rotor_model.predict(pd.DataFrame(data={'s_cx_rotor':self.s_cx_rotor,
+                                                                        'psi':self.psi,
+                                                                        'M2':self.M2,
+                                                                        'stagger_rotor':self.stagger_rotor}))['predicted_output'])
+        self.Yp_stator = Yp_stator
+        self.Yp_rotor = Yp_rotor
+        self.Yp = np.array([Yp_stator,Yp_rotor])
         return self.Yp
     
-    def get_zeta(self):
-        return self.zeta
-    
     def get_beta(self):
+        self.beta_stator = 10.5*np.ones(self.no_points)
         return self.beta
     
     def get_lean(self):
+        self.lean_stator = 0.03*np.ones(self.no_points)  #ballpark
+        self.lean_rotor = np.zeros(self.no_points)
+        self.lean = np.array([self.lean_stator,self.lean_rotor])
         return self.lean
 
     def get_recamber_te(self):
+        self.recamber_te_stator = np.zeros(self.no_points) #ballpark
+        self.recamber_te_rotor = np.zeros(self.no_points)  #ballpark
+        self.recamber_te = np.array([self.recamber_te_stator,self.recamber_te_rotor])
         return self.recamber_te
     
     def get_max_t_loc_ps(self):
-        return self.get_max_t_loc_ps
+        self.max_t_loc_ps_stator = 0.35*np.ones(self.no_points)   #ballpark
+        self.max_t_loc_ps_rotor = 0.37*np.ones(self.no_points)    #ballpark
+        self.max_t_loc_ps = np.array([self.max_t_loc_ps_stator,self.max_t_loc_ps_rotor])
+        return self.max_t_loc_ps
     
     def get_max_t_loc_ss(self):
-        return self.get_max_t_loc_ss
+        self.max_t_loc_ss_stator = 0.40*np.ones(self.no_points)   #ballpark
+        self.max_t_loc_ss_rotor = 0.32*np.ones(self.no_points)    #ballpark
+        self.max_t_loc_ss = np.array([self.max_t_loc_ss_stator,self.max_t_loc_ps_rotor])
+        return self.max_t_loc_ss
     
     def non_dim_params_from_4D(self):
 
@@ -387,3 +430,49 @@ class turbine_params:
         
         return self.stag1, self.stag2
 
+    def get_non_dim_geometry(self):
+        self.get_stagger()
+        self.get_s_cx()
+        self.get_t_ps()
+        self.get_t_ss()
+        self.get_max_t_loc_ps()
+        self.get_max_t_loc_ss()
+        self.get_recamber_te()
+        self.get_lean()
+        self.get_beta()
+        
+        sect_row_0_dict = {'tte':self.tte,
+                           'sect_0': {
+                               'spf':self.spf_stator,
+                               'stagger':self.stagger_stator,
+                               'recamber':[self.recamber_le_stator,
+                                           self.recamber_te_stator],
+                               'Rle':self.Rle_stator,
+                               'beta':self.beta_stator,
+                               "thickness_ps": self.t_ps_stator,
+                               "thickness_ss": self.t_ss_stator,
+                               "max_thickness_location_ss": self.max_loc_t_ss_stator,
+                               "max_thickness_location_ps": self.max_loc_t_ps_stator,
+                               "lean": self.lean_stator
+                               }
+                           }
+        
+        sect_row_1_dict = {'tte':self.tte,
+                           'sect_0': {
+                               'spf':self.spf_rotor,
+                               'stagger':self.stagger_rotor,
+                               'recamber':[self.recamber_le_rotor,
+                                           self.recamber_te_rotor],
+                               'Rle':self.Rle_rotor,
+                               'beta':self.beta_rotor,
+                               "thickness_ps": self.t_ps_rotor,
+                               "thickness_ss": self.t_ss_rotor,
+                               "max_thickness_location_ss": self.max_loc_t_ss_rotor,
+                               "max_thickness_location_ps": self.max_loc_t_ps_rotor,
+                               "lean": self.lean_rotor
+                               }
+                           }
+        
+        return [sect_row_0_dict,sect_row_1_dict]
+        
+        

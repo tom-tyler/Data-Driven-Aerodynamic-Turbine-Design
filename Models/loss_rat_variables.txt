@@ -1,4 +1,5 @@
+Yp_rotor
+Yp_stator
+Co
 phi
 psi
-M2
-Co
