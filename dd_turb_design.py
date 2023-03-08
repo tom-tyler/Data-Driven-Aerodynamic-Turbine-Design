@@ -1032,7 +1032,7 @@ class turbine_GPR:
       
       for indices, axis in np.ndenumerate(axes):
          
-         print(indices)
+         print('plot',indices)
          
          if (num_columns == 1) and (num_rows > 1):
             i = np.squeeze(indices)

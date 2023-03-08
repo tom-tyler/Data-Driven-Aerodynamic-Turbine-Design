@@ -9,110 +9,183 @@ import compflow_native as compflow
 # - inlet enthalpy
 # - mean radius
 
-class turbine_info_4D:
+#NEED STILL
+# "eta_lost",
+# 'Yp_stator', 
+# 'Yp_rotor', 
+# 'loss_rat',
+# 'recamber_te_stator',
+# 'beta_stator',
+# 't_ps_stator',
+# 't_ss_stator',
+# 'max_t_loc_ps_stator',
+# 'max_t_loc_ss_stator',
+# 'lean_stator',
+# 'stagger_rotor',
+# 'recamber_te_rotor',
+# 'beta_rotor',
+# 't_ps_rotor',
+# 't_ss_rotor',
+# 'max_t_loc_ps_rotor',
+# 'max_t_loc_ss_rotor'
+
+class turbine_params:
     def __init__(self,phi,psi,M2,Co):
-        self.phi = phi
-        self.psi = psi
-        self.M2 = M2
-        self.Co = Co
+        self.phi = np.array(phi)
+        self.psi = np.array(psi)
+        self.M2 = np.array(M2)
+        self.Co = np.array(Co)
         self.htr = 0.9
         self.AR = [1.6,1.6]
+        
+        self.no_points = len(self.phi)
+        
         self.spf_stator,self.spf_rotor = 0.5,0.5
-        self.recamber_le_stator,self.recamber_le_rotor = 0.0,0.0
-        self.lean_rotor = 0.0
+        self.spf = [self.spf_stator,self.spf_rotor]
+        
+        self.recamber_le_stator,self.recamber_le_rotor = 0.0,0.0 #PUT THIS IN RECAMBER FUNCTION
+        self.recamber_le = [self.recamber_le_stator,self.recamber_le_rotor] #^^^
+        self.lean_rotor = 0.0 #PUT THIS IN ROTOR FUNCTION
         self.ga = 1.33
         self.Rgas = 272.9
         self.cp = self.Rgas * self.ga / (self.ga - 1.0)
         self.tte = 0.015
         self.dx_c = [1.0,0.6,1.5]
-        delta = 0.1
+        self.delta = 0.1
+        
+        #geom
+        self.Rle_stator,self.Rle_rotor = [0.04,0.04]
 
-    def Al_from_4D(self):
+    def get_Al(self):
     
         Al2_model = turbine_GPR('Al2a')
         Al3_model = turbine_GPR('Al3')
         
-        Al1 = 0.0
-        Al2 = float(Al2_model.predict(pd.DataFrame(data={'phi':[self.phi],
-                                                    'psi':[self.psi],
-                                                    'M2':[self.M2],
-                                                    'Co':[self.Co]}))['predicted_output'])
-        Al3 = float(Al3_model.predict(pd.DataFrame(data={'phi':[self.phi],
-                                                    'psi':[self.psi],
-                                                    'M2':[self.M2],
-                                                    'Co':[self.Co]}))['predicted_output'])
+        Al1 = np.zeros(self.no_points)
+        Al2 = np.array(Al2_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                    'psi':self.psi,
+                                                    'M2':self.M2,
+                                                    'Co':self.Co}))['predicted_output'])
+        Al3 = np.array(Al3_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                    'psi':self.psi,
+                                                    'M2':self.M2,
+                                                    'Co':self.Co}))['predicted_output'])
+        self.Al1 = Al1
+        self.Al2 = Al2
+        self.Al3 = Al3
+        self.Al = np.array([Al1,Al2,Al3])
         
-        return Al1,Al2,Al3
+        return self.Al
 
-    def stagger_from_4D(self):
+    def get_stagger(self):
+        
         stagger_stator_model = turbine_GPR('stagger_stator')
         stagger_rotor_model = turbine_GPR('stagger_rotor')
         
-        stagger_stator = float(stagger_stator_model.predict(pd.DataFrame(data={'phi':[self.phi],
-                                                    'psi':[self.psi],
-                                                    'M2':[self.M2],
-                                                    'Co':[self.Co]}))['predicted_output'])
-        stagger_rotor = float(stagger_rotor_model.predict(pd.DataFrame(data={'phi':[self.phi],
-                                                    'psi':[self.psi],
-                                                    'M2':[self.M2],
-                                                    'Co':[self.Co]}))['predicted_output'])
-        
-        return [stagger_stator,stagger_rotor]
+        stagger_stator = np.array(stagger_stator_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                                        'psi':self.psi,
+                                                                        'M2':self.M2,
+                                                                        'Co':self.Co}))['predicted_output'])
+        stagger_rotor = np.array(stagger_rotor_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                                        'psi':self.psi,
+                                                                        'M2':self.M2,
+                                                                        'Co':self.Co}))['predicted_output'])
+        self.stagger_stator = stagger_stator
+        self.stagger_rotor = stagger_rotor
+        self.stagger = np.array([stagger_stator,stagger_rotor])
+        return self.stagger
 
-    def zeta_from_4D(self):
+    def get_zeta(self):
         zeta_stator_model = turbine_GPR('zeta_stator')
         
-        zeta_stator = float(zeta_stator_model.predict(pd.DataFrame(data={'phi':[self.phi],
-                                                    'psi':[self.psi],
-                                                    'M2':[self.M2],
-                                                    'Co':[self.Co]}))['predicted_output'])
-        zeta_rotor = 1.0
+        zeta_stator = np.array(zeta_stator_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                    'psi':self.psi,
+                                                    'M2':self.M2,
+                                                    'Co':self.Co}))['predicted_output'])
+        zeta_rotor = np.ones(self.no_points)
         
-        return [zeta_stator,zeta_rotor]
+        self.zeta_stator = zeta_stator
+        self.zeta_rotor = zeta_rotor
+        self.zeta = np.array([zeta_stator,zeta_rotor])
+        
+        return self.zeta
 
-    def s_cx_from_4D(self):
+    def get_s_cx(self):
         s_cx_stator_model = turbine_GPR('s_cx_stator')
         s_cx_rotor_model = turbine_GPR('s_cx_rotor')
         
-        s_cx_stator = float(s_cx_stator_model.predict(pd.DataFrame(data={'phi':[self.phi],
-                                                    'psi':[self.psi],
-                                                    'M2':[self.M2],
-                                                    'Co':[self.Co]}))['predicted_output'])
-        s_cx_rotor = float(s_cx_rotor_model.predict(pd.DataFrame(data={'phi':[self.phi],
-                                                    'psi':[self.psi],
-                                                    'M2':[self.M2],
-                                                    'Co':[self.Co]}))['predicted_output'])
+        s_cx_stator = np.array(s_cx_stator_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                    'psi':self.psi,
+                                                    'M2':self.M2,
+                                                    'Co':self.Co}))['predicted_output'])
+        s_cx_rotor = np.array(s_cx_rotor_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                    'psi':self.psi,
+                                                    'M2':self.M2,
+                                                    'Co':self.Co}))['predicted_output'])
         
-        return [s_cx_stator,s_cx_rotor]
+        self.s_cx_stator = s_cx_stator
+        self.s_cx_rotor = s_cx_rotor
+        self.s_cx = np.array([s_cx_stator,s_cx_rotor])
+        
+        return self.s_cx
     
-    def loss_rat_from_4D(self):
+    def get_loss_rat(self):
         loss_rat_model = turbine_GPR('loss_rat')
         
-        loss_rat = float(loss_rat_model.predict(pd.DataFrame(data={'phi':[self.phi],
-                                                    'psi':[self.psi],
-                                                    'M2':[self.M2],
-                                                    'Co':[self.Co]}))['predicted_output'])
+        self.loss_rat = np.array(loss_rat_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                    'psi':self.psi,
+                                                    'M2':self.M2,
+                                                    'Co':self.Co}))['predicted_output'])
         
-        return loss_rat
+        return self.loss_rat
 
-    def eta_lost_from_4D(self):
+    def get_eta_lost(self):
         eta_lost_model = turbine_GPR('eta_lost')
         
-        eta_lost = float(eta_lost_model.predict(pd.DataFrame(data={'phi':[self.phi],
-                                                    'psi':[self.psi],
-                                                    'M2':[self.M2],
-                                                    'Co':[self.Co]}))['predicted_output'])
+        self.eta_lost = np.array(eta_lost_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                    'psi':self.psi,
+                                                    'M2':self.M2,
+                                                    'Co':self.Co}))['predicted_output'])
         
-        return eta_lost
+        return self.eta_lost
 
+    def get_Rle(self):
+        return self.Rle
+    
+    def get_t_ps(self):
+        return self.t_ps
+    
+    def get_t_ss(self):
+        return self.t_ss
+
+    def get_Yp(self):
+        return self.Yp
+    
+    def get_zeta(self):
+        return self.zeta
+    
+    def get_beta(self):
+        return self.beta
+    
+    def get_lean(self):
+        return self.lean
+
+    def get_recamber_te(self):
+        return self.recamber_te
+    
+    def get_max_t_loc_ps(self):
+        return self.get_max_t_loc_ps
+    
+    def get_max_t_loc_ss(self):
+        return self.get_max_t_loc_ss
+    
     def non_dim_params_from_4D(self):
-                       
-        Al1,Al2,Al3 = self.Al_from_4D()
-        Al = np.array([Al1,Al2,Al3])
-        loss_ratio = self.loss_rat_from_4D()
-        eta_lost = self.eta_lost_from_4D()
+
+        Al = np.array(self.get_Al())
+        loss_ratio = self.get_lost_rat()
+        eta_lost = self.get_eta_lost()
         
-        zeta = self.zeta_from_4D() #zeta rotor assumed=1.0
+        zeta = self.get_zeta() #zeta rotor assumed=1.0
         cosAl = np.cos(np.radians(Al))
             
         # Get non-dimensional velocities from definition of flow coefficient
@@ -191,10 +264,12 @@ class turbine_info_4D:
 
     def free_vortex_vane(self,rh,rc,rm):
         """Evaluate vane flow angles assuming a free vortex."""
-
+        
+        Al = np.array(self.get_Al())
+        
         rh_vane = rh[:2].reshape(-1, 1)
         rc_vane = rc[:2].reshape(-1, 1)
-        Al_vane = self.Al[:2].reshape(-1, 1)
+        Al_vane = Al[:2].reshape(-1, 1)
 
         r_rm = (np.reshape(self.spf_stator, (1, -1)) * (rh_vane - rc_vane) + rh_vane) / rm
 
@@ -202,10 +277,12 @@ class turbine_info_4D:
 
     def free_vortex_blade(self,rh,rc,rm):
         """Evaluate blade flow angles assuming a free vortex."""
-
+        
+        Al = np.array(self.get_Al())
+        
         rh_blade = rh[1:].reshape(-1, 1)
         rc_blade = rc[1:].reshape(-1, 1)
-        Al_blade = self.Al[1:].reshape(-1, 1)
+        Al_blade = Al[1:].reshape(-1, 1)
 
         r_rm = (np.reshape(self.spf_rotor, (1, -1)) * (rc_blade - rh_blade) + rh_blade) / rm
 
@@ -233,7 +310,7 @@ class turbine_info_4D:
         span = np.array([np.mean(Dr[i : (i + 2)]) for i in range(2)])
         cx = span / self.AR
         
-        s_cx = self.s_cx_from_4D()
+        s_cx = self.get_s_cx()
         
         self.rm = rm
         self.U = U
@@ -255,6 +332,11 @@ class turbine_info_4D:
         self.chi = np.stack((self.free_vortex_vane(self.rh,self.rc,self.rm),
                              self.free_vortex_blade(self.rh,self.rc,self.rm)
                              ))
+        
+        self.stag1 = np.mean(self.chi,axis=1)
+        self.stag2 = self.get_stagger()
+        
+        return self.stag1, self.stag2
  
     def dim_from_mdot(self, mdot1, To1, Po1):
         """Scale a mean-line design and evaluate geometry from mdot."""
@@ -278,7 +360,7 @@ class turbine_info_4D:
         span = np.array([np.mean(Dr[i : (i + 2)]) for i in range(2)])
         cx = span / self.AR
         
-        s_cx = self.s_cx_from_4D()
+        s_cx = self.get_s_cx()
         
         self.rm = rm
         self.U = U
@@ -300,6 +382,8 @@ class turbine_info_4D:
         self.chi = np.stack((self.free_vortex_vane(self.rh,self.rc,self.rm),
                              self.free_vortex_blade(self.rh,self.rc,self.rm)
                              ))
+        self.stag1 = np.mean(self.chi,axis=1)
+        self.stag2 = self.get_stagger()
         
-        return self.chi
+        return self.stag1, self.stag2
 
