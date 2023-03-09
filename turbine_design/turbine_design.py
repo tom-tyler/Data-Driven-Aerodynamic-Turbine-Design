@@ -1,11 +1,12 @@
-from dd_turb_design import turbine_GPR
+from model_turbine import turbine_GPR
 import numpy as np
 import pandas as pd
 import compflow_native as compflow
 import sys
+import json
 
 
-#NEED STILL
+#NEED STILL - ballpark placehoders currently
 # 'recamber_te_stator',
 # 'recamber_te_rotor',
 
@@ -24,7 +25,7 @@ import sys
 
 # 'lean_stator',
 
-class turbine_params:
+class turbine:
     def __init__(self,phi,psi,M2,Co):
         
         if np.isscalar(phi) and np.isscalar(psi) and np.isscalar(M2) and np.isscalar(Co):
@@ -55,8 +56,9 @@ class turbine_params:
         self.Rgas = 272.9
         self.cp = self.Rgas * self.ga / (self.ga - 1.0)
         self.tte = 0.015
-        self.dx_c = [1.0,0.6,1.5]
         self.delta = 0.1
+        
+        self.Lambda=0.5
         
         #geom
         self.Rle_stator,self.Rle_rotor = [0.04,0.04]
@@ -195,7 +197,9 @@ class turbine_params:
         return self.Yp
     
     def get_beta(self):
+        self.beta_rotor = 15*np.ones(self.no_points)
         self.beta_stator = 10.5*np.ones(self.no_points)
+        self.beta = [self.beta_stator,self.beta_rotor]
         return self.beta
     
     def get_lean(self):
@@ -431,6 +435,15 @@ class turbine_params:
         return self.stag1, self.stag2
 
     def get_non_dim_geometry(self):
+        if self.no_points >1:
+            sys.exit('Currently only set up for one design at a time')
+        
+        self.To1 = 1600.0
+        self.Po1 = 1600000.0
+        self.Omega = 314.159
+        self.Re = 2e6
+        #need to set up for dimensional geometry too, to do this just need to have inputs
+            
         self.get_stagger()
         self.get_s_cx()
         self.get_t_ps()
@@ -440,6 +453,39 @@ class turbine_params:
         self.get_recamber_te()
         self.get_lean()
         self.get_beta()
+        self.get_loss_rat()
+        
+        self.eta = 100 - 100*self.get_eta_lost()
+        
+        mean_line = {"phi": self.phi,
+                     "psi": self.psi,
+                     "Lam": self.Lambda,
+                     "Al1": self.Al1,
+                     "Ma2": self.M2,
+                     "eta": self.eta,
+                     "ga": self.ga,
+                     "loss_split": self.loss_rat,
+                     "fc": [0.0,
+                            0.0],
+                     "TRc": [0.5,
+                             0.5]
+                     }
+        
+        bcond = {"To1": self.To1,
+                 "Po1": self.Po1,
+                 "rgas": self.Rgas,
+                 "Omega": self.Omega,
+                 "delta": self.delta
+                 }
+        
+        threeD = {"htr": self.htr,
+                  "Re": self.Re,
+                  "tau_c": 0.0,
+                  "Co": [self.Co,
+                         self.Co],
+                  "AR": [self.AR,
+                         self.AR]
+                  }
         
         sect_row_0_dict = {'tte':self.tte,
                            'sect_0': {
@@ -451,8 +497,8 @@ class turbine_params:
                                'beta':self.beta_stator,
                                "thickness_ps": self.t_ps_stator,
                                "thickness_ss": self.t_ss_stator,
-                               "max_thickness_location_ss": self.max_loc_t_ss_stator,
-                               "max_thickness_location_ps": self.max_loc_t_ps_stator,
+                               "max_thickness_location_ss": self.max_t_loc_ss_stator,
+                               "max_thickness_location_ps": self.max_t_loc_ps_stator,
                                "lean": self.lean_stator
                                }
                            }
@@ -467,12 +513,22 @@ class turbine_params:
                                'beta':self.beta_rotor,
                                "thickness_ps": self.t_ps_rotor,
                                "thickness_ss": self.t_ss_rotor,
-                               "max_thickness_location_ss": self.max_loc_t_ss_rotor,
-                               "max_thickness_location_ps": self.max_loc_t_ps_rotor,
+                               "max_thickness_location_ss": self.max_t_loc_ss_rotor,
+                               "max_thickness_location_ps": self.max_t_loc_ps_rotor,
                                "lean": self.lean_rotor
                                }
                            }
+
+        with open('turbine_json/datum.json') as f:
+            turbine_json = json.load(f)
+
+        turbine_json["mean-line"] = mean_line
+        turbine_json['bcond'] = bcond
+        turbine_json['3d'] = threeD
+        turbine_json['sect_row_0_dict'] = sect_row_0_dict
+        turbine_json['sect_row_1_dict'] = sect_row_1_dict
         
-        return [sect_row_0_dict,sect_row_1_dict]
+        with open('turbine_json/turbine_params.json', 'w') as f:
+            json.dump(turbine_json, f)
         
         

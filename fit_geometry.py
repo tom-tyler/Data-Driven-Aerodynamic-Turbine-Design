@@ -49,7 +49,7 @@ training_inputs_rotor = ["phi",
                          'Al2a',
                          'Al3']
 
-inputs = ['phi','M2','s_cx_stator','Al2a']
+inputs = ['phi','M2','psi','Co']
 
 turb_info = turbine_params(traindf['phi'],
                             traindf['psi'],
@@ -68,8 +68,10 @@ traindf['Al3'] = turb_info.Al3
 traindf['Yp_stator'] = turb_info.Yp_stator
 traindf['Yp_rotor'] = turb_info.Yp_rotor
 
+
+
 # inputs.extend(['Al3'])
-output_variable = 'recamber_te_stator'
+output_variable = 'eta_lost'
 overwrite_t_or_f = False
 print(f'======== {output_variable} ========')
 training_inputs = inputs
@@ -85,7 +87,7 @@ def pre_trained(var_list):
 multidim_scoremax = 0
 multidim_max_row = None
 max_per_dim_list = []
-dim_list = [4,5]
+dim_list = [4]
 total_comb = 0
 for dimensions in dim_list:
   comb = list(combinations(training_inputs,dimensions))
@@ -115,10 +117,10 @@ for j,dimensions in enumerate(dim_list):
     model.fit(traindf,
               variables=training_vars,
               output_key=output_variable,
-              number_of_restarts=0,           
-              length_bounds=[1e-2,1e4],
-              noise_magnitude=1e-7,
-              noise_bounds='fixed',
+              number_of_restarts=10,           
+              length_bounds=[1e-4,1e4],
+              noise_magnitude=1e-4,
+              noise_bounds=[1e-9,1e-1],
               nu='optimise', 
               overwrite=overwrite_t_or_f)
 

@@ -1,0 +1,93 @@
+{
+    "mean-line": {
+        "phi": 0.8,
+        "psi": 1.6,
+        "Lam": 0.5,
+        "Al1": 0.0,
+        "Ma2": 0.65,
+        "eta": 0.9,
+        "ga": 1.33,
+        "loss_split": 0.5,
+        "fc": [ 
+            0.0,
+            0.0
+        ],
+        "TRc": [ 
+            0.5,
+            0.5
+        ]
+    },
+    "bcond": {
+        "To1": 1600.0,
+        "Po1": 1600000.0,
+        "rgas": 272.9,
+        "Omega": 314.159,
+        "delta": 0.1
+    },
+    "3d": {
+        "htr": 0.9,
+        "Re": 2e6,
+        "tau_c": 0.0,
+        "Co": [
+            0.7,
+            0.7
+        ],
+        "AR": [
+            1.6,
+            1.6
+        ]
+    },
+    "mesh": {
+        "dx_c": [
+            1.0,
+            0.6,
+            1.5
+        ]
+    },
+    "run": {
+        "guess_file": null,
+        "grid_type": "oh",
+        "cfd_config": {
+            "ilos": 1,
+            "nchange": 5000,
+            "nstep": 30000,
+            "dampin": 25.0
+        }
+    },
+    "sect_row_0": {
+        "tte": 0.015,
+        "sect_0": {
+            "spf": 0.5,
+            "stagger": 0.0,
+            "recamber": [
+                0.0,
+                0.0
+            ],
+            "Rle": 0.05,
+            "beta": 11.000000000000002,
+            "thickness_ps": 0.2,
+            "thickness_ss": 0.4,
+            "max_thickness_location_ss": 0.4,
+            "max_thickness_location_ps": 0.3,
+            "lean": 0.0
+        }
+    },
+    "sect_row_1": {
+        "tte": 0.015,
+        "sect_0": {
+            "spf": 0.5,
+            "stagger": 0.0,
+            "recamber": [
+                0.0,
+                0.0
+            ],
+            "Rle": 0.05,
+            "beta": 11.000000000000002,
+            "thickness_ps": 0.2,
+            "thickness_ss": 0.4,
+            "max_thickness_location_ss": 0.4,
+            "max_thickness_location_ps": 0.3,
+            "lean": 0.0
+        }
+    }
+}

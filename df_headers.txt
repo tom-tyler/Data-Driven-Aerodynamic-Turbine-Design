@@ -1,4 +1,0 @@
-phi
-psi
-M2
-eta_lost

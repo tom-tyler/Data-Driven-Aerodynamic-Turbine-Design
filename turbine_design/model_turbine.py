@@ -1,317 +1,16 @@
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from sklearn.metrics import mean_squared_error
-import sklearn.preprocessing as pre
 import numpy as np
 import pandas as pd
 import scipy.stats as st
-import scipy.optimize as sciop
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcol
 from collections import OrderedDict
-import compflow_native as compflow
-import os
 import sys
 import joblib
+from . import compflow_native as compflow
+import json
 
-def read_in_data(dataset='4D',
-                 path='Data Complete',
-                 factor=5,
-                 state_retention_statistics=False,
-                 ignore_incomplete=False
-                 ):
-   
-   dataframe_dict = {}
-   n_before = 0
-   n_after = 0
-   for filename in os.listdir(path):
-      data_name = str(filename)[:-4]
-      
-      if dataset=='all':
-         pass
-      elif dataset=='5D only':
-         if data_name[:15] != '5D_turbine_data':
-            continue
-      elif dataset=='4D only':
-         if (data_name[:7] != '4D_data'):
-            continue
-      elif dataset=='2D only':
-         if data_name[:15] != '2D_phi_psi_data':
-            continue
-      elif dataset in ['2D','3D','4D','5D','2D_tip_gap']:
-         pass
-      else:
-         if data_name not in dataset:
-            continue
-      
-      filepath = os.path.join(path, filename)
-      df = pd.read_csv(filepath)
-
-      if df.shape[1] == 20:
-         df.columns=["phi",
-                     "psi", 
-                     "Lambda", 
-                     "M2", 
-                     "Co", 
-                     "eta_lost",
-                     "runid",
-                     'Yp_stator', 
-                     'Yp_rotor', 
-                     'zeta_stator',
-                     'zeta_rotor',
-                     's_cx_stator',
-                     's_cx_rotor',
-                     'AR_stator',
-                     'AR_rotor',
-                     'loss_rat',
-                     'Al1',
-                     'Al2a',
-                     'Al2b',
-                     'Al3']
-         
-      elif df.shape[1] == 6:
-         df.columns=["phi",
-                  "psi", 
-                  "Lambda", 
-                  "M2", 
-                  "Co", 
-                  "eta_lost"]
-         df['runid'] = 0
-         df['Yp_stator'] = 0 
-         df['Yp_rotor'] = 0 
-         df['zeta_stator'] = 0
-         df['zeta_rotor'] = 0
-         df['s_cx_stator'] = 0
-         df['s_cx_rotor'] = 0
-         df['AR_stator'] = 0
-         df['AR_rotor'] = 0
-         df['loss_rat'] = 0
-         df['Al1'] = 0
-         df['Al2a'] = 0
-         df['Al2b'] = 0
-         df['Al3'] = 0
-         if ignore_incomplete==True:
-            continue
-            
-      elif df.shape[1] == 7:
-         df.columns=["phi",
-                     "psi", 
-                     "Lambda", 
-                     "M2", 
-                     "Co", 
-                     "eta_lost",
-                     "runid"]
-         df['Yp_stator'] = 0 
-         df['Yp_rotor'] = 0 
-         df['zeta_stator'] = 0
-         df['zeta_rotor'] = 0
-         df['s_cx_stator'] = 0
-         df['s_cx_rotor'] = 0
-         df['AR_stator'] = 0
-         df['AR_rotor'] = 0
-         df['loss_rat'] = 0
-         df['Al1'] = 0
-         df['Al2a'] = 0
-         df['Al2b'] = 0
-         df['Al3'] = 0
-         if ignore_incomplete==True:
-            continue
-      else:
-         sys.exit('Invalid dataframe')
-      
-      # filter by factor% error
-      lower_factor = 1 - factor/100
-      upper_factor = 1 + factor/100
-      
-      n_before += len(df.index)
-      
-      if dataset in ['4D','4D only']:
-         # Lambda = 0.5
-         val = 0.5
-         df = df[df["Lambda"] < upper_factor*val]
-         df = df[df["Lambda"] > lower_factor*val]
-         
-      elif dataset in ['3D']:
-         # Co = 0.65
-         val=0.65
-         df = df[df["Co"] < upper_factor*val]
-         df = df[df["Co"] > lower_factor*val]
-         # Lambda = 0.5
-         val = 0.5
-         df = df[df["Lambda"] < upper_factor*val]
-         df = df[df["Lambda"] > lower_factor*val]
-         
-      elif dataset in ['2D','2D only']:
-         # Lambda = 0.5
-         val=0.5
-         df = df[df["Lambda"] < upper_factor*val]
-         df = df[df["Lambda"] > lower_factor*val]
-         # M2 = 0.7 or 0.65
-         val_h=0.7
-         val_l=0.65
-         df = df[df["M2"] < upper_factor*val_h]
-         df = df[df["M2"] > lower_factor*val_l]
-         # Co = 0.65 or 0.7
-         val_h=0.7
-         val_l=0.65
-         df = df[df["Co"] < upper_factor*val_h]
-         df = df[df["Co"] > lower_factor*val_l]
-         
-      elif dataset in ['2D_tip_gap']:
-         # Lambda = 0.5
-         val=0.5
-         df = df[df["Lambda"] < upper_factor*val]
-         df = df[df["Lambda"] > lower_factor*val]
-         # M2 = 0.7 or 0.65
-         val=0.67
-         df = df[df["M2"] < upper_factor*val]
-         df = df[df["M2"] > lower_factor*val]
-         # Co = 0.65 or 0.7
-         val=0.65
-         df = df[df["Co"] < upper_factor*val]
-         df = df[df["Co"] > lower_factor*val]
-         
-      df = df.reindex(sorted(df.columns), axis=1)
-         
-      n_after += len(df.index)
-      
-      dataframe_dict[data_name] = df
-
-   if state_retention_statistics==True:
-      print(f'n_before = {n_before}\nn_after = {n_after}\n%retained = {n_after/n_before*100:.2f} %')
-   dataframe_list = dataframe_dict.values()   
-   data = pd.concat(dataframe_list,ignore_index=True)
-
-   return data
-
-def read_in_large_dataset(dataset='4D',
-                          data_filename='turbine_data.csv',
-                          factor=5,
-                          state_retention_statistics=False
-                          ):
-
-   df = pd.read_csv(data_filename)
-
-   df.columns=["phi",
-               "psi", 
-               "Lambda", 
-               "M2", 
-               "Co", 
-               "eta_lost",
-               "runid",
-               'Yp_stator', 
-               'Yp_rotor', 
-               'zeta_stator',
-               'zeta_rotor',
-               's_cx_stator',
-               's_cx_rotor',
-               'AR_stator',
-               'AR_rotor',
-               'loss_rat',
-               'Al1',
-               'Al2a',
-               'Al2b',
-               'Al3',
-               'tau_c',
-               'fc_1',
-               'fc_2',
-               'htr',
-               'spf_stator',
-               'stagger_stator',
-               'recamber_le_stator',
-               'recamber_te_stator',
-               'Rle_stator',
-               'beta_stator',
-               't_ps_stator',
-               't_ss_stator',
-               'max_t_loc_ps_stator',
-               'max_t_loc_ss_stator',
-               'lean_stator',
-               'spf_rotor',
-               'stagger_rotor',
-               'recamber_le_rotor',
-               'recamber_te_rotor',
-               'Rle_rotor',
-               'beta_rotor',
-               't_ps_rotor',
-               't_ss_rotor',
-               'max_t_loc_ps_rotor',
-               'max_t_loc_ss_rotor',
-               'lean_rotor']
-      
-   # filter by factor% error
-   lower_factor = 1 - factor/100
-   upper_factor = 1 + factor/100
-   
-   n_before = len(df.index)
-   
-   df = df[df['tau_c'] == 0.0]
-   df = df[df['fc_1'] == 0.0]
-   df = df[df['fc_2'] == 0.0]
-
-   if dataset in ['4D']:
-      # Lambda = 0.5
-      val = 0.5
-      df = df[df["Lambda"] < upper_factor*val]
-      df = df[df["Lambda"] > lower_factor*val]
-      
-   elif dataset in ['3D']:
-      # Co = 0.65
-      val=0.65
-      df = df[df["Co"] < upper_factor*val]
-      df = df[df["Co"] > lower_factor*val]
-      # Lambda = 0.5
-      val = 0.5
-      df = df[df["Lambda"] < upper_factor*val]
-      df = df[df["Lambda"] > lower_factor*val]
-      
-   elif dataset in ['2D']:
-      # Lambda = 0.5
-      val=0.5
-      df = df[df["Lambda"] < upper_factor*val]
-      df = df[df["Lambda"] > lower_factor*val]
-      # M2 = 0.7 or 0.65
-      val_h=0.7
-      val_l=0.65
-      df = df[df["M2"] < upper_factor*val_h]
-      df = df[df["M2"] > lower_factor*val_l]
-      # Co = 0.65 or 0.7
-      val_h=0.7
-      val_l=0.65
-      df = df[df["Co"] < upper_factor*val_h]
-      df = df[df["Co"] > lower_factor*val_l]
-      
-   elif dataset in ['2D_tip_gap']:
-      # Lambda = 0.5
-      val=0.5
-      df = df[df["Lambda"] < upper_factor*val]
-      df = df[df["Lambda"] > lower_factor*val]
-      # M2 = 0.7 or 0.65
-      val=0.67
-      df = df[df["M2"] < upper_factor*val]
-      df = df[df["M2"] > lower_factor*val]
-      # Co = 0.65 or 0.7
-      val=0.65
-      df = df[df["Co"] < upper_factor*val]
-      df = df[df["Co"] > lower_factor*val]
-      
-   df = df.reindex(sorted(df.columns), axis=1)
-      
-   n_after = len(df.index)
-
-   if state_retention_statistics==True:
-      print(f'n_before = {n_before}\nn_after = {n_after}\n%retained = {n_after/n_before*100:.2f} %')
-
-   return df
-
-def split_data(df,
-               fraction_training=0.75,
-               random_seed_state=2
-               ):
-   training_data = df.sample(frac=fraction_training,
-                             random_state=random_seed_state
-                             )
-   testing_data = df.loc[~df.index.isin(training_data.index)]
-   return training_data,testing_data
 
 def drop_columns(df,variables,output_key):
    for dataframe_variable in df.columns:
@@ -389,19 +88,6 @@ class turbine_GPR:
                                          noise_level_bounds=noise_bounds)
 
       kernel_form = self.matern_kernel(len(variables),bounds=length_bounds) + noise_kernel
-
-      if extra_variable_options==True:
-         training_dataframe = extra_nondim_params(training_dataframe,
-                                                  iterate=iterate_extra_params)
-         
-         # Currently, this is overcomplicated as it iterates over 
-         # alpha to be able to use Lambda as an input. However, we already have 
-         # alpha in large initially dataset, so this could be improved.
-         
-         # This version of the function is not useless though, as 'trained' the '
-         # predicted' dataset does not have alpha 3 value in it, so maybe this could be used later.
-         # However, need to think about which values have been fixed etc before being able to do this 
-         # as constants are not the same any more
             
       training_dataframe = drop_columns(training_dataframe,
                                         variables,
@@ -1279,358 +965,529 @@ class turbine_GPR:
          fig.tight_layout()
          plt.show()
 
-   
+#NEED STILL - ballpark placehoders currently
+# 'recamber_te_stator',
+# 'recamber_te_rotor',
 
-def dim_2_nondim(shaft_power=25e6,
-                  stagnation_pressure_ratio=1.5,
-                  blade_number=40,
-                  turbine_diameter=1.6,
-                  mdot=275,
-                  T01=1600,
-                  p01=1600000,
-                  shaft_speed=100*np.pi,
-                  aspect_ratio=1.6,
-                  hub_to_tip_ratio=0.9):
-   
-   gamma = 1.33
-   R = 272.9
-   cp = R / (1 - 1/gamma)
-   # print('cp=',cp)
-   tip_radius = 0.5*turbine_diameter
-   hub_radius = hub_to_tip_ratio*tip_radius
-   mean_radius = (tip_radius+hub_radius)/2
-   span = tip_radius-hub_radius
-   chord = span/aspect_ratio
-   
-   A = np.pi*2*mean_radius*span
-   
-   T02 = T01
-   T03 = T01 - shaft_power/(mdot*cp)
-   h01 = cp*T01
-   h02 = cp*T02
-   h03 = cp*T03
-   
-   U = mean_radius*shaft_speed
-   
-   
+# 'beta_rotor',
 
-   # print('U=',U)
+# 't_ps_rotor',
 
-   pitch = mean_radius*2*np.pi/blade_number
-   dh0 = h03 - h01
-   
-   mcpT01_Ap01 = mdot*np.sqrt(cp*T01) / (A * p01)
-   # print('mcpT01_Ap01=',mcpT01_Ap01)
-   if mcpT01_Ap01 > 1.28:
-      sys.exit('Too large a mass flow function - flow will choke first')
-   
-   M1 = compflow.to_Ma("mcpTo_APo",mcpT01_Ap01,gamma)
-   p1 = p01 / compflow.from_Ma('Po_P',M1,gamma)
-   T1 = T01 / compflow.from_Ma('To_T',M1,gamma)
-   
-   p03 = p01/stagnation_pressure_ratio
-   mcpT03_Ap03 = mdot*np.sqrt(cp*T03) / (A * p03)
-   # print('T03=',T03)
-   # print('A=',A)
-   # print('mcpT03_Ap03=',mcpT03_Ap03)
-   if mcpT03_Ap03 > 1.28:
-      sys.exit('Too large a mass flow function - flow will choke first')
-   
-   M3 = compflow.to_Ma("mcpTo_APo",mcpT03_Ap03,gamma)
-   T3 = T03 / compflow.from_Ma('To_T',M3,gamma)
-   
-   #assume axial stator inflow, and constant Vx
-   V1 = M1*np.sqrt(gamma*R*T1)
-   Vx = V1
-   Vt1 = 0
-   V3 = M3*np.sqrt(gamma*R*T3)
-   # print('M3=',M3)
-   # print('T3',T3)
-   
-   Vt3 = np.sqrt(V3**2-Vx**2)
-   Vt2 = Vt3 - dh0/U
-   V2 = np.sqrt(Vt2**2+Vx**2)
-   
-   h1 = h01 - 0.5*V1**2
-   h2 = h02 - 0.5*V2**2
-   h3 = h03 - 0.5*V3**2
-   # print('Vt1,Vt2,Vt3 = ',Vt1,Vt2,Vt3)
-   # print('V1,V2,V3 = ',V1,V2,V3)
-   # print('h01,h02,h03 = ',h01,h02,h03)
-   # print('h1,h2,h3 = ',h1,h2,h3)
-   T2 = h2/cp
-   # print('T2=',T2)
-   M2 = np.squeeze(compflow.to_Ma("To_T",T02/T2,gamma))
-   # print(M2)
-   phi = Vx/U
-   psi = -1*dh0/U**2
-   Lambda = np.abs((h3-h2)/(h3-h1))
-   
-   a1=0
-   a2=np.arctan(Vt2/Vx)
-   a3=np.arctan(Vt3/Vx)
-   
-   # chord below should be replaced by suction surface length
-   Co = [(pitch/chord)*(np.tan(a1)-np.tan(a2))*np.cos(a2), (pitch/chord)*(np.tan(a2)-np.tan(a3))*np.cos(a3)]
-   
-   return [phi,psi,Lambda,M2,Co]
-   
-def extra_nondim_params(dataframe, iterate=False):
-      
-   def vars_from_Al(x,index,df,iterating=False):
+# 't_ss_stator',
+# 't_ss_rotor',
 
-      if iterating==True:
-         Al13 = (0.0,x)                            
-         loss_ratio=0.4
-         zeta_stator=1
-         zeta_rotor=1
-      else:                          
-         loss_ratio=df.loc[index,'loss_rat']  
-         zeta_stator=df.loc[index,'zeta_stator']  
-         zeta_rotor=df.loc[index,'zeta_rotor']  
-      
-      phi = df.loc[index,'phi']                
-      psi = df.loc[index,'psi']          
-      Ma2 = df.loc[index,'M2']                  
-      ga = 1.33                          
-      
-      if iterating==True:
-         # Get absolute flow angles using Euler work eqn
-         tanAl2 = (np.tan(np.radians(Al13[1]))*zeta_rotor + psi / phi)
-         Al2 = np.degrees(np.arctan(tanAl2))
-         Al = np.insert(Al13, 1, Al2)
-      else:
-         Al2 = np.mean([df.loc[index,'Al2a'],df.loc[index,'Al2b']])
-         Al = np.array([df.loc[index,'Al1'], Al2, df.loc[index,'Al3']])
-         
-      cosAl = np.cos(np.radians(Al))
-      
-      # Get non-dimensional velocities from definition of flow coefficient
-      Vx_U1,Vx_U2,Vx_U3 = phi*zeta_stator, phi, phi*zeta_rotor
-      Vx_U = np.array([Vx_U1,Vx_U2,Vx_U3])
-      Vt_U = Vx_U * np.tan(np.radians(Al))
-      V_U = np.sqrt(Vx_U ** 2.0 + Vt_U ** 2.0)
+# 'max_t_loc_ps_stator',
+# 'max_t_loc_ps_rotor',
 
-      # Change reference frame for rotor-relative velocities and angles
-      Vtrel_U = Vt_U - 1.0
-      Vrel_U = np.sqrt(Vx_U ** 2.0 + Vtrel_U ** 2.0)
-      Alrel = np.degrees(np.arctan2(Vtrel_U, Vx_U))
+# 'max_t_loc_ss_stator',
+# 'max_t_loc_ss_rotor'
 
-      # Use Mach number to get U/cpTo1
-      V_sqrtcpTo2 = compflow.V_cpTo_from_Ma(Ma2, ga)
-      U_sqrtcpTo1 = V_sqrtcpTo2 / V_U[1]
-      Usq_cpTo1 = U_sqrtcpTo1 ** 2.0
+# 'lean_stator',
 
-      # Non-dimensional temperatures from U/cpTo Ma and stage loading definition
-      cpTo1_Usq = 1.0 / Usq_cpTo1
-      cpTo2_Usq = cpTo1_Usq
-      cpTo3_Usq = (cpTo2_Usq - psi)
+class turbine:
+    def __init__(self,phi,psi,M2,Co):
+        
+        if np.isscalar(phi) and np.isscalar(psi) and np.isscalar(M2) and np.isscalar(Co):
+            self.no_points = 1
+            self.phi = np.array([phi])
+            self.psi = np.array([psi])
+            self.M2 = np.array([M2])
+            self.Co = np.array([Co])
+        elif not np.isscalar(phi) and not np.isscalar(psi) and not np.isscalar(M2) and not np.isscalar(Co):
+            self.phi = np.array(phi)
+            self.psi = np.array(psi)
+            self.M2 = np.array(M2)
+            self.Co = np.array(Co)
+            self.no_points = len(self.phi)
+        else:
+            sys.exit('Incorrect input types')
+            
+        self.htr = 0.9
+        self.AR = [1.6,1.6]
+        
+        self.spf_stator,self.spf_rotor = 0.5,0.5
+        self.spf = [self.spf_stator,self.spf_rotor]
+        
+        self.recamber_le_stator,self.recamber_le_rotor = 0.0,0.0
+        self.recamber_le = [self.recamber_le_stator,self.recamber_le_rotor]
+        
+        self.ga = 1.33
+        self.Rgas = 272.9
+        self.cp = self.Rgas * self.ga / (self.ga - 1.0)
+        self.tte = 0.015
+        self.delta = 0.1
+        
+        self.Lambda=0.5
+        
+        #geom
+        self.Rle_stator,self.Rle_rotor = [0.04,0.04]
 
-      # Turbine
-      cpTo_Usq = np.array([cpTo1_Usq, cpTo2_Usq, cpTo3_Usq])
-      
-      # Mach numbers and capacity from compressible flow relations
-      Ma = compflow.Ma_from_V_cpTo(V_U / np.sqrt(cpTo_Usq), ga)
-      Marel = Ma * Vrel_U / V_U
-      Q = compflow.mcpTo_APo_from_Ma(Ma, ga)
-      Q_Q1 = Q / Q[0]
+    def get_Al(self):
+    
+        Al2_model = turbine_GPR('Al2a')
+        Al3_model = turbine_GPR('Al3')
+        
+        Al1 = np.zeros(self.no_points)
+        Al2 = np.array(Al2_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                    'psi':self.psi,
+                                                    'M2':self.M2,
+                                                    'Co':self.Co}))['predicted_output'])
+        Al3 = np.array(Al3_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                    'psi':self.psi,
+                                                    'M2':self.M2,
+                                                    'Co':self.Co}))['predicted_output'])
+        self.Al1 = Al1
+        self.Al2 = Al2
+        self.Al3 = Al3
+        self.Al = np.array([Al1,Al2,Al3])
+        
+        return self.Al
 
-      # Use polytropic effy to get entropy change
-      To_To1 = cpTo_Usq / cpTo_Usq[0]
-      Ds_cp = -(1.0 - 1.0 / (1.0 - df.loc[index,'eta_lost'] )) * np.log(To_To1[-1])
+    def get_stagger(self):
+        
+        stagger_stator_model = turbine_GPR('stagger_stator')
+        stagger_rotor_model = turbine_GPR('stagger_rotor')
+        
+        stagger_stator = np.array(stagger_stator_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                                        'psi':self.psi,
+                                                                        'M2':self.M2,
+                                                                        'Co':self.Co}))['predicted_output'])
+        stagger_rotor = np.array(stagger_rotor_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                                        'psi':self.psi,
+                                                                        'M2':self.M2,
+                                                                        'Co':self.Co}))['predicted_output'])
+        self.stagger_stator = stagger_stator
+        self.stagger_rotor = stagger_rotor
+        self.stagger = np.array([stagger_stator,stagger_rotor])
+        return self.stagger
 
-      # Somewhat arbitrarily, split loss using loss ratio (default 0.5)
-      s_cp = np.hstack((0.0, loss_ratio, 1.0)) * Ds_cp
+    def get_zeta(self):
+        zeta_stator_model = turbine_GPR('zeta_stator') #maybe improve this model
+        
+        zeta_stator = np.array(zeta_stator_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                    'psi':self.psi,
+                                                    'M2':self.M2,
+                                                    'Co':self.Co}))['predicted_output'])
+        zeta_rotor = np.ones(self.no_points)
+        
+        self.zeta_stator = zeta_stator
+        self.zeta_rotor = zeta_rotor
+        self.zeta = np.array([zeta_stator,zeta_rotor])
+        
+        return self.zeta
 
-      # Convert to stagnation pressures
-      Po_Po1 = np.exp((ga / (ga - 1.0)) * (np.log(To_To1) + s_cp))
+    def get_s_cx(self):
+        s_cx_stator_model = turbine_GPR('s_cx_stator')
+        s_cx_rotor_model = turbine_GPR('s_cx_rotor')
+        
+        s_cx_stator = np.array(s_cx_stator_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                    'psi':self.psi,
+                                                    'M2':self.M2,
+                                                    'Co':self.Co}))['predicted_output'])
+        s_cx_rotor = np.array(s_cx_rotor_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                    'psi':self.psi,
+                                                    'M2':self.M2,
+                                                    'Co':self.Co}))['predicted_output'])
+        
+        self.s_cx_stator = s_cx_stator
+        self.s_cx_rotor = s_cx_rotor
+        self.s_cx = np.array([s_cx_stator,s_cx_rotor])
+        
+        return self.s_cx
+    
+    def get_loss_rat(self):
+        loss_rat_model = turbine_GPR('loss_rat')
+        
+        self.get_Yp()
+        
+        self.loss_rat = np.array(loss_rat_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                    'psi':self.psi,
+                                                    'Yp_stator':self.Yp_stator,
+                                                    'Yp_rotor':self.Yp_rotor,
+                                                    'Co':self.Co}))['predicted_output'])
+        
+        return self.loss_rat
 
-      # Account for cooling or bleed flows
-      mdot_mdot1 = np.array([1.0, 1.0, 1.0])
+    def get_eta_lost(self):
+        eta_lost_model = turbine_GPR('eta_lost')
+        
+        self.get_Yp()
+        
+        self.eta_lost = np.array(eta_lost_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                    'psi':self.psi,
+                                                    'M2':self.M2,
+                                                    'Co':self.Co,
+                                                    'Yp_stator':self.Yp_stator,
+                                                    'Yp_rotor':self.Yp_rotor}))['predicted_output'])
+        
+        return self.eta_lost
+    
+    def get_t_ps(self):
+        self.t_ps_stator = 0.205*np.ones(self.no_points)
+        self.t_ps_rotor = 0.250*np.ones(self.no_points)
+        self.t_ps = np.array([self.t_ps_stator,self.t_ps_rotor])
+        return self.t_ps
+    
+    def get_t_ss(self):
+        self.t_ss_stator = 0.29*np.ones(self.no_points)
+        self.t_ss_rotor = 0.30*np.ones(self.no_points)
+        self.t_ss = np.array([self.t_ss_stator,self.t_ps_rotor])
+        return self.t_ss
 
-      # Use definition of capacity to get flow area ratios
-      # Area ratios = span ratios because rm = const
-      Dr_Drin = mdot_mdot1 * np.sqrt(To_To1) / Po_Po1 / Q_Q1 * cosAl[0] / cosAl
+    def get_Yp(self):
+        Yp_stator_model = turbine_GPR('Yp_stator')
+        Yp_rotor_model = turbine_GPR('Yp_rotor')
+        
+        self.get_stagger()
+        self.get_s_cx()
+        self.get_Al()
+        
+        Yp_stator = np.array(Yp_stator_model.predict(pd.DataFrame(data={'s_cx_stator':self.s_cx_stator,
+                                                                        'stagger_stator':self.stagger_stator,
+                                                                        'M2':self.M2,
+                                                                        'Al2a':self.Al2}))['predicted_output'])
+        Yp_rotor = np.array(Yp_rotor_model.predict(pd.DataFrame(data={'s_cx_rotor':self.s_cx_rotor,
+                                                                        'psi':self.psi,
+                                                                        'M2':self.M2,
+                                                                        'stagger_rotor':self.stagger_rotor}))['predicted_output'])
+        self.Yp_stator = Yp_stator
+        self.Yp_rotor = Yp_rotor
+        self.Yp = np.array([Yp_stator,Yp_rotor])
+        return self.Yp
+    
+    def get_beta(self):
+        self.beta_rotor = 15*np.ones(self.no_points)
+        self.beta_stator = 10.5*np.ones(self.no_points)
+        self.beta = [self.beta_stator,self.beta_rotor]
+        return self.beta
+    
+    def get_lean(self):
+        self.lean_stator = 0.03*np.ones(self.no_points)  #ballpark
+        self.lean_rotor = np.zeros(self.no_points)
+        self.lean = np.array([self.lean_stator,self.lean_rotor])
+        return self.lean
 
-      # Evaluate some other useful secondary aerodynamic parameters
-      T_To1 = To_To1 / compflow.To_T_from_Ma(Ma, ga)
-      P_Po1 = Po_Po1 / compflow.Po_P_from_Ma(Ma, ga)
-      Porel_Po1 = P_Po1 * compflow.Po_P_from_Ma(Marel, ga)
-      
-      # Turbine
-      Lam = (T_To1[2] - T_To1[1]) / (T_To1[2] - T_To1[0])
-      
-      if iterating==False:
-         df.loc[index,'Al1'],df.loc[index,'Al2'],df.loc[index,'Al3'] = Al  #3
-         df.loc[index,'Alrel1'],df.loc[index,'Alrel2'],df.loc[index,'Alrel3'] = Alrel  #3
-         df.loc[index,'M1'],df.loc[index,'M2'],df.loc[index,'M3'] = Ma  #3
-         df.loc[index,'M1rel'],df.loc[index,'M2rel'],df.loc[index,'M3rel'] = Marel  #3
-         df.loc[index,'Ax1_Ax1'],df.loc[index,'Ax2_Ax1'],df.loc[index,'Ax3_Ax1'] = Dr_Drin  #3
-         df.loc[index,'Po1_Po1'],df.loc[index,'Po2_Po1'],df.loc[index,'Po3_Po1'] = Po_Po1  #3
-         df.loc[index,'To1_To1'],df.loc[index,'To2_To1'],df.loc[index,'To3_To1'] = To_To1  #3
-         df.loc[index,'Vt1_U'],df.loc[index,'Vt2_U'],df.loc[index,'Vt3_U'] = Vt_U  #3
-         df.loc[index,'Vt1rel_U'],df.loc[index,'Vt2rel_U'],df.loc[index,'Vt3rel_U'] = Vtrel_U  #3
-         df.loc[index,'V1_U'],df.loc[index,'V2_U'],df.loc[index,'V3_U'] = V_U  #3
-         df.loc[index,'V1rel_U'],df.loc[index,'V2rel_U'],df.loc[index,'V3rel_U'] = Vrel_U  #3
-         df.loc[index,'P1_Po1'],df.loc[index,'P2_Po1'],df.loc[index,'P3_Po1'] = P_Po1  #3
-         df.loc[index,'Po1rel_Po1'],df.loc[index,'Po2rel_Po1'],df.loc[index,'Po3rel_Po1'] = Porel_Po1  #3
-         df.loc[index,'T1_To1'],df.loc[index,'T2_To1'],df.loc[index,'T3_To1'] = T_To1  #3
-         df.loc[index,'mdot1_mdot1'],df.loc[index,'mdot2_mdot1'],df.loc[index,'mdot3_mdot1'] = mdot_mdot1  #3
-         return df
-      else:
-         return Lam
-      
-   # Iteration step: returns error in reaction as function of exit yaw angle
-   def iter_Al(x):
-      Lam_guess = vars_from_Al(x,index,dataframe,iterating=True)
+    def get_recamber_te(self):
+        self.recamber_te_stator = np.zeros(self.no_points) #ballpark
+        self.recamber_te_rotor = np.zeros(self.no_points)  #ballpark
+        self.recamber_te = np.array([self.recamber_te_stator,self.recamber_te_rotor])
+        return self.recamber_te
+    
+    def get_max_t_loc_ps(self):
+        self.max_t_loc_ps_stator = 0.35*np.ones(self.no_points)   #ballpark
+        self.max_t_loc_ps_rotor = 0.37*np.ones(self.no_points)    #ballpark
+        self.max_t_loc_ps = np.array([self.max_t_loc_ps_stator,self.max_t_loc_ps_rotor])
+        return self.max_t_loc_ps
+    
+    def get_max_t_loc_ss(self):
+        self.max_t_loc_ss_stator = 0.40*np.ones(self.no_points)   #ballpark
+        self.max_t_loc_ss_rotor = 0.32*np.ones(self.no_points)    #ballpark
+        self.max_t_loc_ss = np.array([self.max_t_loc_ss_stator,self.max_t_loc_ps_rotor])
+        return self.max_t_loc_ss
+    
+    def non_dim_params_from_4D(self):
 
-      return Lam_guess - dataframe.loc[index,'Lambda'] 
-   
-   for index, row in dataframe.iterrows():
+        Al = np.array(self.get_Al())
+        loss_ratio = self.get_lost_rat()
+        eta_lost = self.get_eta_lost()
+        
+        zeta = self.get_zeta() #zeta rotor assumed=1.0
+        cosAl = np.cos(np.radians(Al))
+            
+        # Get non-dimensional velocities from definition of flow coefficient
+        Vx_U1,Vx_U2,Vx_U3 = self.phi*zeta[0], self.phi, self.phi*zeta[1]
+        Vx_U = np.array([Vx_U1,Vx_U2,Vx_U3])
+        Vt_U = Vx_U * np.tan(np.radians(Al))
+        V_U = np.sqrt(Vx_U ** 2.0 + Vt_U ** 2.0)
 
-      if iterate==True:
-         # Solving for Lam in general is tricky
-         # Our strategy is to map out a coarse curve first, pick a point
-         # close to the desired reaction, then Newton iterate
+        # Change reference frame for rotor-relative velocities and angles
+        Vtrel_U = Vt_U - 1.0
+        Vrel_U = np.sqrt(Vx_U ** 2.0 + Vtrel_U ** 2.0)
+        Alrel = np.degrees(np.arctan2(Vtrel_U, Vx_U))
 
-         # Evaluate guesses over entire possible yaw angle range
-         Al_guess = np.linspace(-89.0, 89.0, 21)
-         Lam_guess = np.zeros_like(Al_guess)
+        # Use Mach number to get U/cpTo1
+        V_sqrtcpTo2 = compflow.V_cpTo_from_Ma(self.M2, self.ga)
+        U_sqrtcpTo1 = V_sqrtcpTo2 / V_U[1]
+        
+        Usq_cpTo1 = U_sqrtcpTo1 ** 2.0
 
-         # Catch errors if this guess of angle is horrible/non-physical
-         for i in range(len(Al_guess)):
-            with np.errstate(invalid="ignore"):
-               try:
-                     Lam_guess[i] = iter_Al(Al_guess[i])
-               except (ValueError, FloatingPointError):
-                     Lam_guess[i] = np.nan
+        # Non-dimensional temperatures from U/cpTo Ma and stage loading definition
+        cpTo1_Usq = 1.0 / Usq_cpTo1
+        cpTo2_Usq = cpTo1_Usq
+        cpTo3_Usq = (cpTo2_Usq - self.psi)
 
-         # Remove invalid values
-         Al_guess = Al_guess[~np.isnan(Lam_guess)]
-         Lam_guess = Lam_guess[~np.isnan(Lam_guess)]
+        # Turbine
+        cpTo_Usq = np.array([cpTo1_Usq, cpTo2_Usq, cpTo3_Usq])
+        
+        # Mach numbers and capacity from compressible flow relations
+        Ma = compflow.Ma_from_V_cpTo(V_U / np.sqrt(cpTo_Usq), self.ga)
+        Marel = Ma * Vrel_U / V_U
+        Q = compflow.mcpTo_APo_from_Ma(Ma, self.ga)
+        Q_Q1 = Q / Q[0]
 
-         # Trim to the region between minimum and maximum reaction
-         # Now the slope will be monotonic
-         i1, i2 = np.argmax(Lam_guess), np.argmin(Lam_guess)
-         Al_guess, Lam_guess = Al_guess[i1:i2], Lam_guess[i1:i2]
+        # Use polytropic effy to get entropy change
+        To_To1 = cpTo_Usq / cpTo_Usq[0]
+        Ds_cp = -(1.0 - 1.0 / (1.0 - eta_lost)) * np.log(To_To1[-1])
 
-         # Start the Newton iteration at minimum error point
-         i0 = np.argmin(np.abs(Lam_guess))
-         Al_soln = sciop.newton(iter_Al, 
-                              x0=Al_guess[i0], 
-                              x1=Al_guess[i0 - 1]
-                              )
-         
-         vars_from_Al(Al_soln,index,dataframe)
-      
-      else:
-         dataframe = vars_from_Al(None,index,dataframe)
+        # Somewhat arbitrarily, split loss using loss ratio (default 0.5)
+        s_cp = np.hstack((0.0, loss_ratio, 1.0)) * Ds_cp
 
-   return dataframe
+        # Convert to stagnation pressures
+        Po_Po1 = np.exp((self.ga / (self.ga - 1.0)) * (np.log(To_To1) + s_cp))
 
-def dim_2_nondim_V2(phi=0.81,
-                    psi=1.78,
-                    Lambda=0.5,
-                    M2=0.67,
-                    Co=0.65,
-                    shaft_power=25e6,
-                    stagnation_pressure_ratio=1.5,
-                    blade_number=40,
-                    turbine_diameter=1.6,
-                    mdot=275,
-                    T01=1600,
-                    p01=1600000,
-                    shaft_speed=100*np.pi,
-                    aspect_ratio=1.6,
-                    hub_to_tip_ratio=0.9):
-   
-   M2 = np.squeeze(compflow.to_Ma("To_T",T02/T2,gamma))
+        # Account for cooling or bleed flows
+        mdot_mdot1 = np.array([1.0, 1.0, 1.0])
 
-   phi = Vx/U
-   psi = -1*dh0/U**2
-   Lambda = np.abs((h3-h2)/(h3-h1))
-   
-   a1=0
-   a2=np.arctan(Vt2/Vx)
-   a3=np.arctan(Vt3/Vx)
-   
-   # chord below should be replaced by suction surface length
-   Co = [(pitch/chord)*(np.tan(a1)-np.tan(a2))*np.cos(a2), (pitch/chord)*(np.tan(a2)-np.tan(a3))*np.cos(a3)]
-   
-   
-   gamma = 1.33
-   R = 272.9
-   cp = R / (1 - 1/gamma)
+        # Use definition of capacity to get flow area ratios
+        # Area ratios = span ratios because rm = const
+        Dr_Drin = mdot_mdot1 * np.sqrt(To_To1) / Po_Po1 / Q_Q1 * cosAl[0] / cosAl
 
-   tip_radius = 0.5*turbine_diameter
-   hub_radius = hub_to_tip_ratio*tip_radius
-   mean_radius = (tip_radius+hub_radius)/2
-   span = tip_radius-hub_radius
-   chord = span/aspect_ratio
-   
-   A = np.pi*2*mean_radius*span
-   
-   T02 = T01
-   T03 = T01 - shaft_power/(mdot*cp)
-   h01 = cp*T01
-   h02 = cp*T02
-   h03 = cp*T03
-   
-   U = mean_radius*shaft_speed
-   
-   
+        # Evaluate some other useful secondary aerodynamic parameters
+        T_To1 = To_To1 / compflow.To_T_from_Ma(Ma, self.ga)
+        P_Po1 = Po_Po1 / compflow.Po_P_from_Ma(Ma, self.ga)
+        Porel_Po1 = P_Po1 * compflow.Po_P_from_Ma(Marel, self.ga)
+        
+        # Turbine
+        Lam = (T_To1[2] - T_To1[1]) / (T_To1[2] - T_To1[0])
+        
+        self.Al = Al
+        self.Alrel = Alrel
+        self.Ma = Ma
+        self.Marel =Marel
+        self.Ax_Ax1 = Dr_Drin
+        self.U_sqrtcpTo1 = U_sqrtcpTo1
+        self.Po_Po1 = Po_Po1
+        self.To_To1 = To_To1
+        self.Vt_U = Vt_U
+        self.Vtrel_U = Vtrel_U
+        self.V_U = V_U
+        self.Vrel_U = Vrel_U
+        self.P_Po1 = P_Po1
+        self.Porel_Po1 = Porel_Po1
+        self.T_To1 = T_To1
+        self.mdot_mdot1 = mdot_mdot1
+        self.Lam = Lam
 
-   # print('U=',U)
+    def free_vortex_vane(self,rh,rc,rm):
+        """Evaluate vane flow angles assuming a free vortex."""
+        
+        Al = np.array(self.get_Al())
+        
+        rh_vane = rh[:2].reshape(-1, 1)
+        rc_vane = rc[:2].reshape(-1, 1)
+        Al_vane = Al[:2].reshape(-1, 1)
 
-   pitch = mean_radius*2*np.pi/blade_number
-   dh0 = h03 - h01
-   
-   mcpT01_Ap01 = mdot*np.sqrt(cp*T01) / (A * p01)
-   # print('mcpT01_Ap01=',mcpT01_Ap01)
-   if mcpT01_Ap01 > 1.28:
-      sys.exit('Too large a mass flow function - flow will choke first')
-   
-   M1 = compflow.to_Ma("mcpTo_APo",mcpT01_Ap01,gamma)
-   p1 = p01 / compflow.from_Ma('Po_P',M1,gamma)
-   T1 = T01 / compflow.from_Ma('To_T',M1,gamma)
-   
-   p03 = p01/stagnation_pressure_ratio
-   mcpT03_Ap03 = mdot*np.sqrt(cp*T03) / (A * p03)
+        r_rm = (np.reshape(self.spf_stator, (1, -1)) * (rh_vane - rc_vane) + rh_vane) / rm
 
-   if mcpT03_Ap03 > 1.28:
-      sys.exit('Too large a mass flow function - flow will choke first')
-   
-   M3 = compflow.to_Ma("mcpTo_APo",mcpT03_Ap03,gamma)
-   T3 = T03 / compflow.from_Ma('To_T',M3,gamma)
-   
-   #assume axial stator inflow, and constant Vx
-   V1 = M1*np.sqrt(gamma*R*T1)
-   Vx = V1
-   Vt1 = 0
-   V3 = M3*np.sqrt(gamma*R*T3)
-   
-   Vt3 = np.sqrt(V3**2-Vx**2)
-   Vt2 = Vt3 - dh0/U
-   V2 = np.sqrt(Vt2**2+Vx**2)
-   
-   h1 = h01 - 0.5*V1**2
-   h2 = h02 - 0.5*V2**2
-   h3 = h03 - 0.5*V3**2
+        return np.degrees(np.arctan(np.tan(np.radians(Al_vane)) / r_rm))
 
-   T2 = h2/cp
+    def free_vortex_blade(self,rh,rc,rm):
+        """Evaluate blade flow angles assuming a free vortex."""
+        
+        Al = np.array(self.get_Al())
+        
+        rh_blade = rh[1:].reshape(-1, 1)
+        rc_blade = rc[1:].reshape(-1, 1)
+        Al_blade = Al[1:].reshape(-1, 1)
 
-   M2 = np.squeeze(compflow.to_Ma("To_T",T02/T2,gamma))
+        r_rm = (np.reshape(self.spf_rotor, (1, -1)) * (rc_blade - rh_blade) + rh_blade) / rm
 
-   phi = Vx/U
-   psi = -1*dh0/U**2
-   Lambda = np.abs((h3-h2)/(h3-h1))
-   
-   a1=0
-   a2=np.arctan(Vt2/Vx)
-   a3=np.arctan(Vt3/Vx)
-   
-   # chord below should be replaced by suction surface length
-   Co = [(pitch/chord)*(np.tan(a1)-np.tan(a2))*np.cos(a2), (pitch/chord)*(np.tan(a2)-np.tan(a3))*np.cos(a3)]
-   
-   return [phi,psi,Lambda,M2,Co]
-   
+        return np.degrees(np.arctan(np.tan(np.radians(Al_blade)) / r_rm - r_rm / self.phi))
+
+    def dim_from_omega(self, Omega, To1, Po1):
+        """Scale a mean-line design and evaluate geometry from omega."""
+        
+        self.non_dim_params_from_4D()
+
+        cpTo1 = self.cp * To1
+        U = self.U_sqrtcpTo1 * np.sqrt(cpTo1)
+        rm = U / Omega
+
+        # Use hub-to-tip ratio to set span (mdot will therefore float)
+        Dr_rm = 2.0 * (1.0 - self.htr) / (1.0 + self.htr)
+        Dr = rm * Dr_rm * np.array(self.Ax_Ax1) / self.Ax_Ax1[1]
+
+        Q1 = compflow.mcpTo_APo_from_Ma(self.Ma[0], self.ga)
+
+        Ax1 = 2.0 * np.pi * rm * Dr[0]
+        mdot1 = Q1 * Po1 * Ax1 * np.cos(np.radians(self.Al[0])) / np.sqrt(cpTo1)
+
+        # Chord from aspect ratio
+        span = np.array([np.mean(Dr[i : (i + 2)]) for i in range(2)])
+        cx = span / self.AR
+        
+        s_cx = self.get_s_cx()
+        
+        self.rm = rm
+        self.U = U
+        self.Dr = Dr
+        self.rh = rm - Dr / 2.0
+        self.rc = rm + Dr / 2.0
+        self.Ax1 = Ax1
+        self.mdot1 = mdot1
+        
+        self.span = span
+        self.chord_x = cx
+        self.pitch_stator = s_cx[0]*cx
+        self.pitch_rotor = s_cx[1]*cx
+        
+        self.Omega = Omega
+        self.Po1 = Po1
+        self.To1 = To1
+        
+        self.chi = np.stack((self.free_vortex_vane(self.rh,self.rc,self.rm),
+                             self.free_vortex_blade(self.rh,self.rc,self.rm)
+                             ))
+        
+        self.stag1 = np.mean(self.chi,axis=1)
+        self.stag2 = self.get_stagger()
+        
+        return self.stag1, self.stag2
+ 
+    def dim_from_mdot(self, mdot1, To1, Po1):
+        """Scale a mean-line design and evaluate geometry from mdot."""
+        
+        self.non_dim_params_from_4D()
+
+        cpTo1 = self.cp * To1
+        Q1 = compflow.mcpTo_APo_from_Ma(self.Ma[0], self.ga)
+        
+        Ax1 = np.sqrt(cpTo1) * mdot1 / (Q1 * Po1 * np.cos(np.radians(self.Al[0])))
+        Dr_rm = 2.0 * (1.0 - self.htr) / (1.0 + self.htr)
+        
+        rm = np.sqrt(Ax1 * self.Ax_Ax1[1] / (2.0 * np.pi * Dr_rm * self.Ax_Ax1[0])) 
+        
+        U = self.U_sqrtcpTo1 * np.sqrt(cpTo1)
+        Omega = U / rm
+
+        Dr = rm * Dr_rm * np.array(self.Ax_Ax1) / self.Ax_Ax1[1]
+
+        # Chord from aspect ratio
+        span = np.array([np.mean(Dr[i : (i + 2)]) for i in range(2)])
+        cx = span / self.AR
+        
+        s_cx = self.get_s_cx()
+        
+        self.rm = rm
+        self.U = U
+        self.Dr = Dr
+        self.rh = rm - Dr / 2.0
+        self.rc = rm + Dr / 2.0
+        self.Ax1 = Ax1
+        self.mdot1 = mdot1
+        
+        self.span = span
+        self.chord_x = cx
+        self.pitch_stator = s_cx[0]*cx
+        self.pitch_rotor = s_cx[1]*cx
+        
+        self.Omega = Omega
+        self.Po1 = Po1
+        self.To1 = To1
+        
+        self.chi = np.stack((self.free_vortex_vane(self.rh,self.rc,self.rm),
+                             self.free_vortex_blade(self.rh,self.rc,self.rm)
+                             ))
+        self.stag1 = np.mean(self.chi,axis=1)
+        self.stag2 = self.get_stagger()
+        
+        return self.stag1, self.stag2
+
+    def get_non_dim_geometry(self):
+        if self.no_points >1:
+            sys.exit('Currently only set up for one design at a time')
+        
+        self.To1 = 1600.0
+        self.Po1 = 1600000.0
+        self.Omega = 314.159
+        self.Re = 2e6
+        #need to set up for dimensional geometry too, to do this just need to have inputs
+            
+        self.get_stagger()
+        self.get_s_cx()
+        self.get_t_ps()
+        self.get_t_ss()
+        self.get_max_t_loc_ps()
+        self.get_max_t_loc_ss()
+        self.get_recamber_te()
+        self.get_lean()
+        self.get_beta()
+        self.get_loss_rat()
+        
+        self.eta = 100 - 100*self.get_eta_lost()
+        
+        mean_line = {"phi": self.phi,
+                     "psi": self.psi,
+                     "Lam": self.Lambda,
+                     "Al1": self.Al1,
+                     "Ma2": self.M2,
+                     "eta": self.eta,
+                     "ga": self.ga,
+                     "loss_split": self.loss_rat,
+                     "fc": [0.0,
+                            0.0],
+                     "TRc": [0.5,
+                             0.5]
+                     }
+        
+        bcond = {"To1": self.To1,
+                 "Po1": self.Po1,
+                 "rgas": self.Rgas,
+                 "Omega": self.Omega,
+                 "delta": self.delta
+                 }
+        
+        threeD = {"htr": self.htr,
+                  "Re": self.Re,
+                  "tau_c": 0.0,
+                  "Co": [self.Co,
+                         self.Co],
+                  "AR": [self.AR,
+                         self.AR]
+                  }
+        
+        sect_row_0_dict = {'tte':self.tte,
+                           'sect_0': {
+                               'spf':self.spf_stator,
+                               'stagger':self.stagger_stator,
+                               'recamber':[self.recamber_le_stator,
+                                           self.recamber_te_stator],
+                               'Rle':self.Rle_stator,
+                               'beta':self.beta_stator,
+                               "thickness_ps": self.t_ps_stator,
+                               "thickness_ss": self.t_ss_stator,
+                               "max_thickness_location_ss": self.max_t_loc_ss_stator,
+                               "max_thickness_location_ps": self.max_t_loc_ps_stator,
+                               "lean": self.lean_stator
+                               }
+                           }
+        
+        sect_row_1_dict = {'tte':self.tte,
+                           'sect_0': {
+                               'spf':self.spf_rotor,
+                               'stagger':self.stagger_rotor,
+                               'recamber':[self.recamber_le_rotor,
+                                           self.recamber_te_rotor],
+                               'Rle':self.Rle_rotor,
+                               'beta':self.beta_rotor,
+                               "thickness_ps": self.t_ps_rotor,
+                               "thickness_ss": self.t_ss_rotor,
+                               "max_thickness_location_ss": self.max_t_loc_ss_rotor,
+                               "max_thickness_location_ps": self.max_t_loc_ps_rotor,
+                               "lean": self.lean_rotor
+                               }
+                           }
+
+        with open('turbine_json/datum.json') as f:
+            turbine_json = json.load(f)
+
+        turbine_json["mean-line"] = mean_line
+        turbine_json['bcond'] = bcond
+        turbine_json['3d'] = threeD
+        turbine_json['sect_row_0_dict'] = sect_row_0_dict
+        turbine_json['sect_row_1_dict'] = sect_row_1_dict
+        
+        with open('turbine_json/turbine_params.json', 'w') as f:
+            json.dump(turbine_json, f)
+        
+        
