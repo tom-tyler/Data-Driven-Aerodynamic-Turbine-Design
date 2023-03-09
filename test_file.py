@@ -1,13 +1,14 @@
 # from turbine_design.turbine_design import turbine
 # import matplotlib.pyplot as plt
 # from turbine_design.data_tools import *
-from turbine_design import model_turbine
+from turbine_design import turbine_design as TD
 
 # import numpy as np
 # from sklearn.metrics import r2_score 
 
-turbine(0.81,1.65,0.72,0.67)
+turb = TD.turbine(0.81,1.65,0.72,0.67)
 
+turb.get_non_dim_geometry()
 
 # eta_lost = turbine_GPR('eta_lost')
 

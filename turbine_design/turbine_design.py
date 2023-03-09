@@ -1,10 +1,969 @@
-from model_turbine import turbine_GPR
+from sklearn.gaussian_process import GaussianProcessRegressor, kernels
+from sklearn.metrics import mean_squared_error
 import numpy as np
 import pandas as pd
-import compflow_native as compflow
+import scipy.stats as st
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcol
+from collections import OrderedDict
 import sys
+import joblib
+from . import compflow_native as compflow
 import json
 
+
+def drop_columns(df,variables,output_key):
+   for dataframe_variable in df.columns:
+      if (dataframe_variable in variables) or (dataframe_variable==output_key):
+         pass
+      else:
+         df=df.drop(columns=str(dataframe_variable))
+   return df
+
+class turbine_GPR: 
+   
+   def __init__(self,
+                model_name=None,
+                limit_dict='auto'):
+      
+      if model_name==None:
+         pass
+      else:   
+         with open(f"Models/{model_name}_variables.txt", "r") as file:
+            variables = [line.rstrip() for line in file]
+
+         self.variables = variables
+         self.output_key = model_name
+         self.fit_dimensions = len(self.variables)
+         
+         model = joblib.load(f'Models/{model_name}_model.joblib')
+         
+         self.input_array_train = pd.DataFrame(data=model.X_train_,
+                                               columns=sorted(self.variables))
+         
+         self.output_array_train = model.y_train_
+         
+         if limit_dict=='auto':
+            self.limit_dict = {}
+            for column in self.input_array_train:
+               self.limit_dict[column] = (np.around(self.input_array_train[column].min(),decimals=1),
+                                          np.around(self.input_array_train[column].max(),decimals=1)
+                                          )
+         else:
+            self.limit_dict = limit_dict
+            
+         self.optimised_kernel = model.kernel_
+         
+         self.fitted_function = model
+            
+         self.min_train_output = np.min([self.output_array_train])
+         self.max_train_output = np.max([self.output_array_train])
+   
+   def fit(self,
+           training_dataframe,
+           variables=None,
+           output_key=None,
+           number_of_restarts=0,           
+           length_bounds=[1e-1,1e3],
+           noise_magnitude=1e-6,
+           noise_bounds=[1e-20,1e-3],
+           nu='optimise',
+           extra_variable_options=False,
+           iterate_extra_params=False,
+           limit_dict='auto',
+           overwrite=False
+           ):
+      
+      if variables==None:
+         sys.exit('Please state variable to fit over.')
+      elif output_key==None:
+         sys.exit('Please state output to fit to.')
+      
+      self.output_key = output_key
+      variables = list(variables)
+      self.variables = variables
+      self.fit_dimensions = len(self.variables)
+      
+      noise_kernel = kernels.WhiteKernel(noise_level=noise_magnitude,
+                                         noise_level_bounds=noise_bounds)
+
+      kernel_form = self.matern_kernel(len(variables),bounds=length_bounds) + noise_kernel
+            
+      training_dataframe = drop_columns(training_dataframe,
+                                        variables,
+                                        output_key)
+      
+      training_dataframe = training_dataframe.reindex(sorted(training_dataframe.columns), axis=1)
+      
+      self.input_array_train = training_dataframe.drop(columns=[self.output_key])
+      self.output_array_train = training_dataframe[self.output_key]
+      
+      if limit_dict=='auto':
+         self.limit_dict = {}
+         for column in self.input_array_train:
+            self.limit_dict[column] = (np.around(training_dataframe[column].min(),decimals=1),
+                                       np.around(training_dataframe[column].max(),decimals=1)
+                                       )
+      else:
+         self.limit_dict = limit_dict
+      
+      nu_dict = {1.5:None,2.5:None,np.inf:None}
+      
+      gaussian_process = GaussianProcessRegressor(kernel=kernel_form,
+                                                  n_restarts_optimizer=number_of_restarts,
+                                                  random_state=0
+                                                  )
+   
+      if nu=='optimise':
+         for nui in nu_dict:
+            gaussian_process.set_params(kernel__k1__nu=nui)
+            fitted_function = gaussian_process.fit(self.input_array_train.to_numpy(),
+                                                   self.output_array_train.to_numpy()
+                                                   )
+            nu_dict[nui] = fitted_function.log_marginal_likelihood_value_
+
+         nu = max(nu_dict, key=nu_dict.get)
+
+      gaussian_process.set_params(kernel__k1__nu=nu)
+
+      self.fitted_function = gaussian_process.fit(self.input_array_train.to_numpy(),
+                                                  self.output_array_train.to_numpy()
+                                                  )
+         
+      self.optimised_kernel = self.fitted_function.kernel_
+         
+      self.min_train_output = np.min([self.output_array_train])
+      self.max_train_output = np.max([self.output_array_train])
+      
+      if overwrite==True:
+         joblib.dump(self.fitted_function,f'Models/{self.output_key}_model.joblib')
+
+         model_variables = variables.copy()
+         text_model_variables = [str(item)+'\n' for item in model_variables]
+
+         with open(f"Models/{self.output_key}_variables.txt", "w") as file:
+            file.writelines(text_model_variables)
+
+   def predict(self,
+               dataframe,
+               include_output=False,
+               CI_in_dataframe=False,
+               CI_percent=95
+               ):
+
+      dataframe = dataframe.reindex(sorted(dataframe.columns), axis=1)
+      dataframe = drop_columns(dataframe,self.variables,self.output_key)
+
+      if include_output == True:
+         self.input_array_test = dataframe.drop(columns=[self.output_key])
+         self.output_array_test = dataframe[self.output_key]
+      else:
+         self.input_array_test = dataframe
+   
+      self.CI_percent = CI_percent
+      self.confidence_scalar = st.norm.ppf(1 - ((1 - (CI_percent / 100)) / 2))
+      
+      self.mean_prediction, self.std_prediction = self.fitted_function.predict(self.input_array_test.to_numpy(), return_std=True)
+
+      self.upper = self.mean_prediction + self.confidence_scalar * self.std_prediction
+      self.lower = self.mean_prediction - self.confidence_scalar * self.std_prediction
+      self.training_output = self.output_array_train
+            
+      self.predicted_dataframe = self.input_array_test
+      self.predicted_dataframe['predicted_output'] = self.mean_prediction
+      if include_output == True:
+         self.RMSE = np.sqrt(mean_squared_error(self.output_array_test,self.mean_prediction))
+         self.predicted_dataframe['actual_output'] = self.output_array_test
+         self.predicted_dataframe['percent_error'] = abs((self.mean_prediction - self.output_array_test)/self.output_array_test)*100
+         self.score = self.fitted_function.score(dataframe.drop(columns=[self.output_key]).to_numpy(),dataframe[self.output_key].to_numpy())
+      if CI_in_dataframe == True:
+         self.predicted_dataframe['upper'] = self.upper
+         self.predicted_dataframe['lower'] = self.lower
+         
+      
+      self.min_output = np.amin(self.mean_prediction)
+      self.min_output_indices = np.where(self.mean_prediction == self.min_output)
+      
+      self.max_output = np.amax(self.mean_prediction)
+      self.max_output_indices = np.where(self.mean_prediction == self.max_output)
+
+      return self.predicted_dataframe
+      
+   def find_global_max_min_values(self,
+                                  num_points_interpolate=20,
+                                  limit_dict=None):
+         
+      if limit_dict != None:
+         self.limit_dict = limit_dict
+      
+      vars_dict = OrderedDict()
+      for key in self.limit_dict:
+         vars_dict[key] = np.linspace(start=self.limit_dict[key][0], stop=self.limit_dict[key][1], num=num_points_interpolate)
+
+      vars_grid_array = np.meshgrid(*vars_dict.values())
+      min_max_dataframe = pd.DataFrame({})
+
+      for index,key in enumerate(vars_dict.keys()):
+         vars_dict[key] = vars_grid_array[index]
+         var_vector = vars_dict[key].ravel()
+         min_max_dataframe[key] = var_vector
+
+      min_max_dataframe = self.predict(min_max_dataframe)
+      
+      self.min_output_row = min_max_dataframe.iloc[self.min_output_indices]
+      self.max_output_row = min_max_dataframe.iloc[self.max_output_indices]
+         
+      return self.max_output_row,self.min_output_row
+        
+   def plot_vars(self,
+                 x1=None,
+                 x2=None,
+                 constants='mean',
+                 limit_dict=None,
+                 axis=None,
+                 num_points=100,
+                 contour_step=None,
+                 opacity=0.2,
+                 title_variable_spacing=3,
+                 plotting_grid_value=[0,0],
+                 grid_height=1,
+                 CI_percent=95,
+                 plot_training_points=False,
+                 legend_outside=False,
+                 contour_type='line',
+                 show_max=True,
+                 show_min=False,
+                 plot_actual_data=False,
+                 plot_actual_data_filter_factor=5,
+                 show_actual_with_model=True
+                 ):
+      
+      if axis == None:
+         fig,axis = plt.subplots(1,1,sharex=True,sharey=True)
+         plot_now = True
+      else:
+         plot_now = False
+         
+      if contour_step==None:
+         contour_step = abs(self.max_train_output - self.min_train_output)/10
+      
+      color_limits = np.array([self.min_train_output,
+                      np.mean([self.min_train_output,self.max_train_output]),
+                      self.max_train_output])
+      # print(color_limits)
+      # color_limits = np.array([88,92,96])
+      cmap_colors = ["green","orange","red"]
+      
+      # color_limits = np.flip(1 - (color_limits/100),0)
+      # cmap_colors = np.flip(cmap_colors)
+      # show_max=False
+      # show_min=True
+      # contour_textlabel = '\\eta_{lost}'
+      # else:
+      contour_textlabel = self.output_key
+            
+      
+      cmap_norm=plt.Normalize(min(color_limits),max(color_limits))
+      cmap_tuples = list(zip(map(cmap_norm,color_limits), cmap_colors))
+      output_cmap = mcol.LinearSegmentedColormap.from_list("", cmap_tuples)
+      
+      plot_dataframe = pd.DataFrame({})
+      
+      if limit_dict == None:
+         limit_dict = self.limit_dict
+      
+      plot_title = ' '
+
+      constants_check=self.variables.copy()
+                    
+      if (x1 != None) and (x2 == None):
+         plot_key1 = x1
+         plot_dataframe[plot_key1] = np.linspace(start=limit_dict[plot_key1][0], stop=limit_dict[plot_key1][1], num=num_points)
+         constants_check.remove(plot_key1)  
+         dimensions=1   
+      elif (x1 == None) and (x2 != None):
+         plot_key1 = x2
+         plot_dataframe[plot_key1] = np.linspace(start=limit_dict[plot_key1][0], stop=limit_dict[plot_key1][1], num=num_points)
+         constants_check.remove(plot_key1)
+         dimensions=1
+      elif (x1 != None) and (x2 != None):
+         plot_key1 = x1
+         plot_dataframe[plot_key1] = np.linspace(start=limit_dict[plot_key1][0], stop=limit_dict[plot_key1][1], num=num_points)
+         constants_check.remove(plot_key1)
+         plot_key2 = x2
+         plot_dataframe[plot_key2] = np.linspace(start=limit_dict[plot_key2][0], stop=limit_dict[plot_key2][1], num=num_points)
+         constants_check.remove(plot_key2)
+         dimensions=2
+      else:
+         sys.exit("Please specify x or y") 
+      
+      constant_value = {}
+      
+      if constants == 'mean':
+         for constant_key in constants_check:
+            constant_value[constant_key] = np.mean(self.input_array_train[constant_key])
+         
+      elif set(constants_check) != set(constants):
+         sys.exit("Constants specified are incorrect")
+         
+      else:
+         # format of constants is {'M2':0.7,'Co':0.6, ...}
+         for constant_key in constants:
+            if (constants[constant_key] == 'mean'):
+               constant_value[constant_key] = np.mean(self.input_array_train[constant_key])
+            else:
+               constant_value[constant_key] = constants[constant_key]
+               
+      for constant_key in constants_check:
+         if constant_key in ['phi','psi','Lambda']:
+            plot_title += '\\' + f'{constant_key} = {constant_value[constant_key]:.3f}'
+            plot_title += '\; '*title_variable_spacing
+         else:
+            plot_title += f'{constant_key} = {constant_value[constant_key]:.3f}'
+            plot_title += '\; '*title_variable_spacing
+      
+      if dimensions == 2:
+
+         X1,X2 = np.meshgrid(plot_dataframe[plot_key1],
+                             plot_dataframe[plot_key2]) # creates two matrices which vary across in x and y
+         X1_vector = X1.ravel() #vector of "all" x coordinates from meshgrid
+         X2_vector = X2.ravel() #vector of "all" y coordinates from meshgrid
+         plot_dataframe = pd.DataFrame({})
+         plot_dataframe[plot_key1] = X1_vector
+         plot_dataframe[plot_key2] = X2_vector
+      
+      for constant_key in constants_check:
+         plot_dataframe[constant_key] = constant_value[constant_key]*np.ones(num_points**dimensions)
+
+      self.predict(plot_dataframe,
+                   CI_percent=CI_percent)
+            
+      if plot_actual_data == True:
+         lower_factor = 1 - plot_actual_data_filter_factor/100
+         upper_factor = 1 + plot_actual_data_filter_factor/100
+         actual_data_df = pd.concat([self.input_array_train.copy(),self.output_array_train.copy()],axis=1)
+         
+         for constant_key in constants_check:
+            val = constant_value[constant_key]
+            actual_data_df = actual_data_df[actual_data_df[constant_key] < upper_factor*val]
+            actual_data_df = actual_data_df[actual_data_df[constant_key] > lower_factor*val]
+            
+      if dimensions == 1:
+         
+         if plot_training_points == True:
+            axis.scatter(x=self.input_array_train[plot_key1],
+                         y=self.training_output,
+                         marker='x',
+                         color='red',
+                         label='Training data points')
+
+         if show_max == True:
+            max_i = np.squeeze(self.max_output_indices)
+            axis.text(plot_dataframe[plot_key1][max_i], self.mean_prediction[max_i], f'{self.max_output:.2f}', size=12, color='darkblue')
+            axis.scatter(plot_dataframe[plot_key1][max_i], self.mean_prediction[max_i],marker='x',color='darkblue')
+
+         if show_min == True:
+            min_i = np.squeeze(self.min_output_indices)
+            axis.text(plot_dataframe[plot_key1][min_i], self.mean_prediction[min_i], f'{self.min_output:.2f}', size=12, color='darkblue')
+            axis.scatter(plot_dataframe[plot_key1][min_i], self.mean_prediction[min_i],marker='x',color='darkblue')
+
+         if plot_actual_data==True:
+               
+            poly_degree = int(0.75*actual_data_df.shape[0])
+            if poly_degree > 3:
+               poly_degree = 3
+               
+            coefs = np.polynomial.polynomial.polyfit(x=actual_data_df[plot_key1],
+                                                     y=actual_data_df[self.output_key],
+                                                     deg=poly_degree)
+
+            fit_function = np.polynomial.polynomial.Polynomial(coefs)    # instead of np.poly1d
+
+            x_actual_fit = np.linspace(np.min(actual_data_df[plot_key1]),np.max(actual_data_df[plot_key1]),50)
+            y_actual_fit = fit_function(x_actual_fit)
+               
+            axis.scatter(actual_data_df[plot_key1],
+                      actual_data_df[self.output_key],
+                      color='darkorange',
+                      marker='x')
+            axis.plot(x_actual_fit,
+                      y_actual_fit,
+                      label=r'Polynomial curve from actual data',
+                      color='orange',
+                      zorder=1e3)
+            
+         if show_actual_with_model == True:
+            
+            axis.plot(plot_dataframe[plot_key1], 
+                      self.mean_prediction, 
+                      label=r'Mean prediction', 
+                      color='blue'
+                      )
+            
+            axis.fill_between(x=plot_dataframe[plot_key1],
+                              y1=self.upper,
+                              y2=self.lower,
+                              alpha=opacity,                       
+                              label=fr"{self.CI_percent}% confidence interval",
+                              color='blue'
+                              )
+            
+            y_range = np.amax(self.upper) - np.amin(self.lower)
+            axis.set_xlim(limit_dict[plot_key1][0],
+                        limit_dict[plot_key1][1],
+                        auto=True)
+            axis.set_ylim(bottom=np.amin(self.lower)-0.1*y_range,
+                           top=np.amax(self.upper)+0.1*y_range,
+                           auto=True)
+            
+         if plotting_grid_value==[0,0]:
+            if legend_outside == True:
+               leg = axis.legend(loc='upper left',
+                                 bbox_to_anchor=(1.02,1.0),
+                                 borderaxespad=0,
+                                 frameon=True,
+                                 ncol=1,
+                                 prop={'size': 10})
+            else:
+               leg = axis.legend()
+            leg.set_draggable(state=True)
+         
+         if plotting_grid_value[0] == (grid_height-1):
+            if plot_key1 in ['phi','psi','Lambda']:
+               xlabel_string = '\\'+plot_key1
+               axis.set_xlabel(fr"$ {xlabel_string} $")
+            else:
+               axis.set_xlabel(fr"${plot_key1}$")
+               
+         if plotting_grid_value[1] == 0:
+            axis.set_ylabel(self.output_key)
+
+         axis.grid(linestyle = '--', linewidth = 0.5)
+         
+      elif dimensions == 2:
+         
+         min_level = np.floor(self.min_output/contour_step)*contour_step
+         max_level = np.ceil(self.max_output/contour_step)*contour_step
+         contour_levels = np.arange(min_level,max_level,contour_step)
+         
+         mean_prediction_grid = self.mean_prediction.reshape(num_points,num_points)
+         upper_grid = self.upper.reshape(num_points,num_points)
+         lower_grid = self.lower.reshape(num_points,num_points)
+         
+         if show_max == True:
+            max_i = np.squeeze(self.max_output_indices)
+            axis.text(X1.ravel()[max_i], X2.ravel()[max_i], f'{self.max_output:.2f}', size=12, color='dark'+cmap_colors[2])
+            axis.scatter(X1.ravel()[max_i], X2.ravel()[max_i],color=cmap_colors[2],marker='x')
+
+         if show_min == True:
+            min_i = np.squeeze(self.min_output_indices)
+            axis.text(X1.ravel()[min_i], X2.ravel()[min_i], f'{self.min_output:.2f}', size=12, color='dark'+cmap_colors[0])
+            axis.scatter(X1.ravel()[min_i], X2.ravel()[min_i],color=cmap_colors[0],marker='x')
+         
+         if plot_training_points == True:
+            training_points_plot = axis.scatter(x=self.input_array_train[plot_key1],
+                                                y=self.input_array_train[plot_key2],
+                                                marker='x',
+                                                color='blue'
+                                                )
+         
+         if contour_type=='line':
+            predicted_plot = axis.contour(X1, X2, mean_prediction_grid,levels=contour_levels,cmap=output_cmap,norm=cmap_norm)
+            axis.clabel(predicted_plot, inline=1, fontsize=14)
+            for contour_level_index,contour_level in enumerate(contour_levels):  #clear this up
+               confidence_array = (upper_grid>=contour_level) & (lower_grid<=contour_level)
+
+               contour_color = output_cmap(cmap_norm(contour_level))
+
+               confidence_plot = axis.contourf(X1,X2,confidence_array, levels=[0.5, 2], alpha=opacity,cmap = mcol.ListedColormap([contour_color])) 
+               h2,_ = confidence_plot.legend_elements()
+               
+         elif contour_type=='continuous':
+            predicted_plot = axis.contourf(X1, X2, mean_prediction_grid,cmap=output_cmap,norm=cmap_norm,levels=contour_levels,extend='both')
+         
+         else:
+            sys.exit('Please specify "continuous" or "line" for contour_type')
+            
+         h1,_ = predicted_plot.legend_elements()
+         
+         if plotting_grid_value==[0,0]:
+            
+            if plot_training_points == True:
+               if contour_type == 'line':
+                  handles = [h1[0], h2[0], training_points_plot]
+                  labels = [fr'$ {contour_textlabel} $, Mean prediction',
+                           fr"{self.CI_percent}% confidence interval",
+                           'Training data points']
+               else:
+                  handles = [h1[0], training_points_plot]
+                  labels = [fr'$ {contour_textlabel} $, Mean prediction',
+                            'Training data points']
+            else:
+               if contour_type == 'line':
+                  handles = [h1[0], h2[0]]
+                  labels = [fr'$ {contour_textlabel} $, Mean prediction',
+                           fr"{self.CI_percent}% confidence interval", 
+                           'Training data points']
+               else:
+                  handles = [h1[0]]
+                  labels = [fr'$ {contour_textlabel} $, Mean prediction']
+                  
+            if legend_outside == True:
+               leg = axis.legend(handles=handles,
+                                 labels=labels,
+                                 loc='upper left',
+                                 bbox_to_anchor=(1.02,1.0),
+                                 borderaxespad=0,
+                                 frameon=True,
+                                 ncol=1,
+                                 prop={'size': 10})
+            else:
+               leg = axis.legend(handles=handles,
+                                 labels=labels)
+
+            leg.set_draggable(state=True)
+         
+         if plotting_grid_value[0] == (grid_height-1):
+            if plot_key1 in ['phi','psi','Lambda']:
+               xlabel_string1 = '\\'+plot_key1
+               axis.set_xlabel(fr"$ {xlabel_string1} $")
+            else:
+               axis.set_xlabel(f"${plot_key1}$")
+         
+         if plotting_grid_value[1] == 0:
+            if plot_key2 in ['phi','psi','Lambda']:
+               xlabel_string2 = '\\'+plot_key2
+               axis.set_ylabel(fr"$ {xlabel_string2} $")
+            else:
+               axis.set_ylabel(f"${plot_key2}$")
+         
+         axis.set_xlim(limit_dict[plot_key1][0],
+                       limit_dict[plot_key1][1],
+                       auto=True)
+         axis.set_ylim(limit_dict[plot_key2][0],
+                       limit_dict[plot_key2][1],
+                       auto=True)
+         
+         axis.grid(linestyle = '--', linewidth = 0.5)
+          
+      else:
+         sys.exit('Somehow wrong number of dimensions')
+      
+      if self.fit_dimensions>2:
+         axis.set_title(fr'$ {plot_title} $',size=10)
+      
+      if plot_now == True:
+         fig.tight_layout()
+         plt.show()
+         
+      return plot_dataframe
+      
+   def plot_accuracy(self,
+                     testing_dataframe,
+                     axis=None,
+                     line_error_percent=5,
+                     CI_percent=95,
+                     identify_outliers=True,
+                     title_variable_spacing=3,
+                     plot_errorbars=True,
+                     score_variable='R2'
+                     ):
+      
+      runid_dataframe = testing_dataframe['runid']   
+      testing_dataframe = drop_columns(testing_dataframe,self.variables,self.output_key)
+      
+      self.predict(testing_dataframe,
+                   include_output=True,
+                   CI_in_dataframe=True,
+                   CI_percent=CI_percent,
+                   )
+      
+      if axis == None:
+         fig,ax = plt.subplots(1,1,sharex=True,sharey=True)
+         
+      self.predicted_dataframe['runid'] = runid_dataframe
+         
+      predicted_values = self.predicted_dataframe['predicted_output']
+      actual_values = self.predicted_dataframe['actual_output']
+      upper_errorbar = (self.predicted_dataframe['upper']-predicted_values)
+      lower_errorbar = (predicted_values-self.predicted_dataframe['lower'])
+      
+      if identify_outliers == True:
+         outliers = self.predicted_dataframe[self.predicted_dataframe['percent_error'] > line_error_percent]
+               
+         for row_index,row in outliers.iterrows():
+            value_string = f''
+            newline=' $\n$ '
+            for col_index,col in enumerate(outliers):
+               
+               if col in ['phi','psi','Lambda']:
+                  if (col_index%2==0) and (col_index!=0):
+                     value_string += newline
+                  value_string += '\\' + f'{col}={row[col]:.3f}'
+                  value_string += '\; '*title_variable_spacing
+               else:
+                  if (col_index%2==0) and (col_index!=0):
+                     value_string += newline
+                  value_string += f'{col}={row[col]:.3f}'
+                  value_string += '\; '*title_variable_spacing
+                  
+               
+            ax.scatter(row['actual_output'], row['predicted_output'],color='blue',marker=f'${row_index}$',s=160,label=fr'$ runID={row["runid"]:.0f} $',linewidths=0.1)
+      
+      limits_array = np.linspace(actual_values.min(),actual_values.max(),1000)
+      upper_limits_array = (1+line_error_percent/100)*limits_array
+      lower_limits_array = (1-line_error_percent/100)*limits_array
+      
+      if identify_outliers == True:
+         non_outliers = self.predicted_dataframe[self.predicted_dataframe['percent_error'] < line_error_percent]
+         ax.scatter(non_outliers['actual_output'],non_outliers['predicted_output'],marker='x',label='Testing data points',color='blue')
+      else:
+         ax.scatter(actual_values,predicted_values,marker='x',label='Test data points',color='blue')
+      ax.plot(limits_array,limits_array,linestyle='solid',color='red',label = r'$f(x)=x$')
+      ax.plot(limits_array,upper_limits_array,linestyle='dotted',color='red',label = f'{line_error_percent}% error interval')
+      ax.plot(limits_array,lower_limits_array,linestyle='dotted',color='red')
+      if plot_errorbars==True:
+         ax.errorbar(actual_values,
+                     predicted_values,
+                     (upper_errorbar,lower_errorbar),
+                     fmt='none',
+                     capsize=2.0,
+                     ecolor='darkblue',
+                     label = fr"{self.CI_percent}% confidence interval"
+                     )
+      if score_variable=='both':
+         ax.set_title(fr'RMSE = {self.RMSE:.2e}    $R^2$ = {self.score:.3f}')
+      elif score_variable=='R2':
+         ax.set_title(fr'$R^2$ = {self.score:.3f}')
+      elif score_variable=='RMSE':
+         ax.set_title(fr'RMSE = {self.RMSE:.2e}')
+      else:
+         sys.exit("Enter suitable score variable from ['both','R2','RMSE']")
+      
+      ax.set_xlabel(f'{self.output_key} (actual)')
+      ax.set_ylabel(f'{self.output_key} (prediction)')
+         
+      leg = ax.legend(loc='upper left',
+                      bbox_to_anchor=(1.02,1.0),
+                      borderaxespad=0,
+                      frameon=True,
+                      ncol=1,
+                      prop={'size': 10})
+      leg.set_draggable(state=True)
+      
+      ax.grid(linestyle = '--', linewidth = 0.5)
+      
+      if axis == None:
+         fig.tight_layout()
+         plt.show()
+      
+   def plot(self,
+            x1=None,
+            x2=None,
+            constants='mean',          # form: {'M':0.5,'Co':0.5}
+            gridvars={},               # form: {'M':[0.5,0.6,0.7],'Co:[0.6,0.7]}
+            rotate_grid=False,
+            limit_dict=None,
+            num_points=100,
+            contour_step=None,
+            opacity=0.3,
+            title_variable_spacing=3,
+            with_arrows=True,
+            CI_percent=95,
+            plot_training_points=False,
+            legend_outside=False,
+            contour_type='line',
+            show_max=True,
+            show_min=False,
+            plot_actual_data=False,
+            plot_actual_data_filter_factor=5,
+            show_actual_with_model=True,
+            optimum_plot=False
+            ):
+
+      grid_constants=self.variables.copy()
+      
+      if x1 != None:
+         grid_constants.remove(x1)  
+      if x2 != None:
+         grid_constants.remove(x2)  
+      if (x1==None) and (x2==None):
+         sys.exit('Must state wither correct x1 or correct x2')
+      
+      grid_shape, grid_keys=[1,1], {0:' ',1:' '}
+      
+      if rotate_grid==True:
+         grid_index=1
+      else:
+         grid_index=0
+         
+      if gridvars != {}:
+         for var in grid_constants:
+            if var in [x1,x2]:
+               sys.exit('Already plotting grid variable')
+            elif var in gridvars:
+               grid_shape[grid_index] = len(gridvars[var])
+               grid_keys[grid_index] = var
+               grid_index = not grid_index
+      else:
+         grid_index=0
+               
+      num_rows=grid_shape[0]
+      num_columns=grid_shape[1]
+      
+      fig, axes = plt.subplots(nrows=num_rows,
+                               ncols=num_columns,
+                               sharex=True,
+                               sharey=True
+                               )
+      
+      for indices, axis in np.ndenumerate(axes):
+         
+         print('plot',indices)
+         
+         if (num_columns == 1) and (num_rows > 1):
+            i = np.squeeze(indices)
+            j = 0
+         elif (num_columns > 1) and (num_rows == 1):
+            j = np.squeeze(indices)
+            i = 0
+         elif (num_columns > 1) and (num_rows > 1):
+            (i,j) = indices
+         else:
+            i,j=0,0
+            
+         constant_dict = {}
+         
+         for var in grid_constants:
+            if (var in gridvars) and (grid_keys[0]==var):
+               constant_dict[var] = gridvars[var][i]
+
+            elif (var in gridvars) and (grid_keys[1]==var):
+               constant_dict[var] = gridvars[var][j]
+            else:
+               if constants=='mean':
+                  constant_dict[var] = 'mean'
+               else:
+                  constant_dict[var] = constants[var]
+         if optimum_plot == True:
+            self.plot_optimum(opt_var=x1,
+                              vary_var=x2,
+                              constants=constant_dict,
+                              limit_dict=limit_dict,
+                              plot_actual_data_filter_factor=plot_actual_data_filter_factor,
+                              title_variable_spacing=title_variable_spacing,
+                              num_points=num_points,
+                              axis=axis,
+                              plotting_grid_value=[i,j],
+                              grid_height=num_rows,
+                              plot_actual_data=plot_actual_data,
+                              legend_outside=legend_outside)
+         else:
+            self.plot_vars(x1=x1,
+                           x2=x2,
+                           constants=constant_dict,
+                           limit_dict=limit_dict,
+                           axis=axis,
+                           num_points=num_points,
+                           contour_step=contour_step,
+                           opacity=opacity,
+                           title_variable_spacing=title_variable_spacing,
+                           plotting_grid_value=[i,j],
+                           grid_height=num_rows,
+                           CI_percent=CI_percent,
+                           plot_training_points=plot_training_points,
+                           legend_outside=legend_outside,
+                           contour_type=contour_type,
+                           show_max=show_max,
+                           show_min=show_min,
+                           plot_actual_data=plot_actual_data,
+                           plot_actual_data_filter_factor=plot_actual_data_filter_factor,
+                           show_actual_with_model=show_actual_with_model
+                           )
+
+      if (num_columns>1) or (num_rows>1):
+         if with_arrows==True:
+            if num_columns >1:
+               if grid_keys[1] in ['phi','psi','Lambda']:
+                  xlabel_string1 = '\\'+grid_keys[1]+' \\rightarrow'
+                  fig.supxlabel(fr"$ {xlabel_string1} $")
+               else:
+                  fig.supxlabel(f"$ {grid_keys[1]} \\rightarrow $")
+            if num_rows >1:
+               if grid_keys[0] in ['phi','psi','Lambda']:
+                  xlabel_string2 = '\\leftarrow \\'+grid_keys[0]
+                  fig.supylabel(fr"$ {xlabel_string2} $")
+               else:
+                  fig.supylabel(f"$\\leftarrow {grid_keys[0]} $")
+         else:
+            if num_columns >1:
+               if grid_keys[1] in ['phi','psi','Lambda']:
+                  xlabel_string1 = '\\'+grid_keys[1]
+                  fig.supxlabel(fr"$ {xlabel_string1} $")
+               else:
+                  fig.supxlabel(f"${grid_keys[1]} $")
+            if num_rows >1:   
+               if grid_keys[0] in ['phi','psi','Lambda']:
+                  xlabel_string2 = '\\'+grid_keys[0]
+                  fig.supylabel(fr"$ {xlabel_string2} $")
+               else:
+                  fig.supylabel(f"${grid_keys[0]} $")
+                  
+      plt.show()
+      
+   def matern_kernel(self,
+                     N,
+                     bounds = (1e-2,1e3)):
+      L = np.ones(N)
+      L_bounds = []
+      for i in range(N):
+         L_bounds.append(bounds)
+      
+      return kernels.Matern(length_scale = L,
+                            length_scale_bounds=L_bounds,
+                            nu=2.5
+                            )
+
+   def plot_optimum(self,
+                    opt_var,
+                    vary_var,
+                    constants,
+                    limit_dict=None,
+                    plot_actual_data_filter_factor=15,
+                    title_variable_spacing=3,
+                    num_points=50,
+                    axis=None,
+                    plotting_grid_value=[0,0],
+                    grid_height=1,
+                    plot_actual_data=False,
+                    legend_outside = False):
+      
+      
+      if axis == None:
+         fig,axis = plt.subplots(1,1,sharex=True,sharey=True)
+         plot_now = True
+      else:
+         plot_now = False
+         
+      if limit_dict == None:
+         limit_dict = self.limit_dict
+
+      constants_check=self.variables.copy()
+      constants_check.remove(vary_var) 
+      constants_check.remove(opt_var) 
+      plot_title = ''
+      # filter by factor% error
+      lower_factor = 1 - plot_actual_data_filter_factor/100
+      upper_factor = 1 + plot_actual_data_filter_factor/100
+      actual_data_df_datum = pd.concat([self.input_array_train.copy(),self.output_array_train.copy()],axis=1)
+      
+      vary_var_values = np.linspace(np.min(actual_data_df_datum[vary_var]),np.max(actual_data_df_datum[vary_var]),num_points)
+      opt_values = np.zeros(num_points)
+      opt_values_GPR = np.zeros(num_points)
+      plot_dataframe = pd.DataFrame({})
+      plot_dataframe[opt_var] = np.linspace(np.min(actual_data_df_datum[opt_var]),np.max(actual_data_df_datum[opt_var]),num_points)
+      
+      constant_value = {}
+      
+      if constants == 'mean':
+         for constant_key in constants_check:
+            constant_value[constant_key] = np.mean(self.input_array_train[constant_key])
+         
+      elif set(constants_check) != set(constants):
+         sys.exit("Constants specified are incorrect")
+         
+      else:
+         # format of constants is {'M2':0.7,'Co':0.6, ...}
+         for constant_key in constants:
+            if (constants[constant_key] == 'mean'):
+               constant_value[constant_key] = np.mean(self.input_array_train[constant_key])
+            else:
+               constant_value[constant_key] = constants[constant_key]
+               
+      for constant_key in constants_check:
+         plot_dataframe[constant_key] = constant_value[constant_key]*np.ones(num_points)
+         val = constant_value[constant_key]
+
+         actual_data_df_datum = actual_data_df_datum[actual_data_df_datum[constant_key] < upper_factor*val]
+         actual_data_df_datum = actual_data_df_datum[actual_data_df_datum[constant_key] > lower_factor*val]
+         if constant_key in ['phi','psi','Lambda']:
+            plot_title += '\\' + f'{constant_key} = {constant_value[constant_key]:.3f}'
+            plot_title += '\; '*title_variable_spacing
+         else:
+            plot_title += f'{constant_key} = {constant_value[constant_key]:.3f}'
+            plot_title += '\; '*title_variable_spacing
+            
+      for i,vary_var_val in enumerate(vary_var_values):
+         
+         actual_data_df = actual_data_df_datum.copy()
+
+         # vary var
+         plot_dataframe[vary_var] = vary_var_val*np.ones(num_points)
+
+         actual_data_df = actual_data_df[actual_data_df[vary_var] < upper_factor*vary_var_val]
+         actual_data_df = actual_data_df[actual_data_df[vary_var] > lower_factor*vary_var_val]
+         
+         if actual_data_df.shape[0] >= 5:
+
+            poly_degree = 3
+               
+            coefs = np.polynomial.polynomial.polyfit(x=actual_data_df[opt_var],
+                                                      y=actual_data_df[self.output_key],
+                                                      deg=poly_degree)
+
+            fit_function = np.polynomial.polynomial.Polynomial(coefs)    # instead of np.poly1d
+
+            x_actual_fit = np.linspace(np.min(actual_data_df[opt_var]),np.max(actual_data_df[opt_var]),num_points)
+            y_actual_fit = fit_function(x_actual_fit)
+            
+            
+            y_min = np.amin(y_actual_fit)
+            opt_val = x_actual_fit[np.where(y_actual_fit == y_min)][0]
+            opt_values[i] = opt_val
+            
+         self.predict(plot_dataframe)
+         min_i = np.squeeze(self.min_output_indices)
+         opt_val_GPR = plot_dataframe[opt_var][min_i]
+         opt_values_GPR[i] = opt_val_GPR
+         
+      axis.scatter(vary_var_values[opt_values !=0],
+                   opt_values[opt_values !=0],
+                   marker='x',
+                   color='red',
+                   label=f'CFD datapoints (margin={plot_actual_data_filter_factor}%)')
+
+      axis.plot(vary_var_values,
+                opt_values_GPR,
+                color='darkblue',
+                label='GPR model')
+      axis.set_xlabel(vary_var)
+      axis.set_ylabel('$'+opt_var+r'_{\mathrm{optimum}}$')
+      axis.set_title(fr'$ {plot_title} $',size=10)
+      if plotting_grid_value==[0,0]:
+         if legend_outside == True:
+            leg = axis.legend(loc='upper left',
+                              bbox_to_anchor=(1.02,1.0),
+                              borderaxespad=0,
+                              frameon=True,
+                              ncol=1,
+                              prop={'size': 10})
+         else:
+            leg = axis.legend()
+         leg.set_draggable(state=True)
+      
+      # axis.scatter(actual_data_df[opt_var],
+      #             actual_data_df[self.output_key],
+      #             color='darkorange',
+      #             marker='x')
+      # axis.plot(x_actual_fit,
+      #             y_actual_fit,
+      #             label=r'Polynomial curve from actual data',
+      #             color='orange',
+      #             zorder=1e3)
+      
+      if plot_now == True:
+         fig.tight_layout()
+         plt.show()
 
 #NEED STILL - ballpark placehoders currently
 # 'recamber_te_stator',
@@ -457,65 +1416,64 @@ class turbine:
         
         self.eta = 100 - 100*self.get_eta_lost()
         
-        mean_line = {"phi": self.phi,
-                     "psi": self.psi,
-                     "Lam": self.Lambda,
-                     "Al1": self.Al1,
-                     "Ma2": self.M2,
-                     "eta": self.eta,
-                     "ga": self.ga,
-                     "loss_split": self.loss_rat,
+        mean_line = {"phi": float(self.phi),
+                     "psi": float(self.psi),
+                     "Lam": float(self.Lambda),
+                     "Al1": float(self.Al1),
+                     "Ma2": float(self.M2),
+                     "eta": float(self.eta),
+                     "ga": float(self.ga),
+                     "loss_split": float(self.loss_rat),
                      "fc": [0.0,
                             0.0],
                      "TRc": [0.5,
                              0.5]
                      }
         
-        bcond = {"To1": self.To1,
-                 "Po1": self.Po1,
-                 "rgas": self.Rgas,
-                 "Omega": self.Omega,
-                 "delta": self.delta
+        bcond = {"To1": float(self.To1),
+                 "Po1": float(self.Po1),
+                 "rgas": float(self.Rgas),
+                 "Omega": float(self.Omega),
+                 "delta": float(self.delta)
                  }
         
-        threeD = {"htr": self.htr,
-                  "Re": self.Re,
+        threeD = {"htr": float(self.htr),
+                  "Re": float(self.Re),
                   "tau_c": 0.0,
-                  "Co": [self.Co,
-                         self.Co],
-                  "AR": [self.AR,
-                         self.AR]
+                  "Co": [float(self.Co),
+                         float(self.Co)],
+                  "AR": self.AR
                   }
         
-        sect_row_0_dict = {'tte':self.tte,
+        sect_row_0_dict = {'tte':float(self.tte),
                            'sect_0': {
-                               'spf':self.spf_stator,
-                               'stagger':self.stagger_stator,
-                               'recamber':[self.recamber_le_stator,
-                                           self.recamber_te_stator],
-                               'Rle':self.Rle_stator,
-                               'beta':self.beta_stator,
-                               "thickness_ps": self.t_ps_stator,
-                               "thickness_ss": self.t_ss_stator,
-                               "max_thickness_location_ss": self.max_t_loc_ss_stator,
-                               "max_thickness_location_ps": self.max_t_loc_ps_stator,
-                               "lean": self.lean_stator
+                               'spf':float(self.spf_stator),
+                               'stagger':float(self.stagger_stator),
+                               'recamber':[float(self.recamber_le_stator),
+                                           float(self.recamber_te_stator)],
+                               'Rle':float(self.Rle_stator),
+                               'beta':float(self.beta_stator),
+                               "thickness_ps": float(self.t_ps_stator),
+                               "thickness_ss": float(self.t_ss_stator),
+                               "max_thickness_location_ss": float(self.max_t_loc_ss_stator),
+                               "max_thickness_location_ps": float(self.max_t_loc_ps_stator),
+                               "lean": float(self.lean_stator)
                                }
                            }
         
-        sect_row_1_dict = {'tte':self.tte,
+        sect_row_1_dict = {'tte':float(self.tte),
                            'sect_0': {
-                               'spf':self.spf_rotor,
-                               'stagger':self.stagger_rotor,
-                               'recamber':[self.recamber_le_rotor,
-                                           self.recamber_te_rotor],
-                               'Rle':self.Rle_rotor,
-                               'beta':self.beta_rotor,
-                               "thickness_ps": self.t_ps_rotor,
-                               "thickness_ss": self.t_ss_rotor,
-                               "max_thickness_location_ss": self.max_t_loc_ss_rotor,
-                               "max_thickness_location_ps": self.max_t_loc_ps_rotor,
-                               "lean": self.lean_rotor
+                               'spf':float(self.spf_rotor),
+                               'stagger':float(self.stagger_rotor),
+                               'recamber':[float(self.recamber_le_rotor),
+                                           float(self.recamber_te_rotor)],
+                               'Rle':float(self.Rle_rotor),
+                               'beta':float(self.beta_rotor),
+                               "thickness_ps": float(self.t_ps_rotor),
+                               "thickness_ss": float(self.t_ss_rotor),
+                               "max_thickness_location_ss": float(self.max_t_loc_ss_rotor),
+                               "max_thickness_location_ps": float(self.max_t_loc_ps_rotor),
+                               "lean": float(self.lean_rotor)
                                }
                            }
 
@@ -529,6 +1487,8 @@ class turbine:
         turbine_json['sect_row_1_dict'] = sect_row_1_dict
         
         with open('turbine_json/turbine_params.json', 'w') as f:
-            json.dump(turbine_json, f)
+            json.dump(turbine_json,
+                      f, 
+                      indent=4)
         
         
