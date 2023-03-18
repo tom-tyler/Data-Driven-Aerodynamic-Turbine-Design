@@ -11,7 +11,7 @@ turb = TD.turbine(phi=0.8,
                   M2=0.65,
                   Co=0.65)
 
-turb.get_non_dim_geometry()
+turb.get_blade_3D()
 
 # import numpy as np
 # from sklearn.metrics import r2_score 
