@@ -6,12 +6,15 @@ from turbine_design import data_tools as tools
 import matplotlib.pyplot as plt
 import numpy as np
 
-turb = TD.turbine(phi=0.8,
-                  psi=1.6,
-                  M2=0.65,
+turb = TD.turbine(phi=0.65,
+                  psi=2.0,
+                  M2=0.9,
                   Co=0.65)
 
 turb.get_blade_3D()
+
+turb.get_blade_2D()
+
 
 # import numpy as np
 # from sklearn.metrics import r2_score 

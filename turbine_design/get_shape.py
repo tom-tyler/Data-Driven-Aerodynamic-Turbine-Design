@@ -1,8 +1,4 @@
-from .turbigen import three_dimensional_stage, ohmesh
-import numpy as np
-import matplotlib.pyplot as plt
-from stl import mesh
-import sys
+from .turbigen import three_dimensional_stage, ohmesh 
 
 def get_shape(params):
     """Function to return shape from a parameters object.

@@ -1525,10 +1525,10 @@ class turbine:
       
       nb, h, c, ps, ss = get_coordinates()  
       
-      # Plot
+      # Plot x_rt and x_r 2D plots
       jmid = int(span_percent/100*len(ps[0]))
 
-      fig, ax = plt.subplots()
+      fig1, ax1 = plt.subplots()
       for irow in range(2):
          tex = [0,0]
          tert = [0,0]
@@ -1536,13 +1536,42 @@ class turbine:
             sectmid = side[irow][jmid]
             x, r, t = sectmid.T
             rt = r*t
-            ax.plot(x, rt, '-b')
+            ax1.plot(x, rt, '-b')
             tex[i] = x[-1]
             tert[i] = rt[-1]
-         ax.plot(tex,tert,'-b')
+         ax1.plot(tex,tert,'-b')
 
-      ax.axis('equal')
-      plt.savefig('turbine_design/Blade_shapes/blades_2D.pdf')
+      ax1.axis('equal')
+      plt.savefig('turbine_design/Blade_shapes/blades_x_rt.pdf')
+      
+      fig2, ax2 = plt.subplots()
+      ax2.plot(h[:,0],h[:,1],'-b')
+      ax2.plot(c[:,0],c[:,1],'-b')
+      for irow in range(2):
+         xle = []
+         rle = []
+         xte = []
+         rte = []
+         for j in range(len(ps[0])):
+            sect = ps[irow][j]
+            x, r, t = sect.T
+            xle.append(x[0])
+            rle.append(r[0])
+            xte.append(x[-1])
+            rte.append(r[-1])
+         
+         ax2.plot(xle,rle,'-b')
+         ax2.plot(xte,rte,'-b')
+         ax2.plot([xle[0],xte[-1]],
+                  [rle[0],rte[-1]],
+                  '--b')
+         ax2.plot([xle[-1],xte[0]],
+                  [rle[-1],rte[0]],
+                  '--b')
+
+
+      ax2.axis('equal')
+      plt.savefig('turbine_design/Blade_shapes/blades_x_r.pdf')
       
    def get_blade_3D(self,
                     Omega=None,
