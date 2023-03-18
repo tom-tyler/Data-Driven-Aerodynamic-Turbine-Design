@@ -1,0 +1,168 @@
+{
+    "row_0": {
+        "patch_4": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.5,
+            "Beta": 0.0,
+            "fc": 0.015,
+            "location": 6,
+            "Alpha": 90.0
+        },
+        "patch_5": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.02,
+            "Beta": 0.0,
+            "fc": 0.0075,
+            "location": 2,
+            "Alpha": 90.0
+        },
+        "patch_6": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.02,
+            "Beta": 0.0,
+            "fc": 0.0075,
+            "location": 3,
+            "Alpha": 90.0
+        },
+        "patch_7": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.2,
+            "Beta": 0.0,
+            "fc": 0.0075,
+            "location": 2,
+            "Alpha": 30.0
+        },
+        "patch_0": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.2,
+            "Beta": 0.0,
+            "fc": 0.00375,
+            "location": 0,
+            "Alpha": 90.0
+        },
+        "patch_1": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.2,
+            "Beta": 0.0,
+            "fc": 0.00375,
+            "location": 1,
+            "Alpha": 90.0
+        },
+        "patch_2": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.5,
+            "Beta": 0.0,
+            "fc": 0.00375,
+            "location": 4,
+            "Alpha": 90.0
+        },
+        "patch_3": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.5,
+            "Beta": 0.0,
+            "fc": 0.00375,
+            "location": 5,
+            "Alpha": 90.0
+        },
+        "patch_8": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.1,
+            "Beta": 0.0,
+            "fc": 0.0075,
+            "location": 3,
+            "Alpha": 30.0
+        }
+    },
+    "row_1": {
+        "patch_4": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.5,
+            "Beta": 0.0,
+            "fc": 0.015,
+            "location": 6,
+            "Alpha": 90.0
+        },
+        "patch_5": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.02,
+            "Beta": 0.0,
+            "fc": 0.0075,
+            "location": 2,
+            "Alpha": 90.0
+        },
+        "patch_6": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.02,
+            "Beta": 0.0,
+            "fc": 0.0075,
+            "location": 3,
+            "Alpha": 90.0
+        },
+        "patch_7": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.2,
+            "Beta": 0.0,
+            "fc": 0.0075,
+            "location": 2,
+            "Alpha": 30.0
+        },
+        "patch_0": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.2,
+            "Beta": 0.0,
+            "fc": 0.00375,
+            "location": 0,
+            "Alpha": 90.0
+        },
+        "patch_1": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.2,
+            "Beta": 0.0,
+            "fc": 0.00375,
+            "location": 1,
+            "Alpha": 90.0
+        },
+        "patch_2": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.5,
+            "Beta": 0.0,
+            "fc": 0.00375,
+            "location": 4,
+            "Alpha": 90.0
+        },
+        "patch_3": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.5,
+            "Beta": 0.0,
+            "fc": 0.00375,
+            "location": 5,
+            "Alpha": 90.0
+        },
+        "patch_8": {
+            "Ma": 0.3,
+            "TR": 0.5,
+            "surface_fraction": 0.1,
+            "Beta": 0.0,
+            "fc": 0.0075,
+            "location": 3,
+            "Alpha": 30.0
+        }
+    }
+}

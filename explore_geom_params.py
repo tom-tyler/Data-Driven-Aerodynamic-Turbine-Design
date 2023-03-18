@@ -1,4 +1,4 @@
-from dd_turb_design import read_in_large_dataset
+from turbine_design.data_tools import read_in_large_dataset
 import matplotlib.pyplot as plt
 import pandas as pd
 from scipy import stats

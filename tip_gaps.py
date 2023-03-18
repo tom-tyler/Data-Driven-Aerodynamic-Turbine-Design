@@ -1,4 +1,4 @@
-from dd_turb_design import read_in_data
+from turbine_design.data_tools import read_in_data
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np

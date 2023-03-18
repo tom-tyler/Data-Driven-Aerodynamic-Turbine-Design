@@ -1,8 +1,8 @@
-from dd_turb_design import turbine_GPR, read_in_data,read_in_large_dataset, split_data
+from turbine_design.data_tools import *
+from turbine_design.turbine_design import *
 import numpy as np
 from itertools import combinations
 import pandas as pd
-from extra_params import turbine_params
 import matplotlib.pyplot as plt
 
 data = read_in_large_dataset(state_retention_statistics=True)
@@ -51,10 +51,10 @@ training_inputs_rotor = ["phi",
 
 inputs = ['phi','M2','psi','Co']
 
-turb_info = turbine_params(traindf['phi'],
-                            traindf['psi'],
-                            traindf['M2'],
-                            traindf['Co'])
+turb_info = turbine(traindf['phi'],
+                    traindf['psi'],
+                    traindf['M2'],
+                    traindf['Co'])
 turb_info.get_stagger()
 turb_info.get_s_cx()
 turb_info.get_Al()
@@ -71,10 +71,10 @@ traindf['Yp_rotor'] = turb_info.Yp_rotor
 
 
 # inputs.extend(['Al3'])
-output_variable = 'eta_lost'
+output_variable = 'beta_rotor'
 overwrite_t_or_f = False
 print(f'======== {output_variable} ========')
-training_inputs = inputs
+training_inputs = training_inputs_rotor
 
 def pre_trained(var_list):
   var_list = list(var_list)
@@ -87,7 +87,7 @@ def pre_trained(var_list):
 multidim_scoremax = 0
 multidim_max_row = None
 max_per_dim_list = []
-dim_list = [4]
+dim_list = [4,5,6]
 total_comb = 0
 for dimensions in dim_list:
   comb = list(combinations(training_inputs,dimensions))
@@ -117,10 +117,10 @@ for j,dimensions in enumerate(dim_list):
     model.fit(traindf,
               variables=training_vars,
               output_key=output_variable,
-              number_of_restarts=10,           
+              number_of_restarts=0,           
               length_bounds=[1e-4,1e4],
-              noise_magnitude=1e-4,
-              noise_bounds=[1e-9,1e-1],
+              noise_magnitude=0.25,
+              noise_bounds='fixed',
               nu='optimise', 
               overwrite=overwrite_t_or_f)
 

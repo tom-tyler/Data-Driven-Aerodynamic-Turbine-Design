@@ -16,6 +16,9 @@ def read_in_data(dataset='4D',
    for filename in os.listdir(path):
       data_name = str(filename)[:-4]
       
+      if data_name == 'turbine_data':
+         continue
+      
       if dataset=='all':
          pass
       elif dataset=='5D only':

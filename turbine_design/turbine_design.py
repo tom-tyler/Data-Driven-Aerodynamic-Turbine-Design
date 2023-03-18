@@ -29,14 +29,14 @@ class turbine_GPR:
       if model_name==None:
          pass
       else:   
-         with open(f"Models/{model_name}_variables.txt", "r") as file:
+         with open(f"turbine_design/Models/{model_name}_variables.txt", "r") as file:
             variables = [line.rstrip() for line in file]
 
          self.variables = variables
          self.output_key = model_name
          self.fit_dimensions = len(self.variables)
          
-         model = joblib.load(f'Models/{model_name}_model.joblib')
+         model = joblib.load(f'turbine_design/Models/{model_name}_model.joblib')
          
          self.input_array_train = pd.DataFrame(data=model.X_train_,
                                                columns=sorted(self.variables))
@@ -965,25 +965,6 @@ class turbine_GPR:
          fig.tight_layout()
          plt.show()
 
-#NEED STILL - ballpark placehoders currently
-# 'recamber_te_stator',
-# 'recamber_te_rotor',
-
-# 'beta_rotor',
-
-# 't_ps_rotor',
-
-# 't_ss_stator',
-# 't_ss_rotor',
-
-# 'max_t_loc_ps_stator',
-# 'max_t_loc_ps_rotor',
-
-# 'max_t_loc_ss_stator',
-# 'max_t_loc_ss_rotor'
-
-# 'lean_stator',
-
 class turbine:
     def __init__(self,phi,psi,M2,Co):
         
@@ -1021,6 +1002,12 @@ class turbine:
         
         #geom
         self.Rle_stator,self.Rle_rotor = [0.04,0.04]
+        
+        #datum dimensional
+        self.To1 = 1600.0
+        self.Po1 = 1600000.0
+        self.Omega = 314.159
+        self.Re = 2e6
 
     def get_Al(self):
     
@@ -1156,7 +1143,12 @@ class turbine:
         return self.Yp
     
     def get_beta(self):
-        self.beta_rotor = 15*np.ones(self.no_points)
+        beta_rotor_model = turbine_GPR('beta_rotor')
+        self.beta_rotor = np.array(beta_rotor_model.predict(pd.DataFrame(data={'phi':self.phi,
+                                                                              'psi':self.psi,
+                                                                              'M2':self.M2,
+                                                                              'Co':self.Co}))['predicted_output'])
+        
         self.beta_stator = 10.5*np.ones(self.no_points)
         self.beta = [self.beta_stator,self.beta_rotor]
         return self.beta
@@ -1185,11 +1177,13 @@ class turbine:
         self.max_t_loc_ss = np.array([self.max_t_loc_ss_stator,self.max_t_loc_ps_rotor])
         return self.max_t_loc_ss
     
-    def non_dim_params_from_4D(self):
+    def get_nondim(self):
 
-        Al = np.array(self.get_Al())
-        loss_ratio = self.get_lost_rat()
+        Al = self.get_Al()
+        loss_ratio = self.get_loss_rat()
         eta_lost = self.get_eta_lost()
+        self.get_Yp()
+        self.eta = 100-100*eta_lost
         
         zeta = self.get_zeta() #zeta rotor assumed=1.0
         cosAl = np.cos(np.radians(Al))
@@ -1230,13 +1224,13 @@ class turbine:
         Ds_cp = -(1.0 - 1.0 / (1.0 - eta_lost)) * np.log(To_To1[-1])
 
         # Somewhat arbitrarily, split loss using loss ratio (default 0.5)
-        s_cp = np.hstack((0.0, loss_ratio, 1.0)) * Ds_cp
+        s_cp = np.vstack((np.zeros(self.no_points), loss_ratio, np.ones(self.no_points))) * Ds_cp
 
         # Convert to stagnation pressures
         Po_Po1 = np.exp((self.ga / (self.ga - 1.0)) * (np.log(To_To1) + s_cp))
 
         # Account for cooling or bleed flows
-        mdot_mdot1 = np.array([1.0, 1.0, 1.0])
+        mdot_mdot1 = 1.0
 
         # Use definition of capacity to get flow area ratios
         # Area ratios = span ratios because rm = const
@@ -1296,15 +1290,28 @@ class turbine:
 
     def dim_from_omega(self, Omega, To1, Po1):
         """Scale a mean-line design and evaluate geometry from omega."""
+   
         
-        self.non_dim_params_from_4D()
+        self.get_nondim()
+        
+        self.P = self.P_Po1 * Po1
+        self.Po = self.Po_Po1 * Po1
+        self.Porel = self.Porel_Po1 * Po1
+        self.T = self.T_To1 * To1
+        self.To = self.To_To1 * To1
 
         cpTo1 = self.cp * To1
         U = self.U_sqrtcpTo1 * np.sqrt(cpTo1)
         rm = U / Omega
+        
+        self.V = self.V_U*U
+        self.Vt = self.Vt_U*U
+        self.Vtrel = self.Vtrel_U*U
+        self.Vrel = self.Vrel_U*U
 
         # Use hub-to-tip ratio to set span (mdot will therefore float)
         Dr_rm = 2.0 * (1.0 - self.htr) / (1.0 + self.htr)
+
         Dr = rm * Dr_rm * np.array(self.Ax_Ax1) / self.Ax_Ax1[1]
 
         Q1 = compflow.mcpTo_APo_from_Ma(self.Ma[0], self.ga)
@@ -1328,8 +1335,11 @@ class turbine:
         
         self.span = span
         self.chord_x = cx
-        self.pitch_stator = s_cx[0]*cx
-        self.pitch_rotor = s_cx[1]*cx
+        self.pitch_stator = s_cx[0]*cx[0]
+        self.pitch_rotor = s_cx[1]*cx[1]
+        
+        self.num_blades_stator = 2*np.pi*rm/self.pitch_stator
+        self.num_blades_rotor = 2*np.pi*rm/self.pitch_rotor
         
         self.Omega = Omega
         self.Po1 = Po1
@@ -1338,16 +1348,17 @@ class turbine:
         self.chi = np.stack((self.free_vortex_vane(self.rh,self.rc,self.rm),
                              self.free_vortex_blade(self.rh,self.rc,self.rm)
                              ))
-        
-        self.stag1 = np.mean(self.chi,axis=1)
-        self.stag2 = self.get_stagger()
-        
-        return self.stag1, self.stag2
  
     def dim_from_mdot(self, mdot1, To1, Po1):
         """Scale a mean-line design and evaluate geometry from mdot."""
         
-        self.non_dim_params_from_4D()
+        self.get_nondim()
+        
+        self.P = self.P_Po1 * Po1
+        self.Po = self.Po_Po1 * Po1
+        self.Porel = self.Porel_Po1 * Po1
+        self.T = self.T_To1 * To1
+        self.To = self.To_To1 * To1
 
         cpTo1 = self.cp * To1
         Q1 = compflow.mcpTo_APo_from_Ma(self.Ma[0], self.ga)
@@ -1359,6 +1370,11 @@ class turbine:
         
         U = self.U_sqrtcpTo1 * np.sqrt(cpTo1)
         Omega = U / rm
+        
+        self.V = self.V_U*U
+        self.Vt = self.Vt_U*U
+        self.Vtrel = self.Vtrel_U*U
+        self.Vrel = self.Vrel_U*U
 
         Dr = rm * Dr_rm * np.array(self.Ax_Ax1) / self.Ax_Ax1[1]
 
@@ -1381,6 +1397,9 @@ class turbine:
         self.pitch_stator = s_cx[0]*cx
         self.pitch_rotor = s_cx[1]*cx
         
+        self.num_blades_stator = 2*np.pi*rm/self.pitch_stator
+        self.num_blades_rotor = 2*np.pi*rm/self.pitch_rotor
+        
         self.Omega = Omega
         self.Po1 = Po1
         self.To1 = To1
@@ -1388,19 +1407,20 @@ class turbine:
         self.chi = np.stack((self.free_vortex_vane(self.rh,self.rc,self.rm),
                              self.free_vortex_blade(self.rh,self.rc,self.rm)
                              ))
-        self.stag1 = np.mean(self.chi,axis=1)
-        self.stag2 = self.get_stagger()
-        
-        return self.stag1, self.stag2
 
-    def get_non_dim_geometry(self):
-        if self.no_points >1:
+    def get_non_dim_geometry(self,
+                             Omega=None,
+                             To1=None,
+                             Po1=None):
+        if self.no_points > 1:
             sys.exit('Currently only set up for one design at a time')
         
-        self.To1 = 1600.0
-        self.Po1 = 1600000.0
-        self.Omega = 314.159
-        self.Re = 2e6
+        if (To1!=None) and (Po1!=None) and (Omega!=None):
+           self.Omega = Omega
+           self.To1 = To1
+           self.Po1 = Po1
+      
+        
         #need to set up for dimensional geometry too, to do this just need to have inputs
             
         self.get_stagger()
@@ -1445,7 +1465,7 @@ class turbine:
                   "AR": self.AR
                   }
         
-        sect_row_0_dict = {'tte':float(self.tte),
+        sect_row_0 = {'tte':float(self.tte),
                            'sect_0': {
                                'spf':float(self.spf_stator),
                                'stagger':float(self.stagger_stator),
@@ -1461,7 +1481,7 @@ class turbine:
                                }
                            }
         
-        sect_row_1_dict = {'tte':float(self.tte),
+        sect_row_1 = {'tte':float(self.tte),
                            'sect_0': {
                                'spf':float(self.spf_rotor),
                                'stagger':float(self.stagger_rotor),
@@ -1477,16 +1497,16 @@ class turbine:
                                }
                            }
 
-        with open('turbine_json/datum.json') as f:
+        with open('turbine_design/turbine_json/datum.json') as f:
             turbine_json = json.load(f)
 
         turbine_json["mean-line"] = mean_line
         turbine_json['bcond'] = bcond
         turbine_json['3d'] = threeD
-        turbine_json['sect_row_0_dict'] = sect_row_0_dict
-        turbine_json['sect_row_1_dict'] = sect_row_1_dict
+        turbine_json['sect_row_0'] = sect_row_0
+        turbine_json['sect_row_1'] = sect_row_1
         
-        with open('turbine_json/turbine_params.json', 'w') as f:
+        with open('turbine_design/turbine_json/turbine_params.json', 'w') as f:
             json.dump(turbine_json,
                       f, 
                       indent=4)

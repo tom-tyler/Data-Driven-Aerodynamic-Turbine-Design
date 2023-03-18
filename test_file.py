@@ -2,13 +2,68 @@
 # import matplotlib.pyplot as plt
 # from turbine_design.data_tools import *
 from turbine_design import turbine_design as TD
+from turbine_design import data_tools as tools
+import matplotlib.pyplot as plt
+import numpy as np
+
+turb = TD.turbine(phi=0.8,
+                  psi=1.6,
+                  M2=0.65,
+                  Co=0.65)
+
+turb.get_non_dim_geometry()
 
 # import numpy as np
 # from sklearn.metrics import r2_score 
+# n = 100
+# X1,X2 = np.meshgrid(np.linspace(0.5,1.1,n),np.linspace(1.2,2.2,n))
+# X1_vector = X1.ravel() #vector of "all" x coordinates from meshgrid
+# X2_vector = X2.ravel() #vector of "all" y coordinates from meshgrid
+         
 
-turb = TD.turbine(0.81,1.65,0.72,0.67)
+# turb = TD.turbine(X1_vector,
+#                   X2_vector,
+#                   0.7*np.ones(len(X1_vector)),
+#                   0.65*np.ones(len(X1_vector)))
 
-turb.get_non_dim_geometry()
+# turb.get_nondim()
+
+# output = turb.Yp_rotor.reshape(n,n)
+
+
+# cplot = plt.contour(X1,X2,output)
+# plt.clabel(cplot, inline=1, fontsize=14)
+# plt.xlabel('phi')
+# plt.ylabel('psi')
+# plt.title('Yp_rotor')
+
+# plt.show()
+
+
+# turb.get_non_dim_geometry()
+
+
+
+# n = 100
+# co_vector = np.linspace(0.55,0.7,n)
+
+         
+# # turb = TD.turbine([0.81,0.7],[1.65,1.5],[0.72,0.71],[0.67,0.65])
+# turb = TD.turbine(0.8*np.ones(len(co_vector)),
+#                   0.7*np.ones(len(co_vector)),
+#                   0.7*np.ones(len(co_vector)),
+#                   co_vector)
+
+# turb.dim_from_omega(314,1800,160000)
+
+# output = turb.num_blades_stator
+# plt.plot(co_vector,output)
+# plt.xlabel('Co')
+# plt.ylabel('No. blades')
+# plt.grid()
+
+# plt.show()
+
 
 # eta_lost = turbine_GPR('eta_lost')
 
