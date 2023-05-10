@@ -15,6 +15,16 @@ from stl import mesh
 
 
 def drop_columns(df,variables,output_key):
+   """Drops all comumns not in 'variables', but retains 'output_key'.
+
+   Args:
+       df (Pandas DataFrame): DataFrame from which columns will be dropped
+       variables (list[str]): List of variables to retain as headers in dataframe.
+       output_key (str): Name of output key (another header to be retained)
+
+   Returns:
+       Pandas DataFrame: Pandas DataFrame with appropriate columns removed
+   """
    for dataframe_variable in df.columns:
       if (dataframe_variable in variables) or (dataframe_variable==output_key):
          pass
@@ -23,43 +33,62 @@ def drop_columns(df,variables,output_key):
    return df
 
 class turbine_GPR: 
+   """_summary_
+   """
    
    def __init__(self,
                 model_name=None,
                 limit_dict='auto'):
+      """_summary_
+
+      Args:
+          model_name (_type_, optional): _description_. Defaults to None.
+          limit_dict (str, optional): _description_. Defaults to 'auto'.
+      """
       
       if model_name==None:
          pass
+      
+      elif not isinstance(model_name,str):
+         sys.exit(f'model_name must be a string')
+         
+      elif (limit_dict!='auto') and (not isinstance(limit_dict,dict)):
+         sys.exit(f"limit_dict must be 'auto' or a dictionary")
+         
       else:   
-         with open(f"turbine_design/Models/{model_name}_variables.txt", "r") as file:
-            variables = [line.rstrip() for line in file]
+         try:
+            with open(f"turbine_design/Models/{model_name}_variables.txt", "r") as file:
+               variables = [line.rstrip() for line in file]
 
-         self.variables = variables
-         self.output_key = model_name
-         self.fit_dimensions = len(self.variables)
-         
-         model = joblib.load(f'turbine_design/Models/{model_name}_model.joblib')
-         
-         self.input_array_train = pd.DataFrame(data=model.X_train_,
-                                               columns=sorted(self.variables))
-         
-         self.output_array_train = model.y_train_
-         
-         if limit_dict=='auto':
-            self.limit_dict = {}
-            for column in self.input_array_train:
-               self.limit_dict[column] = (np.around(self.input_array_train[column].min(),decimals=1),
-                                          np.around(self.input_array_train[column].max(),decimals=1)
-                                          )
-         else:
-            self.limit_dict = limit_dict
+            self.variables = variables
+            self.output_key = model_name
+            self.fit_dimensions = len(self.variables)
             
-         self.optimised_kernel = model.kernel_
-         
-         self.fitted_function = model
+            model = joblib.load(f'turbine_design/Models/{model_name}_model.joblib')
             
-         self.min_train_output = np.min([self.output_array_train])
-         self.max_train_output = np.max([self.output_array_train])
+            self.input_array_train = pd.DataFrame(data=model.X_train_,
+                                                columns=sorted(self.variables))
+            
+            self.output_array_train = model.y_train_
+            
+            if limit_dict=='auto':
+               self.limit_dict = {}
+               for column in self.input_array_train:
+                  self.limit_dict[column] = (np.around(self.input_array_train[column].min(),decimals=1),
+                                             np.around(self.input_array_train[column].max(),decimals=1)
+                                             )
+            else:
+               self.limit_dict = limit_dict
+               
+            self.optimised_kernel = model.kernel_
+            
+            self.fitted_function = model
+               
+            self.min_train_output = np.min([self.output_array_train])
+            self.max_train_output = np.max([self.output_array_train])
+            
+         except FileNotFoundError:
+            sys.exit(f'No model fitted named {model_name}')
    
    def fit(self,
            training_dataframe,
@@ -70,19 +99,72 @@ class turbine_GPR:
            noise_magnitude=1e-6,
            noise_bounds=[1e-20,1e-3],
            nu='optimise',
-           extra_variable_options=False,
-           iterate_extra_params=False,
            limit_dict='auto',
            overwrite=False
            ):
+      """_summary_
+
+      Args:
+          training_dataframe (_type_): _description_
+          variables (_type_, optional): _description_. Defaults to None.
+          output_key (_type_, optional): _description_. Defaults to None.
+          number_of_restarts (int, optional): _description_. Defaults to 0.
+          length_bounds (list, optional): _description_. Defaults to [1e-1,1e3].
+          noise_magnitude (_type_, optional): _description_. Defaults to 1e-6.
+          noise_bounds (list, optional): _description_. Defaults to [1e-20,1e-3].
+          nu (str, optional): _description_. Defaults to 'optimise'.
+          limit_dict (str, optional): _description_. Defaults to 'auto'.
+          overwrite (bool, optional): _description_. Defaults to False.
+      """
       
-      if variables==None:
+      if not isinstance(training_dataframe,pd.DataFrame):
+         sys.exit('training_dataframe must be a pandas DataFrame')
+      
+      elif variables==None:
          sys.exit('Please state variable to fit over.')
+         
       elif output_key==None:
          sys.exit('Please state output to fit to.')
+         
+      elif not isinstance(output_key,str):
+         sys.exit('output_key must be a string')
+      
+      elif not isinstance(number_of_restarts,int):
+         sys.exit('number_of_restarts must be an integer')
+         
+      elif (not isinstance(length_bounds,list)) and (not isinstance(length_bounds,tuple)):
+         sys.exit('length_bounds must be a list or tuple')
+         
+      elif (not isinstance(noise_magnitude,int)) and (not isinstance(noise_magnitude,float)):
+         sys.exit('noise_magnitude must be a number')
+         
+      elif (not isinstance(noise_bounds,list)) and (not isinstance(noise_bounds,tuple)):
+         sys.exit('noise_bounds must be a list or tuple')
+         
+      elif (not isinstance(nu,int)) and (not isinstance(nu,float)) and (nu!='optimise'):
+         sys.exit("nu must be a number or 'optimise'")
+         
+      elif (limit_dict!='auto') and (not isinstance(limit_dict,dict)):
+         sys.exit("limit_dict must be 'auto' or a dictionary")
+      
+      elif not isinstance(overwrite,bool):
+         sys.exit('overwrite must be True or False')
+      
+      elif not all([(isinstance(item, int) or isinstance(item,float)) for item in length_bounds]) or (len(length_bounds)!=2):
+         sys.exit('length_bounds must be of length 2 and contain only positive numbers')
+         
+      elif not all([(isinstance(item, int) or isinstance(item,float)) for item in noise_bounds]) or (len(noise_bounds)!=2):
+         sys.exit('noise_bounds must be of length 2 and contain only positive numbers')
+         
+      elif (number_of_restarts<0) or (noise_magnitude<0) or (not all([item>=0 for item in length_bounds])) or (not all([item>=0 for item in noise_bounds])):
+         sys.exit('number of restarts and noise_magnitude cannot be negative')
       
       self.output_key = output_key
       variables = list(variables)
+      for var in variables:
+         if not isinstance(var,str):
+            sys.exit('variables list must only contain strings')
+            
       self.variables = variables
       self.fit_dimensions = len(self.variables)
       
@@ -152,6 +234,33 @@ class turbine_GPR:
                CI_in_dataframe=False,
                CI_percent=95
                ):
+      """_summary_
+
+      Args:
+          dataframe (_type_): _description_
+          include_output (bool, optional): _description_. Defaults to False.
+          CI_in_dataframe (bool, optional): _description_. Defaults to False.
+          CI_percent (int, optional): _description_. Defaults to 95.
+
+      Returns:
+          _type_: _description_
+      """
+      
+      if not isinstance(dataframe,pd.DataFrame):
+         sys.exit('dataframe must be a pandas DataFrame')
+         
+      elif not isinstance(include_output,bool):
+         sys.exit('include_output must be True or False')
+         
+      elif not isinstance(CI_in_dataframe,bool):
+         sys.exit('CI_in_dataframe must be True or False')
+         
+      elif (not isinstance(CI_percent,int)) and (not isinstance(CI_percent,float)):
+         sys.exit('CI_percent must be a number')
+      
+      elif CI_percent<0:
+         sys.exit('CI_percent must be positive')
+         
 
       dataframe = dataframe.reindex(sorted(dataframe.columns), axis=1)
       dataframe = drop_columns(dataframe,self.variables,self.output_key)
@@ -194,6 +303,24 @@ class turbine_GPR:
    def find_global_max_min_values(self,
                                   num_points_interpolate=20,
                                   limit_dict=None):
+      """_summary_
+
+      Args:
+          num_points_interpolate (int, optional): _description_. Defaults to 20.
+          limit_dict (_type_, optional): _description_. Defaults to None.
+
+      Returns:
+          _type_: _description_
+      """
+      
+      if not isinstance(num_points_interpolate,int):
+         sys.exit('num_points_interpolate must be an integer')  
+         
+      elif num_points_interpolate<0:
+         sys.exit('num_points_interpolate must be positive')
+         
+      elif (limit_dict!=None) and (not isinstance(limit_dict,dict)):
+         sys.exit("limit_dict must be None or a dictionary")
          
       if limit_dict != None:
          self.limit_dict = limit_dict
@@ -239,6 +366,33 @@ class turbine_GPR:
                  plot_actual_data_filter_factor=5,
                  show_actual_with_model=True
                  ):
+      """_summary_
+
+      Args:
+          x1 (_type_, optional): _description_. Defaults to None.
+          x2 (_type_, optional): _description_. Defaults to None.
+          constants (str, optional): _description_. Defaults to 'mean'.
+          limit_dict (_type_, optional): _description_. Defaults to None.
+          axis (_type_, optional): _description_. Defaults to None.
+          num_points (int, optional): _description_. Defaults to 100.
+          contour_step (_type_, optional): _description_. Defaults to None.
+          opacity (float, optional): _description_. Defaults to 0.2.
+          title_variable_spacing (int, optional): _description_. Defaults to 3.
+          plotting_grid_value (list, optional): _description_. Defaults to [0,0].
+          grid_height (int, optional): _description_. Defaults to 1.
+          CI_percent (int, optional): _description_. Defaults to 95.
+          plot_training_points (bool, optional): _description_. Defaults to False.
+          legend_outside (bool, optional): _description_. Defaults to False.
+          contour_type (str, optional): _description_. Defaults to 'line'.
+          show_max (bool, optional): _description_. Defaults to True.
+          show_min (bool, optional): _description_. Defaults to False.
+          plot_actual_data (bool, optional): _description_. Defaults to False.
+          plot_actual_data_filter_factor (int, optional): _description_. Defaults to 5.
+          show_actual_with_model (bool, optional): _description_. Defaults to True.
+
+      Returns:
+          _type_: _description_
+      """
       
       if axis == None:
          fig,axis = plt.subplots(1,1,sharex=True,sharey=True)
@@ -570,6 +724,18 @@ class turbine_GPR:
                      plot_errorbars=True,
                      score_variable='R2'
                      ):
+      """_summary_
+
+      Args:
+          testing_dataframe (_type_): _description_
+          axis (_type_, optional): _description_. Defaults to None.
+          line_error_percent (int, optional): _description_. Defaults to 5.
+          CI_percent (int, optional): _description_. Defaults to 95.
+          identify_outliers (bool, optional): _description_. Defaults to True.
+          title_variable_spacing (int, optional): _description_. Defaults to 3.
+          plot_errorbars (bool, optional): _description_. Defaults to True.
+          score_variable (str, optional): _description_. Defaults to 'R2'.
+      """
       
       runid_dataframe = testing_dataframe['runid']   
       testing_dataframe = drop_columns(testing_dataframe,self.variables,self.output_key)
@@ -682,6 +848,26 @@ class turbine_GPR:
             show_actual_with_model=True,
             optimum_plot=False
             ):
+      """_summary_
+
+      Args:
+          limit_dict (_type_, optional): _description_. Defaults to None.
+          num_points (int, optional): _description_. Defaults to 100.
+          contour_step (_type_, optional): _description_. Defaults to None.
+          opacity (float, optional): _description_. Defaults to 0.3.
+          title_variable_spacing (int, optional): _description_. Defaults to 3.
+          with_arrows (bool, optional): _description_. Defaults to True.
+          CI_percent (int, optional): _description_. Defaults to 95.
+          plot_training_points (bool, optional): _description_. Defaults to False.
+          legend_outside (bool, optional): _description_. Defaults to False.
+          contour_type (str, optional): _description_. Defaults to 'line'.
+          show_max (bool, optional): _description_. Defaults to True.
+          show_min (bool, optional): _description_. Defaults to False.
+          plot_actual_data (bool, optional): _description_. Defaults to False.
+          plot_actual_data_filter_factor (int, optional): _description_. Defaults to 5.
+          show_actual_with_model (bool, optional): _description_. Defaults to True.
+          optimum_plot (bool, optional): _description_. Defaults to False.
+      """
 
       grid_constants=self.variables.copy()
       
@@ -816,6 +1002,16 @@ class turbine_GPR:
    def matern_kernel(self,
                      N,
                      bounds = (1e-2,1e3)):
+      """_summary_
+
+      Args:
+          N (_type_): _description_
+          bounds (tuple, optional): _description_. Defaults to (1e-2,1e3).
+
+      Returns:
+          _type_: _description_
+      """
+      
       L = np.ones(N)
       L_bounds = []
       for i in range(N):
@@ -836,9 +1032,21 @@ class turbine_GPR:
                     num_points=50,
                     axis=None,
                     plotting_grid_value=[0,0],
-                    grid_height=1,
-                    plot_actual_data=False,
                     legend_outside = False):
+      """_summary_
+
+      Args:
+          opt_var (_type_): _description_
+          vary_var (_type_): _description_
+          constants (_type_): _description_
+          limit_dict (_type_, optional): _description_. Defaults to None.
+          plot_actual_data_filter_factor (int, optional): _description_. Defaults to 15.
+          title_variable_spacing (int, optional): _description_. Defaults to 3.
+          num_points (int, optional): _description_. Defaults to 50.
+          axis (_type_, optional): _description_. Defaults to None.
+          plotting_grid_value (list, optional): _description_. Defaults to [0,0].
+          legend_outside (bool, optional): _description_. Defaults to False.
+      """
       
       
       if axis == None:
@@ -968,7 +1176,18 @@ class turbine_GPR:
          plt.show()
 
 class turbine:
+   """_summary_
+   """
+   
    def __init__(self,phi,psi,M2,Co):
+      """_summary_
+
+      Args:
+          phi (_type_): _description_
+          psi (_type_): _description_
+          M2 (_type_): _description_
+          Co (_type_): _description_
+      """
       
       if np.isscalar(phi) and np.isscalar(psi) and np.isscalar(M2) and np.isscalar(Co):
          self.no_points = 1
@@ -1012,6 +1231,11 @@ class turbine:
       self.Re = 2e6
 
    def get_Al(self):
+      """_summary_
+
+      Returns:
+          _type_: _description_
+      """
    
       Al2_model = turbine_GPR('Al2a')
       Al3_model = turbine_GPR('Al3')
@@ -1033,6 +1257,11 @@ class turbine:
       return self.Al
 
    def get_stagger(self):
+      """_summary_
+
+      Returns:
+          _type_: _description_
+      """
       
       stagger_stator_model = turbine_GPR('stagger_stator')
       stagger_rotor_model = turbine_GPR('stagger_rotor')
@@ -1051,6 +1280,12 @@ class turbine:
       return self.stagger
 
    def get_zeta(self):
+      """_summary_
+
+      Returns:
+          _type_: _description_
+      """
+      
       zeta_stator_model = turbine_GPR('zeta_stator') #maybe improve this model
       
       zeta_stator = np.array(zeta_stator_model.predict(pd.DataFrame(data={'phi':self.phi,
@@ -1066,6 +1301,12 @@ class turbine:
       return self.zeta
 
    def get_s_cx(self):
+      """_summary_
+
+      Returns:
+          _type_: _description_
+      """
+      
       s_cx_stator_model = turbine_GPR('s_cx_stator')
       s_cx_rotor_model = turbine_GPR('s_cx_rotor')
       
@@ -1085,6 +1326,12 @@ class turbine:
       return self.s_cx
    
    def get_loss_rat(self):
+      """_summary_
+
+      Returns:
+          _type_: _description_
+      """
+      
       loss_rat_model = turbine_GPR('loss_rat')
       
       self.get_Yp()
@@ -1098,6 +1345,12 @@ class turbine:
       return self.loss_rat
 
    def get_eta_lost(self):
+      """_summary_
+
+      Returns:
+          _type_: _description_
+      """
+      
       eta_lost_model = turbine_GPR('eta_lost')
       
       self.get_Yp()
@@ -1112,18 +1365,36 @@ class turbine:
       return self.eta_lost
    
    def get_t_ps(self):
+      """_summary_
+
+      Returns:
+          _type_: _description_
+      """
+      
       self.t_ps_stator = 0.205*np.ones(self.no_points)
       self.t_ps_rotor = 0.250*np.ones(self.no_points)
       self.t_ps = np.array([self.t_ps_stator,self.t_ps_rotor])
       return self.t_ps
    
    def get_t_ss(self):
+      """_summary_
+
+      Returns:
+          _type_: _description_
+      """
+      
       self.t_ss_stator = 0.29*np.ones(self.no_points)
       self.t_ss_rotor = 0.30*np.ones(self.no_points)
       self.t_ss = np.array([self.t_ss_stator,self.t_ps_rotor])
       return self.t_ss
 
    def get_Yp(self):
+      """_summary_
+
+      Returns:
+          _type_: _description_
+      """
+      
       Yp_stator_model = turbine_GPR('Yp_stator')
       Yp_rotor_model = turbine_GPR('Yp_rotor')
       
@@ -1145,6 +1416,12 @@ class turbine:
       return self.Yp
    
    def get_beta(self):
+      """_summary_
+
+      Returns:
+          _type_: _description_
+      """
+      
       beta_rotor_model = turbine_GPR('beta_rotor')
       self.beta_rotor = np.array(beta_rotor_model.predict(pd.DataFrame(data={'phi':self.phi,
                                                                            'psi':self.psi,
@@ -1156,30 +1433,56 @@ class turbine:
       return self.beta
    
    def get_lean(self):
+      """_summary_
+
+      Returns:
+          _type_: _description_
+      """
+      
       self.lean_stator = 0.03*np.ones(self.no_points)  #ballpark
       self.lean_rotor = np.zeros(self.no_points)
       self.lean = np.array([self.lean_stator,self.lean_rotor])
       return self.lean
 
    def get_recamber_te(self):
+      """_summary_
+
+      Returns:
+          _type_: _description_
+      """
+      
       self.recamber_te_stator = np.zeros(self.no_points) #ballpark
       self.recamber_te_rotor = np.zeros(self.no_points)  #ballpark
       self.recamber_te = np.array([self.recamber_te_stator,self.recamber_te_rotor])
       return self.recamber_te
    
    def get_max_t_loc_ps(self):
+      """_summary_
+
+      Returns:
+          _type_: _description_
+      """
+      
       self.max_t_loc_ps_stator = 0.35*np.ones(self.no_points)   #ballpark
       self.max_t_loc_ps_rotor = 0.37*np.ones(self.no_points)    #ballpark
       self.max_t_loc_ps = np.array([self.max_t_loc_ps_stator,self.max_t_loc_ps_rotor])
       return self.max_t_loc_ps
    
    def get_max_t_loc_ss(self):
+      """_summary_
+
+      Returns:
+          _type_: _description_
+      """
+      
       self.max_t_loc_ss_stator = 0.40*np.ones(self.no_points)   #ballpark
       self.max_t_loc_ss_rotor = 0.32*np.ones(self.no_points)    #ballpark
       self.max_t_loc_ss = np.array([self.max_t_loc_ss_stator,self.max_t_loc_ps_rotor])
       return self.max_t_loc_ss
    
    def get_nondim(self):
+      """_summary_
+      """
 
       Al = self.get_Al()
       loss_ratio = self.get_loss_rat()
@@ -1265,7 +1568,16 @@ class turbine:
       self.Lam = Lam
 
    def free_vortex_vane(self,rh,rc,rm):
-      """Evaluate vane flow angles assuming a free vortex."""
+      """Evaluate vane flow angles assuming a free vortex.
+
+      Args:
+          rh (_type_): _description_
+          rc (_type_): _description_
+          rm (_type_): _description_
+
+      Returns:
+          _type_: _description_
+      """
       
       Al = np.array(self.get_Al())
       
@@ -1278,7 +1590,16 @@ class turbine:
       return np.degrees(np.arctan(np.tan(np.radians(Al_vane)) / r_rm))
 
    def free_vortex_blade(self,rh,rc,rm):
-      """Evaluate blade flow angles assuming a free vortex."""
+      """Evaluate blade flow angles assuming a free vortex.
+
+      Args:
+          rh (_type_): _description_
+          rc (_type_): _description_
+          rm (_type_): _description_
+
+      Returns:
+          _type_: _description_
+      """
       
       Al = np.array(self.get_Al())
       
@@ -1291,7 +1612,13 @@ class turbine:
       return np.degrees(np.arctan(np.tan(np.radians(Al_blade)) / r_rm - r_rm / self.phi))
 
    def dim_from_omega(self, Omega, To1, Po1):
-      """Scale a mean-line design and evaluate geometry from omega."""
+      """Scale a mean-line design and evaluate geometry from omega.
+
+      Args:
+          Omega (_type_): _description_
+          To1 (_type_): _description_
+          Po1 (_type_): _description_
+      """
 
       
       self.get_nondim()
@@ -1352,7 +1679,13 @@ class turbine:
                            ))
 
    def dim_from_mdot(self, mdot1, To1, Po1):
-      """Scale a mean-line design and evaluate geometry from mdot."""
+      """Scale a mean-line design and evaluate geometry from mdot.
+
+      Args:
+          mdot1 (_type_): _description_
+          To1 (_type_): _description_
+          Po1 (_type_): _description_
+      """
       
       self.get_nondim()
       
@@ -1414,6 +1747,14 @@ class turbine:
                            Omega=None,
                            To1=None,
                            Po1=None):
+      """_summary_
+
+      Args:
+          Omega (_type_, optional): _description_. Defaults to None.
+          To1 (_type_, optional): _description_. Defaults to None.
+          Po1 (_type_, optional): _description_. Defaults to None.
+      """
+      
       if self.no_points > 1:
          sys.exit('Currently only set up for one design at a time')
       
@@ -1518,6 +1859,14 @@ class turbine:
                     Omega=None,
                     To1=None,
                     Po1=None):
+      """_summary_
+
+      Args:
+          span_percent (int, optional): _description_. Defaults to 50.
+          Omega (_type_, optional): _description_. Defaults to None.
+          To1 (_type_, optional): _description_. Defaults to None.
+          Po1 (_type_, optional): _description_. Defaults to None.
+      """
       
       self.get_non_dim_geometry(Omega=Omega,
                                 To1=To1,
@@ -1577,6 +1926,13 @@ class turbine:
                     Omega=None,
                     To1=None,
                     Po1=None):
+      """_summary_
+
+      Args:
+          Omega (_type_, optional): _description_. Defaults to None.
+          To1 (_type_, optional): _description_. Defaults to None.
+          Po1 (_type_, optional): _description_. Defaults to None.
+      """
       
       self.get_non_dim_geometry(Omega=Omega,
                                 To1=To1,
