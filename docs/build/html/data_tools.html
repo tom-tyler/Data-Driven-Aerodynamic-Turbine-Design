@@ -134,7 +134,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -186,7 +186,7 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
@@ -194,6 +194,51 @@
         <article role="main">
           <section id="data-tools">
 <h1><strong>data_tools</strong><a class="headerlink" href="#data-tools" title="Permalink to this heading">#</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="turbine_design.data_tools.read_in_data">
+<span class="sig-prename descclassname"><span class="pre">turbine_design.data_tools.</span></span><span class="sig-name descname"><span class="pre">read_in_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'4D'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Data'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state_retention_statistics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ignore_incomplete</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.data_tools.read_in_data" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>dataset (str, optional): _description_. Defaults to ‘4D’.
+path (str, optional): _description_. Defaults to ‘Data’.
+factor (int, optional): _description_. Defaults to 5.
+state_retention_statistics (bool, optional): _description_. Defaults to False.
+ignore_incomplete (bool, optional): _description_. Defaults to False.</p>
+</dd>
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="turbine_design.data_tools.read_in_large_dataset">
+<span class="sig-prename descclassname"><span class="pre">turbine_design.data_tools.</span></span><span class="sig-name descname"><span class="pre">read_in_large_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'4D'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Data/turbine_data.csv'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state_retention_statistics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.data_tools.read_in_large_dataset" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>dataset (str, optional): _description_. Defaults to ‘4D’.
+data_filename (str, optional): _description_. Defaults to ‘Data/turbine_data.csv’.
+factor (int, optional): _description_. Defaults to 5.
+state_retention_statistics (bool, optional): _description_. Defaults to False.</p>
+</dd>
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="turbine_design.data_tools.split_data">
+<span class="sig-prename descclassname"><span class="pre">turbine_design.data_tools.</span></span><span class="sig-name descname"><span class="pre">split_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fraction_training</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.75</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_seed_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.data_tools.split_data" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>df (_type_): _description_
+fraction_training (float, optional): _description_. Defaults to 0.75.
+random_seed_state (int, optional): _description_. Defaults to 2.</p>
+</dd>
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
 
         </article>
@@ -239,8 +284,29 @@
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#"><strong>data_tools</strong></a><ul>
+<li><a class="reference internal" href="#turbine_design.data_tools.read_in_data"><code class="docutils literal notranslate"><span class="pre">read_in_data()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.data_tools.read_in_large_dataset"><code class="docutils literal notranslate"><span class="pre">read_in_large_dataset()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.data_tools.split_data"><code class="docutils literal notranslate"><span class="pre">split_data()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>

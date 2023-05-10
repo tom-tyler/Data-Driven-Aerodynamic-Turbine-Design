@@ -9,6 +9,18 @@ def read_in_data(dataset='4D',
                  state_retention_statistics=False,
                  ignore_incomplete=False
                  ):
+   """_summary_
+
+   Args:
+       dataset (str, optional): _description_. Defaults to '4D'.
+       path (str, optional): _description_. Defaults to 'Data'.
+       factor (int, optional): _description_. Defaults to 5.
+       state_retention_statistics (bool, optional): _description_. Defaults to False.
+       ignore_incomplete (bool, optional): _description_. Defaults to False.
+
+   Returns:
+       _type_: _description_
+   """
    
    dataframe_dict = {}
    n_before = 0
@@ -181,6 +193,17 @@ def read_in_large_dataset(dataset='4D',
                           factor=5,
                           state_retention_statistics=False
                           ):
+   """_summary_
+
+   Args:
+       dataset (str, optional): _description_. Defaults to '4D'.
+       data_filename (str, optional): _description_. Defaults to 'Data/turbine_data.csv'.
+       factor (int, optional): _description_. Defaults to 5.
+       state_retention_statistics (bool, optional): _description_. Defaults to False.
+
+   Returns:
+       _type_: _description_
+   """
 
    df = pd.read_csv(data_filename)
 
@@ -300,6 +323,17 @@ def split_data(df,
                fraction_training=0.75,
                random_seed_state=2
                ):
+   """_summary_
+
+   Args:
+       df (_type_): _description_
+       fraction_training (float, optional): _description_. Defaults to 0.75.
+       random_seed_state (int, optional): _description_. Defaults to 2.
+
+   Returns:
+       _type_: _description_
+   """
+   
    training_data = df.sample(frac=fraction_training,
                              random_state=random_seed_state
                              )

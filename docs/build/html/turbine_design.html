@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
-<link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="prev" title="&lt;no title&gt;" href="data_tools.html" />
+<link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="prev" title="data_tools" href="data_tools.html" />
 
     <!-- Generated with Sphinx 6.2.1 and Furo 2023.03.27 -->
         <title>turbine_design - turbine_design 0.1 documentation</title>
@@ -156,6 +156,7 @@
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data_tools.html"><strong>data_tools</strong></a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#"><strong>turbine_design</strong></a></li>
 </ul>
 
@@ -195,19 +196,406 @@
 <h1><strong>turbine_design</strong><a class="headerlink" href="#turbine-design" title="Permalink to this heading">#</a></h1>
 <section id="turbine-gpr-class">
 <span id="turbine-gpr"></span><h2><strong>turbine_GPR</strong> class<a class="headerlink" href="#turbine-gpr-class" title="Permalink to this heading">#</a></h2>
-<dl class="py function">
+<dl class="py class">
 <dt class="sig sig-object py" id="turbine_design.turbine_design.turbine_GPR">
-<span class="sig-prename descclassname"><span class="pre">turbine_design.turbine_design.</span></span><span class="sig-name descname"><span class="pre">turbine_GPR</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'auto'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine_GPR" title="Permalink to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">turbine_design.turbine_design.</span></span><span class="sig-name descname"><span class="pre">turbine_GPR</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'auto'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine_GPR" title="Permalink to this definition">#</a></dt>
 <dd><p>_summary_</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine_GPR.find_global_max_min_values">
+<span class="sig-name descname"><span class="pre">find_global_max_min_values</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_points_interpolate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine_GPR.find_global_max_min_values" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>num_points_interpolate (int, optional): _description_. Defaults to 20.
+limit_dict (_type_, optional): _description_. Defaults to None.</p>
+</dd>
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine_GPR.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">training_dataframe</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">number_of_restarts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0.1,</span> <span class="pre">1000.0]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">noise_magnitude</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">noise_bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[1e-20,</span> <span class="pre">0.001]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nu</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'optimise'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine_GPR.fit" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>training_dataframe (_type_): _description_
+variables (_type_, optional): _description_. Defaults to None.
+output_key (_type_, optional): _description_. Defaults to None.
+number_of_restarts (int, optional): _description_. Defaults to 0.
+length_bounds (list, optional): _description_. Defaults to [1e-1,1e3].
+noise_magnitude (_type_, optional): _description_. Defaults to 1e-6.
+noise_bounds (list, optional): _description_. Defaults to [1e-20,1e-3].
+nu (str, optional): _description_. Defaults to ‘optimise’.
+limit_dict (str, optional): _description_. Defaults to ‘auto’.
+overwrite (bool, optional): _description_. Defaults to False.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine_GPR.matern_kernel">
+<span class="sig-name descname"><span class="pre">matern_kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.01,</span> <span class="pre">1000.0)</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine_GPR.matern_kernel" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>N (_type_): _description_
+bounds (tuple, optional): _description_. Defaults to (1e-2,1e3).</p>
+</dd>
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine_GPR.plot">
+<span class="sig-name descname"><span class="pre">plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constants</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mean'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gridvars</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotate_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contour_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">opacity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title_variable_spacing</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_arrows</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">CI_percent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_training_points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">legend_outside</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contour_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'line'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_actual_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_actual_data_filter_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_actual_with_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimum_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine_GPR.plot" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>limit_dict (_type_, optional): _description_. Defaults to None.
+num_points (int, optional): _description_. Defaults to 100.
+contour_step (_type_, optional): _description_. Defaults to None.
+opacity (float, optional): _description_. Defaults to 0.3.
+title_variable_spacing (int, optional): _description_. Defaults to 3.
+with_arrows (bool, optional): _description_. Defaults to True.
+CI_percent (int, optional): _description_. Defaults to 95.
+plot_training_points (bool, optional): _description_. Defaults to False.
+legend_outside (bool, optional): _description_. Defaults to False.
+contour_type (str, optional): _description_. Defaults to ‘line’.
+show_max (bool, optional): _description_. Defaults to True.
+show_min (bool, optional): _description_. Defaults to False.
+plot_actual_data (bool, optional): _description_. Defaults to False.
+plot_actual_data_filter_factor (int, optional): _description_. Defaults to 5.
+show_actual_with_model (bool, optional): _description_. Defaults to True.
+optimum_plot (bool, optional): _description_. Defaults to False.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine_GPR.plot_accuracy">
+<span class="sig-name descname"><span class="pre">plot_accuracy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">testing_dataframe</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">line_error_percent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">CI_percent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">identify_outliers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title_variable_spacing</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_errorbars</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">score_variable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'R2'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine_GPR.plot_accuracy" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>testing_dataframe (_type_): _description_
+axis (_type_, optional): _description_. Defaults to None.
+line_error_percent (int, optional): _description_. Defaults to 5.
+CI_percent (int, optional): _description_. Defaults to 95.
+identify_outliers (bool, optional): _description_. Defaults to True.
+title_variable_spacing (int, optional): _description_. Defaults to 3.
+plot_errorbars (bool, optional): _description_. Defaults to True.
+score_variable (str, optional): _description_. Defaults to ‘R2’.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine_GPR.plot_optimum">
+<span class="sig-name descname"><span class="pre">plot_optimum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">opt_var</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vary_var</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constants</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_actual_data_filter_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title_variable_spacing</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plotting_grid_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0,</span> <span class="pre">0]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">legend_outside</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine_GPR.plot_optimum" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>opt_var (_type_): _description_
+vary_var (_type_): _description_
+constants (_type_): _description_
+limit_dict (_type_, optional): _description_. Defaults to None.
+plot_actual_data_filter_factor (int, optional): _description_. Defaults to 15.
+title_variable_spacing (int, optional): _description_. Defaults to 3.
+num_points (int, optional): _description_. Defaults to 50.
+axis (_type_, optional): _description_. Defaults to None.
+plotting_grid_value (list, optional): _description_. Defaults to [0,0].
+legend_outside (bool, optional): _description_. Defaults to False.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine_GPR.plot_vars">
+<span class="sig-name descname"><span class="pre">plot_vars</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constants</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mean'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contour_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">opacity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title_variable_spacing</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plotting_grid_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0,</span> <span class="pre">0]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grid_height</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">CI_percent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_training_points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">legend_outside</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contour_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'line'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_actual_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_actual_data_filter_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_actual_with_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine_GPR.plot_vars" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>x1 (_type_, optional): _description_. Defaults to None.
+x2 (_type_, optional): _description_. Defaults to None.
+constants (str, optional): _description_. Defaults to ‘mean’.
+limit_dict (_type_, optional): _description_. Defaults to None.
+axis (_type_, optional): _description_. Defaults to None.
+num_points (int, optional): _description_. Defaults to 100.
+contour_step (_type_, optional): _description_. Defaults to None.
+opacity (float, optional): _description_. Defaults to 0.2.
+title_variable_spacing (int, optional): _description_. Defaults to 3.
+plotting_grid_value (list, optional): _description_. Defaults to [0,0].
+grid_height (int, optional): _description_. Defaults to 1.
+CI_percent (int, optional): _description_. Defaults to 95.
+plot_training_points (bool, optional): _description_. Defaults to False.
+legend_outside (bool, optional): _description_. Defaults to False.
+contour_type (str, optional): _description_. Defaults to ‘line’.
+show_max (bool, optional): _description_. Defaults to True.
+show_min (bool, optional): _description_. Defaults to False.
+plot_actual_data (bool, optional): _description_. Defaults to False.
+plot_actual_data_filter_factor (int, optional): _description_. Defaults to 5.
+show_actual_with_model (bool, optional): _description_. Defaults to True.</p>
+</dd>
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine_GPR.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataframe</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">CI_in_dataframe</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">CI_percent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">95</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine_GPR.predict" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>dataframe (_type_): _description_
+include_output (bool, optional): _description_. Defaults to False.
+CI_in_dataframe (bool, optional): _description_. Defaults to False.
+CI_percent (int, optional): _description_. Defaults to 95.</p>
+</dd>
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 </section>
 <section id="turbine-class">
 <span id="turbine"></span><h2><strong>turbine</strong> class<a class="headerlink" href="#turbine-class" title="Permalink to this heading">#</a></h2>
-<dl class="py function">
+<dl class="py class">
 <dt class="sig sig-object py" id="turbine_design.turbine_design.turbine">
-<span class="sig-prename descclassname"><span class="pre">turbine_design.turbine_design.</span></span><span class="sig-name descname"><span class="pre">turbine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">psi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">M2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Co</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine" title="Permalink to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">turbine_design.turbine_design.</span></span><span class="sig-name descname"><span class="pre">turbine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">psi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">M2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Co</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine" title="Permalink to this definition">#</a></dt>
 <dd><p>_summary_</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.dim_from_mdot">
+<span class="sig-name descname"><span class="pre">dim_from_mdot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdot1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">To1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Po1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.dim_from_mdot" title="Permalink to this definition">#</a></dt>
+<dd><p>Scale a mean-line design and evaluate geometry from mdot.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>mdot1 (_type_): _description_
+To1 (_type_): _description_
+Po1 (_type_): _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.dim_from_omega">
+<span class="sig-name descname"><span class="pre">dim_from_omega</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Omega</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">To1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Po1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.dim_from_omega" title="Permalink to this definition">#</a></dt>
+<dd><p>Scale a mean-line design and evaluate geometry from omega.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>Omega (_type_): _description_
+To1 (_type_): _description_
+Po1 (_type_): _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.free_vortex_blade">
+<span class="sig-name descname"><span class="pre">free_vortex_blade</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rh</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rm</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.free_vortex_blade" title="Permalink to this definition">#</a></dt>
+<dd><p>Evaluate blade flow angles assuming a free vortex.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>rh (_type_): _description_
+rc (_type_): _description_
+rm (_type_): _description_</p>
+</dd>
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.free_vortex_vane">
+<span class="sig-name descname"><span class="pre">free_vortex_vane</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rh</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rm</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.free_vortex_vane" title="Permalink to this definition">#</a></dt>
+<dd><p>Evaluate vane flow angles assuming a free vortex.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>rh (_type_): _description_
+rc (_type_): _description_
+rm (_type_): _description_</p>
+</dd>
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_Al">
+<span class="sig-name descname"><span class="pre">get_Al</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_Al" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_Yp">
+<span class="sig-name descname"><span class="pre">get_Yp</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_Yp" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_beta">
+<span class="sig-name descname"><span class="pre">get_beta</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_beta" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_blade_2D">
+<span class="sig-name descname"><span class="pre">get_blade_2D</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">span_percent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Omega</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">To1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Po1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_blade_2D" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>span_percent (int, optional): _description_. Defaults to 50.
+Omega (_type_, optional): _description_. Defaults to None.
+To1 (_type_, optional): _description_. Defaults to None.
+Po1 (_type_, optional): _description_. Defaults to None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_blade_3D">
+<span class="sig-name descname"><span class="pre">get_blade_3D</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Omega</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">To1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Po1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_blade_3D" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>Omega (_type_, optional): _description_. Defaults to None.
+To1 (_type_, optional): _description_. Defaults to None.
+Po1 (_type_, optional): _description_. Defaults to None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_eta_lost">
+<span class="sig-name descname"><span class="pre">get_eta_lost</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_eta_lost" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_lean">
+<span class="sig-name descname"><span class="pre">get_lean</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_lean" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_loss_rat">
+<span class="sig-name descname"><span class="pre">get_loss_rat</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_loss_rat" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_max_t_loc_ps">
+<span class="sig-name descname"><span class="pre">get_max_t_loc_ps</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_max_t_loc_ps" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_max_t_loc_ss">
+<span class="sig-name descname"><span class="pre">get_max_t_loc_ss</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_max_t_loc_ss" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_non_dim_geometry">
+<span class="sig-name descname"><span class="pre">get_non_dim_geometry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Omega</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">To1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Po1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_non_dim_geometry" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>Omega (_type_, optional): _description_. Defaults to None.
+To1 (_type_, optional): _description_. Defaults to None.
+Po1 (_type_, optional): _description_. Defaults to None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_nondim">
+<span class="sig-name descname"><span class="pre">get_nondim</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_nondim" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_recamber_te">
+<span class="sig-name descname"><span class="pre">get_recamber_te</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_recamber_te" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_s_cx">
+<span class="sig-name descname"><span class="pre">get_s_cx</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_s_cx" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_stagger">
+<span class="sig-name descname"><span class="pre">get_stagger</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_stagger" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_t_ps">
+<span class="sig-name descname"><span class="pre">get_t_ps</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_t_ps" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_t_ss">
+<span class="sig-name descname"><span class="pre">get_t_ss</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_t_ss" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="turbine_design.turbine_design.turbine.get_zeta">
+<span class="sig-name descname"><span class="pre">get_zeta</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#turbine_design.turbine_design.turbine.get_zeta" title="Permalink to this definition">#</a></dt>
+<dd><p>_summary_</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>_type_: _description_</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 </section>
@@ -243,7 +631,7 @@ output_key (str): Name of output key (another header to be retained)</p>
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">&lt;no title&gt;</div>
+                <div class="title"><strong>data_tools</strong></div>
                 
               </div>
             </a>
@@ -279,11 +667,45 @@ output_key (str): Name of output key (another header to be retained)</p>
             <ul>
 <li><a class="reference internal" href="#"><strong>turbine_design</strong></a><ul>
 <li><a class="reference internal" href="#turbine-gpr-class"><strong>turbine_GPR</strong> class</a><ul>
-<li><a class="reference internal" href="#turbine_design.turbine_design.turbine_GPR"><code class="docutils literal notranslate"><span class="pre">turbine_GPR()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine_GPR"><code class="docutils literal notranslate"><span class="pre">turbine_GPR</span></code></a><ul>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine_GPR.find_global_max_min_values"><code class="docutils literal notranslate"><span class="pre">turbine_GPR.find_global_max_min_values()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine_GPR.fit"><code class="docutils literal notranslate"><span class="pre">turbine_GPR.fit()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine_GPR.matern_kernel"><code class="docutils literal notranslate"><span class="pre">turbine_GPR.matern_kernel()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine_GPR.plot"><code class="docutils literal notranslate"><span class="pre">turbine_GPR.plot()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine_GPR.plot_accuracy"><code class="docutils literal notranslate"><span class="pre">turbine_GPR.plot_accuracy()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine_GPR.plot_optimum"><code class="docutils literal notranslate"><span class="pre">turbine_GPR.plot_optimum()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine_GPR.plot_vars"><code class="docutils literal notranslate"><span class="pre">turbine_GPR.plot_vars()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine_GPR.predict"><code class="docutils literal notranslate"><span class="pre">turbine_GPR.predict()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#turbine-class"><strong>turbine</strong> class</a><ul>
-<li><a class="reference internal" href="#turbine_design.turbine_design.turbine"><code class="docutils literal notranslate"><span class="pre">turbine()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine"><code class="docutils literal notranslate"><span class="pre">turbine</span></code></a><ul>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.dim_from_mdot"><code class="docutils literal notranslate"><span class="pre">turbine.dim_from_mdot()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.dim_from_omega"><code class="docutils literal notranslate"><span class="pre">turbine.dim_from_omega()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.free_vortex_blade"><code class="docutils literal notranslate"><span class="pre">turbine.free_vortex_blade()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.free_vortex_vane"><code class="docutils literal notranslate"><span class="pre">turbine.free_vortex_vane()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_Al"><code class="docutils literal notranslate"><span class="pre">turbine.get_Al()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_Yp"><code class="docutils literal notranslate"><span class="pre">turbine.get_Yp()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_beta"><code class="docutils literal notranslate"><span class="pre">turbine.get_beta()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_blade_2D"><code class="docutils literal notranslate"><span class="pre">turbine.get_blade_2D()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_blade_3D"><code class="docutils literal notranslate"><span class="pre">turbine.get_blade_3D()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_eta_lost"><code class="docutils literal notranslate"><span class="pre">turbine.get_eta_lost()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_lean"><code class="docutils literal notranslate"><span class="pre">turbine.get_lean()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_loss_rat"><code class="docutils literal notranslate"><span class="pre">turbine.get_loss_rat()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_max_t_loc_ps"><code class="docutils literal notranslate"><span class="pre">turbine.get_max_t_loc_ps()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_max_t_loc_ss"><code class="docutils literal notranslate"><span class="pre">turbine.get_max_t_loc_ss()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_non_dim_geometry"><code class="docutils literal notranslate"><span class="pre">turbine.get_non_dim_geometry()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_nondim"><code class="docutils literal notranslate"><span class="pre">turbine.get_nondim()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_recamber_te"><code class="docutils literal notranslate"><span class="pre">turbine.get_recamber_te()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_s_cx"><code class="docutils literal notranslate"><span class="pre">turbine.get_s_cx()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_stagger"><code class="docutils literal notranslate"><span class="pre">turbine.get_stagger()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_t_ps"><code class="docutils literal notranslate"><span class="pre">turbine.get_t_ps()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_t_ss"><code class="docutils literal notranslate"><span class="pre">turbine.get_t_ss()</span></code></a></li>
+<li><a class="reference internal" href="#turbine_design.turbine_design.turbine.get_zeta"><code class="docutils literal notranslate"><span class="pre">turbine.get_zeta()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#drop-columns-peripheral-method"><strong>drop_columns</strong> peripheral method</a><ul>

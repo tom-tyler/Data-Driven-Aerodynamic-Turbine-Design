@@ -6,14 +6,16 @@
 **turbine_GPR** class
 --------------------------------
 
-.. autofunction:: turbine_design.turbine_design.turbine_GPR
+.. autoclass:: turbine_design.turbine_design.turbine_GPR
+    :members:
 
 .. _turbine:
 
 **turbine** class
 -------------------
 
-.. autofunction:: turbine_design.turbine_design.turbine
+.. autoclass:: turbine_design.turbine_design.turbine
+    :members:
 
 .. _drop_columns:
 
