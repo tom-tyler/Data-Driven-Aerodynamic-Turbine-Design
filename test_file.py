@@ -1,19 +1,71 @@
-# from turbine_design.turbine_design import turbine
-# import matplotlib.pyplot as plt
-# from turbine_design.data_tools import *
 from turbine_design import turbine_design as TD
 from turbine_design import data_tools as tools
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
-turb = TD.turbine(phi=0.65,
-                  psi=2.0,
-                  M2=0.9,
-                  Co=0.65)
+data = tools.read_in_large_dataset()
 
-turb.get_blade_3D()
+datatr,datate = tools.split_data(data)
 
-turb.get_blade_2D()
+model = TD.turbine_GPR()
+model.fit(datatr,
+          variables=['phi','psi','M2','Co'],
+          output_key='eta_lost',
+          length_bounds=[1e-2,1e3],
+          noise_magnitude=1e-6,
+          noise_bounds=[1e-20,1e-1],
+          number_of_restarts=3)
+
+model.plot('phi',
+           'psi',
+           gridvars={'Co':(0.6,0.7),
+                     'M2':(0.7,0.85)},
+           num_points=100)
+
+print(model.optimised_kernel)
+
+# model.plot_accuracy(datate)
+
+# eta_model = model
+
+# print(eta_model.predict(pd.DataFrame({'phi':[8.169344704738479290e-01],
+#                                      'psi':[2.210212160066015397e+00],
+#                                      'Co':[6.500155329704284668e-01],
+#                                      'M2':[6.132978689012978935e-01],
+#                                      'eta':[(1-6.046904698383070986e-02)]}),
+#                         True,
+#                         True))
+# print(1-eta_model.upper,1-eta_model.lower,eta_model.std_prediction,1-eta_model.mean_prediction)
+
+# eta_model = TD.turbine_GPR('eta_lost')
+
+# print(eta_model.predict(pd.DataFrame({'phi':[8.169344704738479290e-01],
+#                                      'psi':[2.210212160066015397e+00],
+#                                      'Co':[6.500155329704284668e-01],
+#                                      'M2':[6.132978689012978935e-01],
+#                                      'eta_lost':[6.046904698383070986e-02]}),
+#                         True,
+#                         True))
+# print(eta_model.lower,eta_model.upper,eta_model.std_prediction,eta_model.mean_prediction)
+
+
+# print(eta_model.find_max_min())
+
+# eta_model.plot('phi',
+#                'psi',
+#                gridvars={'Co':(0.6,0.65,0.7),
+#                          'M2':(0.6,0.7,0.8)},
+#                num_points=200)
+
+# turb = TD.turbine(phi=0.6,
+#                   psi=2.0,
+#                   M2=0.9,
+#                   Co=0.65)
+
+# turb.get_blade_3D()
+
+# turb.get_blade_2D()
 
 
 # import numpy as np

@@ -21,7 +21,8 @@ kernel = 1.0 * RBF(length_scale=(1.0,1.0), length_scale_bounds=(1e-5,100))
 alpha_value = 0.1
 hyperparameter_iterations = 30
 
-fig, ((ax1,ax2),(ax3,ax4)) = plt.subplots(2,2,sharex=True,sharey=True)
+# fig, ((ax1,ax2),(ax3,ax4)) = plt.subplots(2,2,sharex=True,sharey=True)
+fig, (ax1) = plt.subplots(1,1,sharex=True,sharey=True)
 
 sampler = LatinHypercube(d=1)
 x = np.linspace(start=-1*grid_range, stop=grid_range, num=grid_size)
@@ -34,9 +35,10 @@ P = np.column_stack((X_vector,Y_vector))
 Q = f(P[:,0],P[:,1])
 Z = f(X,Y)
 
-for ax in [ax1,ax2,ax3,ax4]:
+for ax in [ax1]: #,ax2,ax3,ax4
 
-    training_data_size+=4
+    # training_data_size+=4
+    training_data_size=15
 
     training_indices = (len(Q)*scope*sampler.random(n=training_data_size)).astype(int).reshape(training_data_size)
     P_train, Q_train = P[training_indices], Q[training_indices]
@@ -64,8 +66,8 @@ for ax in [ax1,ax2,ax3,ax4]:
 
     contour_levels = np.linspace((lowest_contour-0.1*abs(contour_max_range)),(highest_contour+0.1*abs(contour_max_range)),(num_contours+2))
 
-    actual_plot = ax.contour(X, Y, Z, colors='red',levels=contour_levels)
-    predicted_plot = ax.contour(X, Y, mean_prediction_grid,colors='blue',levels=contour_levels)
+    actual_plot = ax.contour(X, Y, Z, colors='red',levels=contour_levels,linestyles='dashed')
+    predicted_plot = ax.contour(X, Y, mean_prediction_grid,colors='blue',levels=contour_levels,linestyles='solid')
 
     for contour_level in contour_levels:
         confidence_array = (upper_confidence_interval_grid>=contour_level) & (lower_confidence_interval_grid<=contour_level)
@@ -82,5 +84,8 @@ for ax in [ax1,ax2,ax3,ax4]:
     ax.set_title(f'n={training_data_size}, RMSE={RMSE:.2f}')
     ax.set_aspect('equal','box')
     
-fig.suptitle("Gaussian process regression on 2D function")
+# fig.suptitle("Gaussian process regression on 2D function")
+fig.set_figwidth(4)
+fig.set_figheight(4)
+fig.tight_layout()
 plt.show()

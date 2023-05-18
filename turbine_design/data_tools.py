@@ -189,7 +189,7 @@ def read_in_data(dataset='4D',
    return data
 
 def read_in_large_dataset(dataset='4D',
-                          data_filename='Data/turbine_data.csv',
+                          data_filename='turbine_design/Data/turbine_data.csv',
                           factor=5,
                           state_retention_statistics=False
                           ):
@@ -253,6 +253,9 @@ def read_in_large_dataset(dataset='4D',
                'max_t_loc_ps_rotor',
                'max_t_loc_ss_rotor',
                'lean_rotor']
+   
+   df['eta'] = (1-df['eta_lost'])
+   # df['eta_lost'] = 100*df['eta_lost']
       
    # filter by factor% error
    lower_factor = 1 - factor/100

@@ -10,19 +10,21 @@ from sklearn.metrics import mean_squared_error
 def f(x):
     return 0.5*X**3 - X**2 - 20*X
 
-fig, ((ax1,ax2),(ax3,ax4)) = plt.subplots(2,2,sharex=True,sharey=True)
+# fig, ((ax1,ax2),(ax3,ax4)) = plt.subplots(2,2,sharex=True,sharey=True)
+fig, ax3 = plt.subplots(1,1,sharex=True,sharey=True)
 
 scope = 1
 training_data_size = 2
 grid_range = 10
 grid_size = 1000
-kernel = 1.0 * RBF(length_scale=1.0,length_scale_bounds=(1e-5,400))
+kernel = 1.0 * RBF(length_scale=1.0,length_scale_bounds=(1e-1,400))
 alpha_value = 0.1
-hyperparameter_iterations = 30
+hyperparameter_iterations = 0
 
-for ax in [ax1,ax2,ax3,ax4]:
+for ax in [ax3]: #[ax1,ax2,ax3,ax4]
 
-    training_data_size+=2
+    # training_data_size+=2
+    training_data_size=8
 
     x = np.linspace(start=-1*grid_range, stop=grid_range, num=grid_size)
     X = x.reshape(-1, 1)
@@ -52,10 +54,15 @@ for ax in [ax1,ax2,ax3,ax4]:
         alpha=0.5,                                       #transparency
         label=r"95% confidence interval"
     )
-    ax.legend()
-    #ax.set_xlabel("$x$")
-    #ax.set_ylabel("$f(x)$")
-    ax.set_title(f'n={training_data_size}, RMSE={RMSE:.2f}')
+    leg = ax.legend()
+    leg.set_draggable(True)
+    ax.set_xlabel("$x$")
+    ax.set_ylabel("$f(x)$")
+    ax.set_xlim(min(X),max(X))
+    ax.set_title(f'n={training_data_size}, RMSE={RMSE:.2f}') #
     
-fig.suptitle("Gaussian process regression on 1D function")
+# fig.suptitle("Gaussian process regression on 1D function")
+fig.set_figwidth(4)
+fig.set_figheight(3)
+fig.tight_layout()
 plt.show()

@@ -1,5 +1,6 @@
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from sklearn.metrics import mean_squared_error
+# import sklearn.preprocessing as pre
 import numpy as np
 import pandas as pd
 import scipy.stats as st
@@ -12,6 +13,104 @@ from . import compflow_native as compflow
 import json
 from .get_shape import get_coordinates
 from stl import mesh
+
+def to_latex(variable):
+   if variable == "phi":
+      latex = '$ \\phi $'
+   elif variable == "psi":
+      latex = '$ \\psi $' 
+   elif variable == "Lambda":
+      latex = '$ \\Lambda $' 
+   elif variable == "M2":
+      latex = '$ M_2 $' 
+   elif variable == "Co":
+      latex = '$ C_0 $' 
+   elif variable == "eta_lost":
+      latex = '$ \\eta_{\\mathrm{lost}} $'
+   elif variable == "runid":
+      latex = 'runID'
+   elif variable == 'Yp_stator':
+      latex = '$ Yp_{\\mathrm{stator}} $' 
+   elif variable == 'Yp_rotor':
+      latex = '$ Yp_{\\mathrm{rotor}} $'  
+   elif variable == 'zeta_stator':
+      latex = '$ \\zeta_{\\mathrm{stator}} $' 
+   elif variable == 'zeta_rotor':
+      latex = '$ \\zeta_{\\mathrm{rotor}} $'   
+   elif variable == 's_cx_stator':
+      latex = '$ \\left[\\frac{s}{C_\\mathrm{x}}\\right]_{\\mathrm{stator}} $' 
+   elif variable == 's_cx_rotor':
+      latex = '$ \\left[\\frac{s}{C_\\mathrm{x}}\\right]_{\\mathrm{rotor}} $'  
+   elif variable == 'AR_stator':
+      latex = '$ AR_{\\mathrm{stator}} $' 
+   elif variable == 'AR_rotor':
+      latex = '$ AR_{\\mathrm{rotor}} $'  
+   elif variable == 'loss_rat':
+      latex = 'loss ratio'
+   elif variable == 'Al1':
+      latex = '$ \\alpha_1 $'
+   elif variable == 'Al2a':
+      latex = '$ \\alpha_{2a} $'
+   elif variable == 'Al2b':
+      latex = '$ \\alpha_{2b} $'
+   elif variable == 'Al3':
+      latex = '$ \\alpha_3 $'
+   elif variable == 'tau_c':
+      latex = '$ \\tau_c $'
+   elif variable == 'fc_1':
+      latex = '$ fc_1 $'
+   elif variable == 'fc_2':
+      latex = '$ fc_2 $'
+   elif variable == 'htr':
+      latex = '$ HTR $'
+   elif variable == 'spf_stator':
+      latex = '$ (span fraction)_{stator} $'
+   elif variable == 'stagger_stator':
+      latex = '$ (stagger)_{stator} $'
+   elif variable == 'recamber_le_stator':
+      latex = 'tbc'
+   elif variable == 'recamber_te_stator':
+      latex = 'tbc'
+   elif variable == 'Rle_stator':
+      latex = 'tbc'
+   elif variable == 'beta_stator':
+      latex = 'tbc'
+   elif variable == 't_ps_stator':
+      latex = 'tbc'
+   elif variable == 't_ss_stator':
+      latex = 'tbc'
+   elif variable == 'max_t_loc_ps_stator':
+      latex = 'tbc'
+   elif variable == 'max_t_loc_ss_stator':
+      latex = 'tbc'
+   elif variable == 'lean_stator':
+      latex = 'tbc'
+   elif variable == 'spf_rotor':
+      latex = '$ (span fraction)_{rotor} $'
+   elif variable == 'stagger_rotor':
+      latex = '$ (stagger)_{rotor} $'
+   elif variable == 'recamber_le_rotor':
+      latex = 'tbc'
+   elif variable == 'recamber_te_rotor':
+      latex = 'tbc'
+   elif variable == 'Rle_rotor':
+      latex = 'tbc'
+   elif variable == 'beta_rotor':
+      latex = 'tbc'
+   elif variable == 't_ps_rotor':
+      latex = 'tbc'
+   elif variable == 't_ss_rotor':
+      latex = 'tbc'
+   elif variable == 'max_t_loc_ps_rotor':
+      latex = 'tbc'
+   elif variable == 'max_t_loc_ss_rotor':
+      latex = 'tbc'
+   elif variable == 'lean_rotor':
+      latex = 'tbc'
+   elif variable == 'eta':
+      latex = '$ \\eta $'
+   
+   return latex
 
 
 def drop_columns(df,variables,output_key):
@@ -172,6 +271,8 @@ class turbine_GPR:
                                          noise_level_bounds=noise_bounds)
 
       kernel_form = self.matern_kernel(len(variables),bounds=length_bounds) + noise_kernel
+      
+      # self.scale = pre.StandardScaler() #preprocessing
             
       training_dataframe = drop_columns(training_dataframe,
                                         variables,
@@ -179,8 +280,13 @@ class turbine_GPR:
       
       training_dataframe = training_dataframe.reindex(sorted(training_dataframe.columns), axis=1)
       
+      # scaled_training_dataframe = pd.DataFrame(self.scale.fit_transform(training_dataframe.to_numpy()),
+      #                                   columns=list(training_dataframe.columns)) #preprocessing
+      
       self.input_array_train = training_dataframe.drop(columns=[self.output_key])
       self.output_array_train = training_dataframe[self.output_key]
+      # self.input_array_train = scaled_training_dataframe.drop(columns=[self.output_key]) #preprocessing
+      # self.output_array_train = scaled_training_dataframe[self.output_key] #preprocessing
       
       if limit_dict=='auto':
          self.limit_dict = {}
@@ -215,6 +321,9 @@ class turbine_GPR:
                                                   )
          
       self.optimised_kernel = self.fitted_function.kernel_
+      
+      # self.input_array_train = training_dataframe.drop(columns=[self.output_key]) #preprocessing
+      # self.output_array_train = training_dataframe[self.output_key] #preprocessing
          
       self.min_train_output = np.min([self.output_array_train])
       self.max_train_output = np.max([self.output_array_train])
@@ -264,6 +373,26 @@ class turbine_GPR:
 
       dataframe = dataframe.reindex(sorted(dataframe.columns), axis=1)
       dataframe = drop_columns(dataframe,self.variables,self.output_key)
+      
+      # #preprocessing from here
+      # if include_output == True:
+      #    scaled_dataframe = pd.DataFrame(self.scale.transform(dataframe.to_numpy()),
+      #                                    columns=list(dataframe.columns))
+         
+      # else:
+      #    dataframe[self.output_key] = np.ones(len(dataframe.index))
+      #    scaled_dataframe = pd.DataFrame(self.scale.transform(dataframe.to_numpy()),
+      #                                    columns=list(dataframe.columns))
+         
+      # self.input_array_test = scaled_dataframe.drop(columns=[self.output_key])
+      # self.output_array_test = scaled_dataframe[self.output_key]
+         
+      # # if include_output == True:
+      # #    self.input_array_test = scaled_dataframe.drop(columns=[self.output_key])
+      # #    self.output_array_test = scaled_dataframe[self.output_key]
+      # # else:
+      # #    self.input_array_test = scaled_dataframe
+      # #preprocessing to here
 
       if include_output == True:
          self.input_array_test = dataframe.drop(columns=[self.output_key])
@@ -272,12 +401,24 @@ class turbine_GPR:
          self.input_array_test = dataframe
    
       self.CI_percent = CI_percent
-      self.confidence_scalar = st.norm.ppf(1 - ((1 - (CI_percent / 100)) / 2))
       
       self.mean_prediction, self.std_prediction = self.fitted_function.predict(self.input_array_test.to_numpy(), return_std=True)
+      
+      # #preprocessing from here
 
-      self.upper = self.mean_prediction + self.confidence_scalar * self.std_prediction
-      self.lower = self.mean_prediction - self.confidence_scalar * self.std_prediction
+      # self.mean_prediction = self.mean_prediction*self.scale.scale_[2] + self.scale.mean_[2]
+      # self.std_prediction = self.scale.scale_[2]*self.std_prediction
+      
+      # if include_output == True:
+      #    self.input_array_test = dataframe.drop(columns=[self.output_key])
+      #    self.output_array_test = dataframe[self.output_key]
+      # else:
+      #    self.input_array_test = dataframe
+      # #preprocessing to here
+      
+      self.upper = st.norm.ppf((CI_percent / 100),loc=self.mean_prediction,scale=self.std_prediction)
+      self.lower = st.norm.ppf((1 - (CI_percent / 100)),loc=self.mean_prediction,scale=self.std_prediction)
+      
       self.training_output = self.output_array_train
             
       self.predicted_dataframe = self.input_array_test
@@ -300,9 +441,9 @@ class turbine_GPR:
 
       return self.predicted_dataframe
       
-   def find_global_max_min_values(self,
-                                  num_points_interpolate=20,
-                                  limit_dict=None):
+   def find_max_min(self,
+                    num_points_interpolate=20,
+                    limit_dict=None):
       """_summary_
 
       Args:
@@ -360,7 +501,7 @@ class turbine_GPR:
                  plot_training_points=False,
                  legend_outside=False,
                  contour_type='line',
-                 show_max=True,
+                 show_max=False,
                  show_min=False,
                  plot_actual_data=False,
                  plot_actual_data_filter_factor=5,
@@ -399,24 +540,22 @@ class turbine_GPR:
          plot_now = True
       else:
          plot_now = False
-         
-      if contour_step==None:
-         contour_step = abs(self.max_train_output - self.min_train_output)/10
       
       color_limits = np.array([self.min_train_output,
                       np.mean([self.min_train_output,self.max_train_output]),
                       self.max_train_output])
-      # print(color_limits)
-      # color_limits = np.array([88,92,96])
-      cmap_colors = ["green","orange","red"]
-      
-      # color_limits = np.flip(1 - (color_limits/100),0)
-      # cmap_colors = np.flip(cmap_colors)
-      # show_max=False
-      # show_min=True
-      # contour_textlabel = '\\eta_{lost}'
-      # else:
-      contour_textlabel = self.output_key
+
+      if self.output_key in ['eta']:
+         cmap_colors = ["red","orange","green"]
+         show_max=True
+         show_min=False
+      elif self.output_key in ['eta_lost','Yp_stator','Yp_rotor']:
+         cmap_colors = ["green","orange","red"]
+         show_min=True
+         show_max=False
+      else:
+         cmap_colors = ["blue","purple","orange"]
+      contour_textlabel = to_latex(self.output_key)
             
       
       cmap_norm=plt.Normalize(min(color_limits),max(color_limits))
@@ -471,12 +610,14 @@ class turbine_GPR:
                constant_value[constant_key] = constants[constant_key]
                
       for constant_key in constants_check:
-         if constant_key in ['phi','psi','Lambda']:
-            plot_title += '\\' + f'{constant_key} = {constant_value[constant_key]:.3f}'
-            plot_title += '\; '*title_variable_spacing
-         else:
-            plot_title += f'{constant_key} = {constant_value[constant_key]:.3f}'
-            plot_title += '\; '*title_variable_spacing
+         # if constant_key in ['phi','psi','Lambda']:
+         #    plot_title += '\\' + f'{constant_key} = {constant_value[constant_key]:.3f}'
+         #    plot_title += '\; '*title_variable_spacing
+         # else:
+         #    plot_title += f'{constant_key} = {constant_value[constant_key]:.3f}'
+         #    plot_title += '\; '*title_variable_spacing
+         plot_title += f'{to_latex(constant_key)} = {constant_value[constant_key]:.3f}'
+         plot_title += ' '*title_variable_spacing
       
       if dimensions == 2:
 
@@ -585,35 +726,38 @@ class turbine_GPR:
             leg.set_draggable(state=True)
          
          if plotting_grid_value[0] == (grid_height-1):
-            if plot_key1 in ['phi','psi','Lambda']:
-               xlabel_string = '\\'+plot_key1
-               axis.set_xlabel(fr"$ {xlabel_string} $")
-            else:
-               axis.set_xlabel(fr"${plot_key1}$")
+            # if plot_key1 in ['phi','psi','Lambda']:
+            #    xlabel_string = '\\'+plot_key1
+            #    axis.set_xlabel(fr"$ {xlabel_string} $")
+            # else:
+            #    axis.set_xlabel(fr"${plot_key1}$")
+            axis.set_xlabel(to_latex(plot_key1))
                
          if plotting_grid_value[1] == 0:
-            axis.set_ylabel(self.output_key)
+            # axis.set_ylabel(self.output_key)
+            axis.set_ylabel(to_latex(self.output_key))
 
          axis.grid(linestyle = '--', linewidth = 0.5)
          
       elif dimensions == 2:
+         if contour_step==None:
+            contour_step = abs(self.max_output - self.min_output)/10
          
-         min_level = np.floor(self.min_output/contour_step)*contour_step
-         max_level = np.ceil(self.max_output/contour_step)*contour_step
+         min_level = round(self.min_output/contour_step)*contour_step
+         max_level = round(self.max_output/contour_step)*contour_step
          contour_levels = np.arange(min_level,max_level,contour_step)
-         
          mean_prediction_grid = self.mean_prediction.reshape(num_points,num_points)
          upper_grid = self.upper.reshape(num_points,num_points)
          lower_grid = self.lower.reshape(num_points,num_points)
          
          if show_max == True:
             max_i = np.squeeze(self.max_output_indices)
-            axis.text(X1.ravel()[max_i], X2.ravel()[max_i], f'{self.max_output:.2f}', size=12, color='dark'+cmap_colors[2])
+            axis.text(X1.ravel()[max_i], X2.ravel()[max_i], f'{self.max_output:.3g}', size=12, color='dark'+cmap_colors[2])
             axis.scatter(X1.ravel()[max_i], X2.ravel()[max_i],color=cmap_colors[2],marker='x')
 
          if show_min == True:
             min_i = np.squeeze(self.min_output_indices)
-            axis.text(X1.ravel()[min_i], X2.ravel()[min_i], f'{self.min_output:.2f}', size=12, color='dark'+cmap_colors[0])
+            axis.text(X1.ravel()[min_i], X2.ravel()[min_i], f'{self.min_output:.3g}', size=12, color='dark'+cmap_colors[0])
             axis.scatter(X1.ravel()[min_i], X2.ravel()[min_i],color=cmap_colors[0],marker='x')
          
          if plot_training_points == True:
@@ -625,8 +769,9 @@ class turbine_GPR:
          
          if contour_type=='line':
             predicted_plot = axis.contour(X1, X2, mean_prediction_grid,levels=contour_levels,cmap=output_cmap,norm=cmap_norm)
-            axis.clabel(predicted_plot, inline=1, fontsize=14)
-            for contour_level_index,contour_level in enumerate(contour_levels):  #clear this up
+            axis.clabel(predicted_plot, inline=1, fontsize=12)
+            
+            for contour_level in contour_levels:
                confidence_array = (upper_grid>=contour_level) & (lower_grid<=contour_level)
 
                contour_color = output_cmap(cmap_norm(contour_level))
@@ -647,22 +792,21 @@ class turbine_GPR:
             if plot_training_points == True:
                if contour_type == 'line':
                   handles = [h1[0], h2[0], training_points_plot]
-                  labels = [fr'$ {contour_textlabel} $, Mean prediction',
+                  labels = [contour_textlabel + 'Mean prediction',
                            fr"{self.CI_percent}% confidence interval",
                            'Training data points']
                else:
                   handles = [h1[0], training_points_plot]
-                  labels = [fr'$ {contour_textlabel} $, Mean prediction',
+                  labels = [contour_textlabel + 'Mean prediction',
                             'Training data points']
             else:
                if contour_type == 'line':
                   handles = [h1[0], h2[0]]
-                  labels = [fr'$ {contour_textlabel} $, Mean prediction',
-                           fr"{self.CI_percent}% confidence interval", 
-                           'Training data points']
+                  labels = [contour_textlabel + 'Mean prediction',
+                           fr"{self.CI_percent}% confidence interval"]
                else:
                   handles = [h1[0]]
-                  labels = [fr'$ {contour_textlabel} $, Mean prediction']
+                  labels = [contour_textlabel + 'Mean prediction']
                   
             if legend_outside == True:
                leg = axis.legend(handles=handles,
@@ -680,18 +824,20 @@ class turbine_GPR:
             leg.set_draggable(state=True)
          
          if plotting_grid_value[0] == (grid_height-1):
-            if plot_key1 in ['phi','psi','Lambda']:
-               xlabel_string1 = '\\'+plot_key1
-               axis.set_xlabel(fr"$ {xlabel_string1} $")
-            else:
-               axis.set_xlabel(f"${plot_key1}$")
+            # if plot_key1 in ['phi','psi','Lambda']:
+            #    xlabel_string1 = '\\'+plot_key1
+            #    axis.set_xlabel(fr"$ {xlabel_string1} $")
+            # else:
+            #    axis.set_xlabel(f"${plot_key1}$")
+            axis.set_xlabel(to_latex(plot_key1))
          
          if plotting_grid_value[1] == 0:
-            if plot_key2 in ['phi','psi','Lambda']:
-               xlabel_string2 = '\\'+plot_key2
-               axis.set_ylabel(fr"$ {xlabel_string2} $")
-            else:
-               axis.set_ylabel(f"${plot_key2}$")
+            # if plot_key2 in ['phi','psi','Lambda']:
+            #    xlabel_string2 = '\\'+plot_key2
+            #    axis.set_ylabel(fr"$ {xlabel_string2} $")
+            # else:
+            #    axis.set_ylabel(f"${plot_key2}$")
+            axis.set_ylabel(to_latex(plot_key2))
          
          axis.set_xlim(limit_dict[plot_key1][0],
                        limit_dict[plot_key1][1],
@@ -706,7 +852,8 @@ class turbine_GPR:
          sys.exit('Somehow wrong number of dimensions')
       
       if self.fit_dimensions>2:
-         axis.set_title(fr'$ {plot_title} $',size=10)
+         # axis.set_title(fr'$ {plot_title} $',size=10)
+         axis.set_title(plot_title,size=10)
       
       if plot_now == True:
          fig.tight_layout()
@@ -841,7 +988,7 @@ class turbine_GPR:
             plot_training_points=False,
             legend_outside=False,
             contour_type='line',
-            show_max=True,
+            show_max=False,
             show_min=False,
             plot_actual_data=False,
             plot_actual_data_filter_factor=5,
