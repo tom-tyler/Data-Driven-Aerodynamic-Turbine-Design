@@ -4,28 +4,34 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-data = tools.read_in_large_dataset()
+data = tools.read_in_data('2D only',state_retention_statistics=True)
 
-datatr,datate = tools.split_data(data)
+# data = tools.read_in_large_dataset('4D')
 
-model = TD.turbine_GPR()
-model.fit(datatr,
-          variables=['phi','psi','M2','Co'],
-          output_key='eta_lost',
-          length_bounds=[1e-2,1e3],
-          noise_magnitude=1e-6,
-          noise_bounds=[1e-20,1e-1],
-          number_of_restarts=3)
+# datatr,datate = tools.split_data(data)
 
-model.plot('phi',
-           'psi',
-           gridvars={'Co':(0.6,0.7),
-                     'M2':(0.7,0.85)},
-           num_points=100)
+# model = TD.turbine_GPR('eta_lost_4D')
+# model.fit(datatr,
+#           variables=['phi','psi','M2','Co'],
+#           output_key='Yp_rotor',
+#           length_bounds=[5e-2,1e3],
+#           noise_magnitude=1e-6,
+#           noise_bounds=[1e-20,1e0],
+#           number_of_restarts=3,
+#           overwrite=False,
+#           model_name='Yp_rotor_4D')
 
-print(model.optimised_kernel)
+# model.plot('Co',
+#            'M2',
+#             gridvars={'phi':(0.8,1.1),
+#                          'psi':(1.8,2.3)},
+#            num_points=500,
+#            contour_step=0.01)
 
-# model.plot_accuracy(datate)
+# print(model.optimised_kernel)
+
+# model.plot_accuracy(datate,
+#                     legend_outside=True)
 
 # eta_model = model
 

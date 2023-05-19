@@ -7,7 +7,7 @@ import scipy.stats as st
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcol
 from collections import OrderedDict
-import sys
+import sys,os
 import joblib
 from . import compflow_native as compflow
 import json
@@ -30,9 +30,9 @@ def to_latex(variable):
    elif variable == "runid":
       latex = 'runID'
    elif variable == 'Yp_stator':
-      latex = '$ Yp_{\\mathrm{stator}} $' 
+      latex = '$ Y_{p,\\mathrm{stator}} $' 
    elif variable == 'Yp_rotor':
-      latex = '$ Yp_{\\mathrm{rotor}} $'  
+      latex = '$ Y_{p,\\mathrm{rotor}} $'  
    elif variable == 'zeta_stator':
       latex = '$ \\zeta_{\\mathrm{stator}} $' 
    elif variable == 'zeta_rotor':
@@ -62,7 +62,7 @@ def to_latex(variable):
    elif variable == 'fc_2':
       latex = '$ fc_2 $'
    elif variable == 'htr':
-      latex = '$ HTR $'
+      latex = 'HTR'
    elif variable == 'spf_stator':
       latex = '$ (span fraction)_{stator} $'
    elif variable == 'stagger_stator':
@@ -109,9 +109,12 @@ def to_latex(variable):
       latex = 'tbc'
    elif variable == 'eta':
       latex = '$ \\eta $'
+   elif variable == 'Yp_rat':
+      latex = '$ \\frac{Y_{p,\\mathrm{rotor}}}{Y_{p,\\mathrm{stator}}} $'
+   else:
+      latex='dummy'
    
    return latex
-
 
 def drop_columns(df,variables,output_key):
    """Drops all comumns not in 'variables', but retains 'output_key'.
@@ -156,17 +159,19 @@ class turbine_GPR:
          
       else:   
          try:
-            with open(f"turbine_design/Models/{model_name}_variables.txt", "r") as file:
+            with open(f"turbine_design/Models/{model_name}/{model_name}_variables.txt", "r") as file:
                variables = [line.rstrip() for line in file]
+               
+            with open(f"turbine_design/Models/{model_name}/{model_name}_output_variable.txt", "r") as file:
+               self.output_key = [line.rstrip() for line in file][0]
 
             self.variables = variables
-            self.output_key = model_name
             self.fit_dimensions = len(self.variables)
             
-            model = joblib.load(f'turbine_design/Models/{model_name}_model.joblib')
+            model = joblib.load(f'turbine_design/Models/{model_name}/{model_name}.joblib')
             
             self.input_array_train = pd.DataFrame(data=model.X_train_,
-                                                columns=sorted(self.variables))
+                                                  columns=sorted(self.variables))
             
             self.output_array_train = model.y_train_
             
@@ -199,7 +204,8 @@ class turbine_GPR:
            noise_bounds=[1e-20,1e-3],
            nu='optimise',
            limit_dict='auto',
-           overwrite=False
+           overwrite=False,
+           model_name=None
            ):
       """_summary_
 
@@ -329,13 +335,23 @@ class turbine_GPR:
       self.max_train_output = np.max([self.output_array_train])
       
       if overwrite==True:
-         joblib.dump(self.fitted_function,f'Models/{self.output_key}_model.joblib')
-
          model_variables = variables.copy()
+         
+         if model_name==None:
+            model_variables_text_list = '_'.join(model_variables)
+            model_name = f'{self.output_key}_model_{model_variables_text_list}'
+         try:
+            os.makedirs(f'./turbine_design/Models/{model_name}')
+         except FileExistsError:
+            pass
+         joblib.dump(self.fitted_function,f'turbine_design/Models/{model_name}/{model_name}.joblib')
+
          text_model_variables = [str(item)+'\n' for item in model_variables]
 
-         with open(f"Models/{self.output_key}_variables.txt", "w") as file:
+         with open(f"turbine_design/Models/{model_name}/{model_name}_variables.txt", "w") as file:
             file.writelines(text_model_variables)
+         with open(f"turbine_design/Models/{model_name}/{model_name}_output_variable.txt", "w") as file:
+            file.writelines(self.output_key)
 
    def predict(self,
                dataframe,
@@ -547,12 +563,12 @@ class turbine_GPR:
 
       if self.output_key in ['eta']:
          cmap_colors = ["red","orange","green"]
-         show_max=True
-         show_min=False
+         # show_max=True
+         # show_min=False
       elif self.output_key in ['eta_lost','Yp_stator','Yp_rotor']:
          cmap_colors = ["green","orange","red"]
-         show_min=True
-         show_max=False
+         # show_min=True
+         # show_max=False
       else:
          cmap_colors = ["blue","purple","orange"]
       contour_textlabel = to_latex(self.output_key)
@@ -792,21 +808,21 @@ class turbine_GPR:
             if plot_training_points == True:
                if contour_type == 'line':
                   handles = [h1[0], h2[0], training_points_plot]
-                  labels = [contour_textlabel + 'Mean prediction',
+                  labels = [contour_textlabel + ' Mean prediction',
                            fr"{self.CI_percent}% confidence interval",
                            'Training data points']
                else:
                   handles = [h1[0], training_points_plot]
-                  labels = [contour_textlabel + 'Mean prediction',
+                  labels = [contour_textlabel + ' Mean prediction',
                             'Training data points']
             else:
                if contour_type == 'line':
                   handles = [h1[0], h2[0]]
-                  labels = [contour_textlabel + 'Mean prediction',
+                  labels = [contour_textlabel + ' Mean prediction',
                            fr"{self.CI_percent}% confidence interval"]
                else:
                   handles = [h1[0]]
-                  labels = [contour_textlabel + 'Mean prediction']
+                  labels = [contour_textlabel + ' Mean prediction']
                   
             if legend_outside == True:
                leg = axis.legend(handles=handles,
@@ -866,10 +882,12 @@ class turbine_GPR:
                      axis=None,
                      line_error_percent=5,
                      CI_percent=95,
-                     identify_outliers=True,
+                     identify_outliers=False,
                      title_variable_spacing=3,
                      plot_errorbars=True,
-                     score_variable='R2'
+                     score_variable='R2',
+                     legend_outside=False,
+                     equal_axis=False
                      ):
       """_summary_
 
@@ -910,18 +928,10 @@ class turbine_GPR:
             value_string = f''
             newline=' $\n$ '
             for col_index,col in enumerate(outliers):
-               
-               if col in ['phi','psi','Lambda']:
-                  if (col_index%2==0) and (col_index!=0):
-                     value_string += newline
-                  value_string += '\\' + f'{col}={row[col]:.3f}'
-                  value_string += '\; '*title_variable_spacing
-               else:
-                  if (col_index%2==0) and (col_index!=0):
-                     value_string += newline
-                  value_string += f'{col}={row[col]:.3f}'
-                  value_string += '\; '*title_variable_spacing
-                  
+               if (col_index%2==0) and (col_index!=0):
+                  value_string += newline
+               value_string += f'{to_latex(col)}={row[col]:.3f}'
+               value_string += ' '*title_variable_spacing                 
                
             ax.scatter(row['actual_output'], row['predicted_output'],color='blue',marker=f'${row_index}$',s=160,label=fr'$ runID={row["runid"]:.0f} $',linewidths=0.1)
       
@@ -934,7 +944,7 @@ class turbine_GPR:
          ax.scatter(non_outliers['actual_output'],non_outliers['predicted_output'],marker='x',label='Testing data points',color='blue')
       else:
          ax.scatter(actual_values,predicted_values,marker='x',label='Test data points',color='blue')
-      ax.plot(limits_array,limits_array,linestyle='solid',color='red',label = r'$f(x)=x$')
+      ax.plot(limits_array,limits_array,linestyle='solid',color='red',label = '(actual)=(prediction)')
       ax.plot(limits_array,upper_limits_array,linestyle='dotted',color='red',label = f'{line_error_percent}% error interval')
       ax.plot(limits_array,lower_limits_array,linestyle='dotted',color='red')
       if plot_errorbars==True:
@@ -955,21 +965,30 @@ class turbine_GPR:
       else:
          sys.exit("Enter suitable score variable from ['both','R2','RMSE']")
       
-      ax.set_xlabel(f'{self.output_key} (actual)')
-      ax.set_ylabel(f'{self.output_key} (prediction)')
-         
-      leg = ax.legend(loc='upper left',
-                      bbox_to_anchor=(1.02,1.0),
-                      borderaxespad=0,
-                      frameon=True,
-                      ncol=1,
-                      prop={'size': 10})
+      ax.set_xlabel(f'{to_latex(self.output_key)} (actual)')
+      ax.set_ylabel(f'{to_latex(self.output_key)} (prediction)')
+      
+      if legend_outside == True:
+         leg = ax.legend(loc='upper left',
+                  bbox_to_anchor=(1.02,1.0),
+                  borderaxespad=0,
+                  frameon=True,
+                  ncol=1,
+                  prop={'size': 10})
+      else:
+         leg = ax.legend()
+      
       leg.set_draggable(state=True)
       
       ax.grid(linestyle = '--', linewidth = 0.5)
       
+      if equal_axis==True:
+         ax.set_aspect('equal')
+      
       if axis == None:
          fig.tight_layout()
+         fig.set_figwidth(6.5)
+         fig.set_figheight(4.5)
          plt.show()
       
    def plot(self,
@@ -1051,10 +1070,10 @@ class turbine_GPR:
                                sharex=True,
                                sharey=True
                                )
-      
+      grid_counter=0
       for indices, axis in np.ndenumerate(axes):
-         
-         print('plot',indices)
+         grid_counter+=1
+         print(f'plot [{grid_counter}/{num_rows*num_columns}]')
          
          if (num_columns == 1) and (num_rows > 1):
             i = np.squeeze(indices)
@@ -1094,6 +1113,7 @@ class turbine_GPR:
                               plot_actual_data=plot_actual_data,
                               legend_outside=legend_outside)
          else:
+            
             self.plot_vars(x1=x1,
                            x2=x2,
                            constants=constant_dict,
@@ -1115,6 +1135,19 @@ class turbine_GPR:
                            plot_actual_data_filter_factor=plot_actual_data_filter_factor,
                            show_actual_with_model=show_actual_with_model
                            )
+            if grid_counter==1:
+               global_min = np.amin(self.lower)
+               global_max = np.amax(self.upper)
+            else:
+               if global_min > np.amin(self.lower):
+                  global_min = np.amin(self.lower)
+               if global_max < np.amax(self.upper):
+                  global_max = np.amax(self.upper)
+            if x1==None or x2==None:
+               y_range = global_max - global_min
+               axis.set_ylim(bottom=global_min-0.05*y_range,
+                              top=global_max+0.05*y_range,
+                              auto=True)
 
       if (num_columns>1) or (num_rows>1):
          if with_arrows==True:
@@ -1143,7 +1176,7 @@ class turbine_GPR:
                   fig.supylabel(fr"$ {xlabel_string2} $")
                else:
                   fig.supylabel(f"${grid_keys[0]} $")
-                  
+
       plt.show()
       
    def matern_kernel(self,
@@ -1384,8 +1417,8 @@ class turbine:
           _type_: _description_
       """
    
-      Al2_model = turbine_GPR('Al2a')
-      Al3_model = turbine_GPR('Al3')
+      Al2_model = turbine_GPR('Al2a_model_phi_psi_M2_Co')
+      Al3_model = turbine_GPR('Al3_model_phi_psi_M2_Co')
       
       Al1 = np.zeros(self.no_points)
       Al2 = np.array(Al2_model.predict(pd.DataFrame(data={'phi':self.phi,
@@ -1410,8 +1443,8 @@ class turbine:
           _type_: _description_
       """
       
-      stagger_stator_model = turbine_GPR('stagger_stator')
-      stagger_rotor_model = turbine_GPR('stagger_rotor')
+      stagger_stator_model = turbine_GPR('stagger_stator_model_phi_psi_M2_Co')
+      stagger_rotor_model = turbine_GPR('stagger_rotor_model_phi_psi_M2_Co')
       
       stagger_stator = np.array(stagger_stator_model.predict(pd.DataFrame(data={'phi':self.phi,
                                                                      'psi':self.psi,
@@ -1433,7 +1466,7 @@ class turbine:
           _type_: _description_
       """
       
-      zeta_stator_model = turbine_GPR('zeta_stator') #maybe improve this model
+      zeta_stator_model = turbine_GPR('zeta_stator_model_phi_psi_M2_Co') #maybe improve this model
       
       zeta_stator = np.array(zeta_stator_model.predict(pd.DataFrame(data={'phi':self.phi,
                                                    'psi':self.psi,
@@ -1454,8 +1487,8 @@ class turbine:
           _type_: _description_
       """
       
-      s_cx_stator_model = turbine_GPR('s_cx_stator')
-      s_cx_rotor_model = turbine_GPR('s_cx_rotor')
+      s_cx_stator_model = turbine_GPR('s_cx_stator_model_phi_psi_M2_Co')
+      s_cx_rotor_model = turbine_GPR('s_cx_rotor_model_phi_psi_M2_Co')
       
       s_cx_stator = np.array(s_cx_stator_model.predict(pd.DataFrame(data={'phi':self.phi,
                                                    'psi':self.psi,
@@ -1479,7 +1512,7 @@ class turbine:
           _type_: _description_
       """
       
-      loss_rat_model = turbine_GPR('loss_rat')
+      loss_rat_model = turbine_GPR('loss_rat_model_phi_psi_M2_Co')
       
       self.get_Yp()
       
@@ -1498,7 +1531,7 @@ class turbine:
           _type_: _description_
       """
       
-      eta_lost_model = turbine_GPR('eta_lost')
+      eta_lost_model = turbine_GPR('eta_lost_model_phi_psi_M2_Co')
       
       self.get_Yp()
       
@@ -1542,8 +1575,8 @@ class turbine:
           _type_: _description_
       """
       
-      Yp_stator_model = turbine_GPR('Yp_stator')
-      Yp_rotor_model = turbine_GPR('Yp_rotor')
+      Yp_stator_model = turbine_GPR('Yp_stator_model_phi_psi_M2_Co')
+      Yp_rotor_model = turbine_GPR('Yp_rotor_model_phi_psi_M2_Co')
       
       self.get_stagger()
       self.get_s_cx()
@@ -1569,7 +1602,7 @@ class turbine:
           _type_: _description_
       """
       
-      beta_rotor_model = turbine_GPR('beta_rotor')
+      beta_rotor_model = turbine_GPR('beta_rotor_model_phi_psi_M2_Co')
       self.beta_rotor = np.array(beta_rotor_model.predict(pd.DataFrame(data={'phi':self.phi,
                                                                            'psi':self.psi,
                                                                            'M2':self.M2,

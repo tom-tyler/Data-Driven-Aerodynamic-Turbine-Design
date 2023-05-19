@@ -4,7 +4,7 @@ import sys
 
 
 def read_in_data(dataset='4D',
-                 path='Data',
+                 path='turbine_design/Data',
                  factor=5,
                  state_retention_statistics=False,
                  ignore_incomplete=False
@@ -255,7 +255,7 @@ def read_in_large_dataset(dataset='4D',
                'lean_rotor']
    
    df['eta'] = (1-df['eta_lost'])
-   # df['eta_lost'] = 100*df['eta_lost']
+   df['Yp_rat'] = df['Yp_rotor']/df['Yp_stator']
       
    # filter by factor% error
    lower_factor = 1 - factor/100
