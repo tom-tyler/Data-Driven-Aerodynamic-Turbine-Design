@@ -1,14 +1,18 @@
 import os
 import pandas as pd
 import sys
+import pkg_resources
+# import pkgutil
+# import importlib.resources
+from pathlib import Path
+
+# from . import Data
 
 
 def read_in_data(dataset='4D',
-                 path='turbine_design/Data',
                  factor=5,
                  state_retention_statistics=False,
-                 ignore_incomplete=False
-                 ):
+                 ignore_incomplete=False):
    """_summary_
 
    Args:
@@ -21,14 +25,23 @@ def read_in_data(dataset='4D',
    Returns:
        _type_: _description_
    """
-   
+
+   package_path = pkg_resources.resource_filename('turbine_design','')
+   subfolder_path = '/'.join((package_path, 'Data'))
+
    dataframe_dict = {}
    n_before = 0
    n_after = 0
-   for filename in os.listdir(path):
-      data_name = str(filename)[:-4]
+   
+   files = Path(subfolder_path).glob('*')
+   for filename in files:
+
+      data_name = str(filename.stem)
       
       if data_name == 'turbine_data':
+         continue
+      
+      if str(filename.suffix) != '.csv':
          continue
       
       if dataset=='all':
@@ -48,8 +61,7 @@ def read_in_data(dataset='4D',
          if data_name not in dataset:
             continue
       
-      filepath = os.path.join(path, filename)
-      df = pd.read_csv(filepath)
+      df = pd.read_csv(filename)
 
       if df.shape[1] == 20:
          df.columns=["phi",
@@ -189,10 +201,8 @@ def read_in_data(dataset='4D',
    return data
 
 def read_in_large_dataset(dataset='4D',
-                          data_filename='turbine_design/Data/turbine_data.csv',
                           factor=5,
-                          state_retention_statistics=False
-                          ):
+                          state_retention_statistics=False):
    """_summary_
 
    Args:
@@ -204,6 +214,10 @@ def read_in_large_dataset(dataset='4D',
    Returns:
        _type_: _description_
    """
+
+   
+   package_path = pkg_resources.resource_filename('turbine_design','')
+   data_filename = '/'.join((package_path, 'Data', 'turbine_data.csv'))
 
    df = pd.read_csv(data_filename)
 
@@ -304,14 +318,36 @@ def read_in_large_dataset(dataset='4D',
       val=0.5
       df = df[df["Lambda"] < upper_factor*val]
       df = df[df["Lambda"] > lower_factor*val]
-      # M2 = 0.7 or 0.65
+      # M2 = 0.67
       val=0.67
       df = df[df["M2"] < upper_factor*val]
       df = df[df["M2"] > lower_factor*val]
-      # Co = 0.65 or 0.7
+      # Co = 0.65
       val=0.65
       df = df[df["Co"] < upper_factor*val]
       df = df[df["Co"] > lower_factor*val]
+      
+   elif dataset in ['bonus']:
+      # Lambda = 0.5
+      val=0.5
+      df = df[df["Lambda"] < upper_factor*val]
+      df = df[df["Lambda"] > lower_factor*val]
+      # M2 = 0.67
+      val=0.67
+      df = df[df["M2"] < upper_factor*val]
+      df = df[df["M2"] > lower_factor*val]
+      # Co = 0.65
+      val=0.65
+      df = df[df["Co"] < upper_factor*val]
+      df = df[df["Co"] > lower_factor*val]
+      # phi = 0.81
+      val=0.81
+      df = df[df["phi"] < upper_factor*val]
+      df = df[df["phi"] > lower_factor*val]
+      # psi = 1.78
+      val=1.78
+      df = df[df["psi"] < upper_factor*val]
+      df = df[df["psi"] > lower_factor*val]
       
    df = df.reindex(sorted(df.columns), axis=1)
       

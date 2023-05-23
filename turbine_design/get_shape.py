@@ -1,4 +1,5 @@
 from .turbigen import three_dimensional_stage, ohmesh 
+import pkg_resources
 
 def get_shape(params):
     """Function to return shape from a parameters object.
@@ -39,9 +40,12 @@ def get_shape(params):
     return nb, h, c, ps, ss
 
 def get_coordinates():
+    
+    package_path = pkg_resources.resource_filename('turbine_design','')
+    json_subfolder_path = '/'.join((package_path, 'turbine_json'))
 
     # Load a parameter set
-    params = three_dimensional_stage.StageParameterSet.from_json(f"turbine_design/turbine_json/turbine_params.json")
+    params = three_dimensional_stage.StageParameterSet.from_json(f"{json_subfolder_path}/turbine_params.json")
 
     # Extract shape
     nb, h, c, ps, ss = get_shape(params)

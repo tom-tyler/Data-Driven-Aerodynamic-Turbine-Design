@@ -3,35 +3,149 @@ from turbine_design import data_tools as tools
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import os
 
-data = tools.read_in_data('2D only',state_retention_statistics=True)
+# data = tools.read_in_data()
 
-# data = tools.read_in_large_dataset('4D')
+# data = tools.read_in_large_dataset('bonus',state_retention_statistics=True,factor=3)
+
+# print(data[['phi','psi','Co','Lambda','M2','eta_lost']])
+turb_1 = TD.turbine(phi = 0.6,
+                 psi = 1.4,
+                 M2  = 0.5,
+                 Co  = 0.65)
+
+turb_1.get_dimensional(Omega = 314,
+                       Po1   = 160000,
+                       To1   = 1800)
+
+turb_1.get_blade("2D")
+
+# turb_1.get_blade("3D")
+
+# turb = TD.turbine(phi=0.6,
+#                   psi=1.4,
+#                   M2=0.5,
+#                   Co=0.65)
+# turb = TD.turbine(phi=0.6,
+#                   psi=2.0,
+#                   M2=0.9,
+#                   Co=0.65)
+
+# turb.get_blade(2,stack_ratios=[5,4])
+
+# turb.get_blade(3)
+
+
+# import numpy as np
+# from sklearn.metrics import r2_score 
+# n = 100
+# X1,X2 = np.meshgrid(np.linspace(0.5,1.1,n),np.linspace(1.2,2.2,n))
+# X1_vector = X1.ravel() #vector of "all" x coordinates from meshgrid
+# X2_vector = X2.ravel() #vector of "all" y coordinates from meshgrid
+         
+
+# turb = TD.turbine(X1_vector,
+#                   X2_vector,
+#                   0.7*np.ones(len(X1_vector)),
+#                   0.65*np.ones(len(X1_vector)))
+
+# turb.get_nondim()
+
+# output = turb.Yp_rotor.reshape(n,n)
+
+
+# cplot = plt.contour(X1,X2,output)
+# plt.clabel(cplot, inline=1, fontsize=14)
+# plt.xlabel('phi')
+# plt.ylabel('psi')
+# plt.title('Yp_rotor')
+
+# plt.show()
+
+# turb.get_non_dim_geometry()
+# n = 100
+# co_vector = np.linspace(0.45,0.75,n)
+
+         
+# turb = TD.turbine([0.81,0.7],[1.65,1.5],[0.72,0.71],[0.67,0.65])
+# turb = TD.turbine(0.8*np.ones(len(co_vector)),
+#                   1.8*np.ones(len(co_vector)),
+#                   0.7*np.ones(len(co_vector)),
+#                   co_vector)
+
+# turb.dim_from_omega(314,1800,160000)
+
+# no_blades = turb.num_blades_stator
+# eta = turb.eta
+
+# # create figure and axis objects with subplots()
+# fig,ax = plt.subplots()
+# # make a plot
+# ax.plot(co_vector,
+#         no_blades,
+#         color="darkorange")
+# # set x-axis label
+# ax.set_xlabel("$C_0$", fontsize = 12)
+# # set y-axis label
+# ax.set_ylabel("No. blades",
+#               color="darkorange",
+#               fontsize=12)
+# ax.set_xlim(0.45,0.75)
+# ax.set_title('$\\phi=0.8$, $\\psi=1.8$, $\\Lambda=0.5$, $M_2=0.7$')
+
+# # twin object for two different y-axis on the sample plot
+# ax2=ax.twinx()
+# # make a plot with different y-axis using second axis object
+# ax2.plot(co_vector, eta,color="cornflowerblue")
+# ax2.set_ylabel("$\\eta$ (%)",color="cornflowerblue",fontsize=12)
+
+# max_eta = np.amax(eta)
+
+# i = np.where(eta==max_eta)
+
+# no_opt = no_blades[i]
+
+# ax.axvline(co_vector[i],0.314,ymax=0.958,linewidth=1, color='r',dashes=(5, 2, 1, 2))
+# ax.axhline(no_opt,xmin=0,xmax=co_vector[i],linewidth=1, color='r',dashes=(5, 2, 1, 2))
+# ax.text(0.52,no_opt,f'{int(no_opt)} blades',size=12, color='r',
+#         horizontalalignment='left')
+
+# plt.show()
+
+# data = tools.read_in_data('5D',state_retention_statistics=True)
+
+# # data = tools.read_in_large_dataset('5D',state_retention_statistics=True)
 
 # datatr,datate = tools.split_data(data)
 
-# model = TD.turbine_GPR('eta_lost_4D')
-# model.fit(datatr,
-#           variables=['phi','psi','M2','Co'],
-#           output_key='Yp_rotor',
-#           length_bounds=[5e-2,1e3],
-#           noise_magnitude=1e-6,
-#           noise_bounds=[1e-20,1e0],
-#           number_of_restarts=3,
-#           overwrite=False,
-#           model_name='Yp_rotor_4D')
+# model = TD.turbine_GPR('eta_lost_5D')
 
-# model.plot('Co',
-#            'M2',
-#             gridvars={'phi':(0.8,1.1),
-#                          'psi':(1.8,2.3)},
-#            num_points=500,
-#            contour_step=0.01)
+# model.fit(datatr,
+#           variables=['phi','psi','Co','M2','Lambda'],
+#           output_key='eta_lost',
+#           model_name='eta_lost_5D')
 
 # print(model.optimised_kernel)
 
 # model.plot_accuracy(datate,
-#                     legend_outside=True)
+#                     line_error_percent=10,
+#                     legend_outside=True,
+#                     identify_outliers=True)
+
+# fig,axes = model.plot(x1='phi',x2='psi',
+#            CI_percent=0,
+#            constants={'M2':0.67,
+#                       'Co':0.65,
+#                       'Lambda':0.50},
+#            num_points=500,
+#            contour_step=0.0025,
+#            show=False)
+
+# axes.scatter([0.65,0.95,0.81,0.81,0.81],[1.78,1.78,1.78,1.20,1.50],marker='x',color='magenta')
+# axes.set_xlim(0.6,1.0)
+# axes.set_ylim(1.0,2.0)
+# plt.show()
 
 # eta_model = model
 
@@ -64,66 +178,10 @@ data = tools.read_in_data('2D only',state_retention_statistics=True)
 #                          'M2':(0.6,0.7,0.8)},
 #                num_points=200)
 
-# turb = TD.turbine(phi=0.6,
-#                   psi=2.0,
-#                   M2=0.9,
-#                   Co=0.65)
-
-# turb.get_blade_3D()
-
-# turb.get_blade_2D()
-
-
-# import numpy as np
-# from sklearn.metrics import r2_score 
-# n = 100
-# X1,X2 = np.meshgrid(np.linspace(0.5,1.1,n),np.linspace(1.2,2.2,n))
-# X1_vector = X1.ravel() #vector of "all" x coordinates from meshgrid
-# X2_vector = X2.ravel() #vector of "all" y coordinates from meshgrid
-         
-
-# turb = TD.turbine(X1_vector,
-#                   X2_vector,
-#                   0.7*np.ones(len(X1_vector)),
-#                   0.65*np.ones(len(X1_vector)))
-
-# turb.get_nondim()
-
-# output = turb.Yp_rotor.reshape(n,n)
-
-
-# cplot = plt.contour(X1,X2,output)
-# plt.clabel(cplot, inline=1, fontsize=14)
-# plt.xlabel('phi')
-# plt.ylabel('psi')
-# plt.title('Yp_rotor')
-
-# plt.show()
-
-
-# turb.get_non_dim_geometry()
 
 
 
-# n = 100
-# co_vector = np.linspace(0.55,0.7,n)
 
-         
-# # turb = TD.turbine([0.81,0.7],[1.65,1.5],[0.72,0.71],[0.67,0.65])
-# turb = TD.turbine(0.8*np.ones(len(co_vector)),
-#                   0.7*np.ones(len(co_vector)),
-#                   0.7*np.ones(len(co_vector)),
-#                   co_vector)
-
-# turb.dim_from_omega(314,1800,160000)
-
-# output = turb.num_blades_stator
-# plt.plot(co_vector,output)
-# plt.xlabel('Co')
-# plt.ylabel('No. blades')
-# plt.grid()
-
-# plt.show()
 
 
 # eta_lost = turbine_GPR('eta_lost')

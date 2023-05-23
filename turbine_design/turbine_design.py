@@ -13,6 +13,7 @@ from . import compflow_native as compflow
 import json
 from .get_shape import get_coordinates
 from stl import mesh
+import pkg_resources
 
 def to_latex(variable):
    if variable == "phi":
@@ -147,6 +148,8 @@ class turbine_GPR:
           model_name (_type_, optional): _description_. Defaults to None.
           limit_dict (str, optional): _description_. Defaults to 'auto'.
       """
+      self.package_path = pkg_resources.resource_filename('turbine_design','')
+      self.models_subfolder_path = '/'.join((self.package_path, 'Models'))
       
       if model_name==None:
          pass
@@ -159,21 +162,22 @@ class turbine_GPR:
          
       else:   
          try:
-            with open(f"turbine_design/Models/{model_name}/{model_name}_variables.txt", "r") as file:
+            with open(f"{self.models_subfolder_path}/{model_name}/{model_name}_variables.txt", "r") as file:
                variables = [line.rstrip() for line in file]
                
-            with open(f"turbine_design/Models/{model_name}/{model_name}_output_variable.txt", "r") as file:
+            with open(f"{self.models_subfolder_path}/{model_name}/{model_name}_output_variable.txt", "r") as file:
                self.output_key = [line.rstrip() for line in file][0]
 
             self.variables = variables
             self.fit_dimensions = len(self.variables)
             
-            model = joblib.load(f'turbine_design/Models/{model_name}/{model_name}.joblib')
+            model = joblib.load(f'{self.models_subfolder_path}/{model_name}/{model_name}.joblib')
             
             self.input_array_train = pd.DataFrame(data=model.X_train_,
                                                   columns=sorted(self.variables))
             
-            self.output_array_train = model.y_train_
+            self.output_array_train = pd.DataFrame(data=model.y_train_,
+                                                  columns=[self.output_key])
             
             if limit_dict=='auto':
                self.limit_dict = {}
@@ -204,7 +208,7 @@ class turbine_GPR:
            noise_bounds=[1e-20,1e-3],
            nu='optimise',
            limit_dict='auto',
-           overwrite=False,
+           save=False,
            model_name=None
            ):
       """_summary_
@@ -219,7 +223,7 @@ class turbine_GPR:
           noise_bounds (list, optional): _description_. Defaults to [1e-20,1e-3].
           nu (str, optional): _description_. Defaults to 'optimise'.
           limit_dict (str, optional): _description_. Defaults to 'auto'.
-          overwrite (bool, optional): _description_. Defaults to False.
+          save (bool, optional): _description_. Defaults to False.
       """
       
       if not isinstance(training_dataframe,pd.DataFrame):
@@ -252,8 +256,8 @@ class turbine_GPR:
       elif (limit_dict!='auto') and (not isinstance(limit_dict,dict)):
          sys.exit("limit_dict must be 'auto' or a dictionary")
       
-      elif not isinstance(overwrite,bool):
-         sys.exit('overwrite must be True or False')
+      elif not isinstance(save,bool):
+         sys.exit('save must be True or False')
       
       elif not all([(isinstance(item, int) or isinstance(item,float)) for item in length_bounds]) or (len(length_bounds)!=2):
          sys.exit('length_bounds must be of length 2 and contain only positive numbers')
@@ -334,23 +338,24 @@ class turbine_GPR:
       self.min_train_output = np.min([self.output_array_train])
       self.max_train_output = np.max([self.output_array_train])
       
-      if overwrite==True:
+      if save==True:
+
          model_variables = variables.copy()
          
          if model_name==None:
             model_variables_text_list = '_'.join(model_variables)
             model_name = f'{self.output_key}_model_{model_variables_text_list}'
          try:
-            os.makedirs(f'./turbine_design/Models/{model_name}')
+            os.makedirs(f"{self.models_subfolder_path}/{model_name}")
          except FileExistsError:
             pass
-         joblib.dump(self.fitted_function,f'turbine_design/Models/{model_name}/{model_name}.joblib')
+         joblib.dump(self.fitted_function,f"{self.models_subfolder_path}/{model_name}/{model_name}.joblib")
 
          text_model_variables = [str(item)+'\n' for item in model_variables]
 
-         with open(f"turbine_design/Models/{model_name}/{model_name}_variables.txt", "w") as file:
+         with open(f"{self.models_subfolder_path}/{model_name}/{model_name}_variables.txt", "w") as file:
             file.writelines(text_model_variables)
-         with open(f"turbine_design/Models/{model_name}/{model_name}_output_variable.txt", "w") as file:
+         with open(f"{self.models_subfolder_path}/{model_name}/{model_name}_output_variable.txt", "w") as file:
             file.writelines(self.output_key)
 
    def predict(self,
@@ -560,15 +565,12 @@ class turbine_GPR:
       color_limits = np.array([self.min_train_output,
                       np.mean([self.min_train_output,self.max_train_output]),
                       self.max_train_output])
+      # color_limits = np.array([0.05,0.07,0.09])
 
       if self.output_key in ['eta']:
          cmap_colors = ["red","orange","green"]
-         # show_max=True
-         # show_min=False
       elif self.output_key in ['eta_lost','Yp_stator','Yp_rotor']:
          cmap_colors = ["green","orange","red"]
-         # show_min=True
-         # show_max=False
       else:
          cmap_colors = ["blue","purple","orange"]
       contour_textlabel = to_latex(self.output_key)
@@ -626,12 +628,6 @@ class turbine_GPR:
                constant_value[constant_key] = constants[constant_key]
                
       for constant_key in constants_check:
-         # if constant_key in ['phi','psi','Lambda']:
-         #    plot_title += '\\' + f'{constant_key} = {constant_value[constant_key]:.3f}'
-         #    plot_title += '\; '*title_variable_spacing
-         # else:
-         #    plot_title += f'{constant_key} = {constant_value[constant_key]:.3f}'
-         #    plot_title += '\; '*title_variable_spacing
          plot_title += f'{to_latex(constant_key)} = {constant_value[constant_key]:.3f}'
          plot_title += ' '*title_variable_spacing
       
@@ -672,12 +668,12 @@ class turbine_GPR:
 
          if show_max == True:
             max_i = np.squeeze(self.max_output_indices)
-            axis.text(plot_dataframe[plot_key1][max_i], self.mean_prediction[max_i], f'{self.max_output:.2f}', size=12, color='darkblue')
+            axis.text(plot_dataframe[plot_key1][max_i], self.mean_prediction[max_i], f'{self.max_output:.3g}', size=12, color='darkblue')
             axis.scatter(plot_dataframe[plot_key1][max_i], self.mean_prediction[max_i],marker='x',color='darkblue')
 
          if show_min == True:
             min_i = np.squeeze(self.min_output_indices)
-            axis.text(plot_dataframe[plot_key1][min_i], self.mean_prediction[min_i], f'{self.min_output:.2f}', size=12, color='darkblue')
+            axis.text(plot_dataframe[plot_key1][min_i], self.mean_prediction[min_i], f'{self.min_output:.3g}', size=12, color='darkblue')
             axis.scatter(plot_dataframe[plot_key1][min_i], self.mean_prediction[min_i],marker='x',color='darkblue')
 
          if plot_actual_data==True:
@@ -690,7 +686,7 @@ class turbine_GPR:
                                                      y=actual_data_df[self.output_key],
                                                      deg=poly_degree)
 
-            fit_function = np.polynomial.polynomial.Polynomial(coefs)    # instead of np.poly1d
+            fit_function = np.polynomial.polynomial.Polynomial(coefs)    
 
             x_actual_fit = np.linspace(np.min(actual_data_df[plot_key1]),np.max(actual_data_df[plot_key1]),50)
             y_actual_fit = fit_function(x_actual_fit)
@@ -742,15 +738,9 @@ class turbine_GPR:
             leg.set_draggable(state=True)
          
          if plotting_grid_value[0] == (grid_height-1):
-            # if plot_key1 in ['phi','psi','Lambda']:
-            #    xlabel_string = '\\'+plot_key1
-            #    axis.set_xlabel(fr"$ {xlabel_string} $")
-            # else:
-            #    axis.set_xlabel(fr"${plot_key1}$")
             axis.set_xlabel(to_latex(plot_key1))
                
          if plotting_grid_value[1] == 0:
-            # axis.set_ylabel(self.output_key)
             axis.set_ylabel(to_latex(self.output_key))
 
          axis.grid(linestyle = '--', linewidth = 0.5)
@@ -803,26 +793,37 @@ class turbine_GPR:
             
          h1,_ = predicted_plot.legend_elements()
          
+         confidence_label = fr"{self.CI_percent}% confidence interval"
+         
          if plotting_grid_value==[0,0]:
             
             if plot_training_points == True:
                if contour_type == 'line':
-                  handles = [h1[0], h2[0], training_points_plot]
-                  labels = [contour_textlabel + ' Mean prediction',
-                           fr"{self.CI_percent}% confidence interval",
-                           'Training data points']
+                  if CI_percent==0:
+                     handles = [h1[0], training_points_plot]
+                     labels = [contour_textlabel + ' mean prediction',
+                              'Training data points']
+                  else:
+                     handles = [h1[0], h2[0], training_points_plot]
+                     labels = [contour_textlabel + ' mean prediction',
+                              confidence_label,
+                              'Training data points']
                else:
                   handles = [h1[0], training_points_plot]
-                  labels = [contour_textlabel + ' Mean prediction',
+                  labels = [contour_textlabel + ' mean prediction',
                             'Training data points']
             else:
                if contour_type == 'line':
-                  handles = [h1[0], h2[0]]
-                  labels = [contour_textlabel + ' Mean prediction',
-                           fr"{self.CI_percent}% confidence interval"]
+                  if CI_percent==0:
+                     handles = [h1[0]]
+                     labels = [contour_textlabel + ' mean prediction']
+                  else:
+                     handles = [h1[0], h2[0]]
+                     labels = [contour_textlabel + ' mean prediction',
+                              confidence_label]
                else:
                   handles = [h1[0]]
-                  labels = [contour_textlabel + ' Mean prediction']
+                  labels = [contour_textlabel + ' mean prediction']
                   
             if legend_outside == True:
                leg = axis.legend(handles=handles,
@@ -840,19 +841,9 @@ class turbine_GPR:
             leg.set_draggable(state=True)
          
          if plotting_grid_value[0] == (grid_height-1):
-            # if plot_key1 in ['phi','psi','Lambda']:
-            #    xlabel_string1 = '\\'+plot_key1
-            #    axis.set_xlabel(fr"$ {xlabel_string1} $")
-            # else:
-            #    axis.set_xlabel(f"${plot_key1}$")
             axis.set_xlabel(to_latex(plot_key1))
          
          if plotting_grid_value[1] == 0:
-            # if plot_key2 in ['phi','psi','Lambda']:
-            #    xlabel_string2 = '\\'+plot_key2
-            #    axis.set_ylabel(fr"$ {xlabel_string2} $")
-            # else:
-            #    axis.set_ylabel(f"${plot_key2}$")
             axis.set_ylabel(to_latex(plot_key2))
          
          axis.set_xlim(limit_dict[plot_key1][0],
@@ -868,7 +859,6 @@ class turbine_GPR:
          sys.exit('Somehow wrong number of dimensions')
       
       if self.fit_dimensions>2:
-         # axis.set_title(fr'$ {plot_title} $',size=10)
          axis.set_title(plot_title,size=10)
       
       if plot_now == True:
@@ -1012,7 +1002,8 @@ class turbine_GPR:
             plot_actual_data=False,
             plot_actual_data_filter_factor=5,
             show_actual_with_model=True,
-            optimum_plot=False
+            optimum_plot=False,
+            show=True
             ):
       """_summary_
 
@@ -1109,8 +1100,6 @@ class turbine_GPR:
                               num_points=num_points,
                               axis=axis,
                               plotting_grid_value=[i,j],
-                              grid_height=num_rows,
-                              plot_actual_data=plot_actual_data,
                               legend_outside=legend_outside)
          else:
             
@@ -1152,32 +1141,19 @@ class turbine_GPR:
       if (num_columns>1) or (num_rows>1):
          if with_arrows==True:
             if num_columns >1:
-               if grid_keys[1] in ['phi','psi','Lambda']:
-                  xlabel_string1 = '\\'+grid_keys[1]+' \\rightarrow'
-                  fig.supxlabel(fr"$ {xlabel_string1} $")
-               else:
-                  fig.supxlabel(f"$ {grid_keys[1]} \\rightarrow $")
+               fig.supxlabel(to_latex(grid_keys[1]) +" $\\rightarrow $")
             if num_rows >1:
-               if grid_keys[0] in ['phi','psi','Lambda']:
-                  xlabel_string2 = '\\leftarrow \\'+grid_keys[0]
-                  fig.supylabel(fr"$ {xlabel_string2} $")
-               else:
-                  fig.supylabel(f"$\\leftarrow {grid_keys[0]} $")
+               fig.supylabel(to_latex(grid_keys[0]) +" $\\rightarrow $")
          else:
             if num_columns >1:
-               if grid_keys[1] in ['phi','psi','Lambda']:
-                  xlabel_string1 = '\\'+grid_keys[1]
-                  fig.supxlabel(fr"$ {xlabel_string1} $")
-               else:
-                  fig.supxlabel(f"${grid_keys[1]} $")
-            if num_rows >1:   
-               if grid_keys[0] in ['phi','psi','Lambda']:
-                  xlabel_string2 = '\\'+grid_keys[0]
-                  fig.supylabel(fr"$ {xlabel_string2} $")
-               else:
-                  fig.supylabel(f"${grid_keys[0]} $")
+               fig.supxlabel(to_latex(grid_keys[1]))
+            if num_rows >1:
+               fig.supylabel(to_latex(grid_keys[0]))
 
-      plt.show()
+      if show==True:
+         plt.show()
+      else:
+         return fig,axes
       
    def matern_kernel(self,
                      N,
@@ -1207,7 +1183,7 @@ class turbine_GPR:
                     vary_var,
                     constants,
                     limit_dict=None,
-                    plot_actual_data_filter_factor=15,
+                    plot_actual_data_filter_factor=5,
                     title_variable_spacing=3,
                     num_points=50,
                     axis=None,
@@ -1228,7 +1204,6 @@ class turbine_GPR:
           legend_outside (bool, optional): _description_. Defaults to False.
       """
       
-      
       if axis == None:
          fig,axis = plt.subplots(1,1,sharex=True,sharey=True)
          plot_now = True
@@ -1241,11 +1216,16 @@ class turbine_GPR:
       constants_check=self.variables.copy()
       constants_check.remove(vary_var) 
       constants_check.remove(opt_var) 
+      
       plot_title = ''
+      
       # filter by factor% error
       lower_factor = 1 - plot_actual_data_filter_factor/100
       upper_factor = 1 + plot_actual_data_filter_factor/100
-      actual_data_df_datum = pd.concat([self.input_array_train.copy(),self.output_array_train.copy()],axis=1)
+      
+      input_data_copy = self.input_array_train.copy()
+      output_data_copy = self.output_array_train.copy()
+      actual_data_df_datum = pd.concat([input_data_copy,output_data_copy],axis=1)
       
       vary_var_values = np.linspace(np.min(actual_data_df_datum[vary_var]),np.max(actual_data_df_datum[vary_var]),num_points)
       opt_values = np.zeros(num_points)
@@ -1276,12 +1256,9 @@ class turbine_GPR:
 
          actual_data_df_datum = actual_data_df_datum[actual_data_df_datum[constant_key] < upper_factor*val]
          actual_data_df_datum = actual_data_df_datum[actual_data_df_datum[constant_key] > lower_factor*val]
-         if constant_key in ['phi','psi','Lambda']:
-            plot_title += '\\' + f'{constant_key} = {constant_value[constant_key]:.3f}'
-            plot_title += '\; '*title_variable_spacing
-         else:
-            plot_title += f'{constant_key} = {constant_value[constant_key]:.3f}'
-            plot_title += '\; '*title_variable_spacing
+         
+         plot_title += f'{to_latex(constant_key)} = {constant_value[constant_key]:.3f}'
+         plot_title += ' '*title_variable_spacing
             
       for i,vary_var_val in enumerate(vary_var_values):
          
@@ -1326,9 +1303,9 @@ class turbine_GPR:
                 opt_values_GPR,
                 color='darkblue',
                 label='GPR model')
-      axis.set_xlabel(vary_var)
-      axis.set_ylabel('$'+opt_var+r'_{\mathrm{optimum}}$')
-      axis.set_title(fr'$ {plot_title} $',size=10)
+      axis.set_xlabel(to_latex(vary_var))
+      axis.set_ylabel(to_latex(opt_var)+ '$_{\\mathrm{optimum}} $')
+      
       if plotting_grid_value==[0,0]:
          if legend_outside == True:
             leg = axis.legend(loc='upper left',
@@ -1350,6 +1327,9 @@ class turbine_GPR:
       #             label=r'Polynomial curve from actual data',
       #             color='orange',
       #             zorder=1e3)
+      
+      if self.fit_dimensions>2:
+         axis.set_title(plot_title,size=10)
       
       if plot_now == True:
          fig.tight_layout()
@@ -1384,6 +1364,8 @@ class turbine:
       else:
          sys.exit('Incorrect input types')
          
+      self.package_path = pkg_resources.resource_filename('turbine_design','')
+         
       self.htr = 0.9
       self.AR = [1.6,1.6]
       
@@ -1409,6 +1391,8 @@ class turbine:
       self.Po1 = 1600000.0
       self.Omega = 314.159
       self.Re = 2e6
+      
+      self.get_nondim()
 
    def get_Al(self):
       """_summary_
@@ -1791,17 +1775,15 @@ class turbine:
 
       return np.degrees(np.arctan(np.tan(np.radians(Al_blade)) / r_rm - r_rm / self.phi))
 
-   def dim_from_omega(self, Omega, To1, Po1):
-      """Scale a mean-line design and evaluate geometry from omega.
+   def get_dimensional(self,To1,Po1,Omega=None,mdot=None):
+      """_summary_
 
       Args:
-          Omega (_type_): _description_
           To1 (_type_): _description_
           Po1 (_type_): _description_
+          Omega (_type_, optional): _description_. Defaults to None.
+          mdot (_type_, optional): _description_. Defaults to None.
       """
-
-      
-      self.get_nondim()
       
       self.P = self.P_Po1 * Po1
       self.Po = self.Po_Po1 * Po1
@@ -1810,24 +1792,44 @@ class turbine:
       self.To = self.To_To1 * To1
 
       cpTo1 = self.cp * To1
-      U = self.U_sqrtcpTo1 * np.sqrt(cpTo1)
-      rm = U / Omega
-      
-      self.V = self.V_U*U
-      self.Vt = self.Vt_U*U
-      self.Vtrel = self.Vtrel_U*U
-      self.Vrel = self.Vrel_U*U
-
-      # Use hub-to-tip ratio to set span (mdot will therefore float)
-      Dr_rm = 2.0 * (1.0 - self.htr) / (1.0 + self.htr)
-
-      Dr = rm * Dr_rm * np.array(self.Ax_Ax1) / self.Ax_Ax1[1]
-
       Q1 = compflow.mcpTo_APo_from_Ma(self.Ma[0], self.ga)
+      
+      if Omega==None and mdot!=None:
+         Ax1 = np.sqrt(cpTo1) * mdot1 / (Q1 * Po1 * np.cos(np.radians(self.Al[0])))
+         Dr_rm = 2.0 * (1.0 - self.htr) / (1.0 + self.htr)
+         
+         rm = np.sqrt(Ax1 * self.Ax_Ax1[1] / (2.0 * np.pi * Dr_rm * self.Ax_Ax1[0])) 
+         
+         U = self.U_sqrtcpTo1 * np.sqrt(cpTo1)
+         Omega = U / rm
+         
+         self.V = self.V_U*U
+         self.Vt = self.Vt_U*U
+         self.Vtrel = self.Vtrel_U*U
+         self.Vrel = self.Vrel_U*U
 
-      Ax1 = 2.0 * np.pi * rm * Dr[0]
-      mdot1 = Q1 * Po1 * Ax1 * np.cos(np.radians(self.Al[0])) / np.sqrt(cpTo1)
+         Dr = rm * Dr_rm * np.array(self.Ax_Ax1) / self.Ax_Ax1[1]
+      
+      elif Omega!=None and mdot==None:
+         U = self.U_sqrtcpTo1 * np.sqrt(cpTo1)
+         rm = U / Omega
+         
+         self.V = self.V_U*U
+         self.Vt = self.Vt_U*U
+         self.Vtrel = self.Vtrel_U*U
+         self.Vrel = self.Vrel_U*U
 
+         # Use hub-to-tip ratio to set span (mdot will therefore float)
+         Dr_rm = 2.0 * (1.0 - self.htr) / (1.0 + self.htr)
+
+         Dr = rm * Dr_rm * np.array(self.Ax_Ax1) / self.Ax_Ax1[1]
+
+         Ax1 = 2.0 * np.pi * rm * Dr[0]
+         mdot1 = Q1 * Po1 * Ax1 * np.cos(np.radians(self.Al[0])) / np.sqrt(cpTo1)
+      
+      else:
+         sys.exit('must specify either mdot or Omega, but not both')
+      
       # Chord from aspect ratio
       span = np.array([np.mean(Dr[i : (i + 2)]) for i in range(2)])
       cx = span / self.AR
@@ -1846,71 +1848,6 @@ class turbine:
       self.chord_x = cx
       self.pitch_stator = s_cx[0]*cx[0]
       self.pitch_rotor = s_cx[1]*cx[1]
-      
-      self.num_blades_stator = 2*np.pi*rm/self.pitch_stator
-      self.num_blades_rotor = 2*np.pi*rm/self.pitch_rotor
-      
-      self.Omega = Omega
-      self.Po1 = Po1
-      self.To1 = To1
-      
-      self.chi = np.stack((self.free_vortex_vane(self.rh,self.rc,self.rm),
-                           self.free_vortex_blade(self.rh,self.rc,self.rm)
-                           ))
-
-   def dim_from_mdot(self, mdot1, To1, Po1):
-      """Scale a mean-line design and evaluate geometry from mdot.
-
-      Args:
-          mdot1 (_type_): _description_
-          To1 (_type_): _description_
-          Po1 (_type_): _description_
-      """
-      
-      self.get_nondim()
-      
-      self.P = self.P_Po1 * Po1
-      self.Po = self.Po_Po1 * Po1
-      self.Porel = self.Porel_Po1 * Po1
-      self.T = self.T_To1 * To1
-      self.To = self.To_To1 * To1
-
-      cpTo1 = self.cp * To1
-      Q1 = compflow.mcpTo_APo_from_Ma(self.Ma[0], self.ga)
-      
-      Ax1 = np.sqrt(cpTo1) * mdot1 / (Q1 * Po1 * np.cos(np.radians(self.Al[0])))
-      Dr_rm = 2.0 * (1.0 - self.htr) / (1.0 + self.htr)
-      
-      rm = np.sqrt(Ax1 * self.Ax_Ax1[1] / (2.0 * np.pi * Dr_rm * self.Ax_Ax1[0])) 
-      
-      U = self.U_sqrtcpTo1 * np.sqrt(cpTo1)
-      Omega = U / rm
-      
-      self.V = self.V_U*U
-      self.Vt = self.Vt_U*U
-      self.Vtrel = self.Vtrel_U*U
-      self.Vrel = self.Vrel_U*U
-
-      Dr = rm * Dr_rm * np.array(self.Ax_Ax1) / self.Ax_Ax1[1]
-
-      # Chord from aspect ratio
-      span = np.array([np.mean(Dr[i : (i + 2)]) for i in range(2)])
-      cx = span / self.AR
-      
-      s_cx = self.get_s_cx()
-      
-      self.rm = rm
-      self.U = U
-      self.Dr = Dr
-      self.rh = rm - Dr / 2.0
-      self.rc = rm + Dr / 2.0
-      self.Ax1 = Ax1
-      self.mdot1 = mdot1
-      
-      self.span = span
-      self.chord_x = cx
-      self.pitch_stator = s_cx[0]*cx
-      self.pitch_rotor = s_cx[1]*cx
       
       self.num_blades_stator = 2*np.pi*rm/self.pitch_stator
       self.num_blades_rotor = 2*np.pi*rm/self.pitch_rotor
@@ -2019,8 +1956,10 @@ class turbine:
                               "lean": float(self.lean_rotor)
                               }
                         }
+      
+      turbine_json_subfolder_path = '/'.join((self.package_path, 'turbine_json'))
 
-      with open('turbine_design/turbine_json/datum.json') as f:
+      with open(f'{turbine_json_subfolder_path}/datum.json') as f:
          turbine_json = json.load(f)
 
       turbine_json["mean-line"] = mean_line
@@ -2029,24 +1968,20 @@ class turbine:
       turbine_json['sect_row_0'] = sect_row_0
       turbine_json['sect_row_1'] = sect_row_1
       
-      with open('turbine_design/turbine_json/turbine_params.json', 'w') as f:
+      with open(f'{turbine_json_subfolder_path}/turbine_params.json', 'w') as f:
          json.dump(turbine_json,
                      f, 
                      indent=4)
      
-   def get_blade_2D(self,
-                    span_percent=50,
-                    Omega=None,
-                    To1=None,
-                    Po1=None):
-      """_summary_
+   def get_blade(self,
+                 dimensions=2,
+                 span_percent=50,
+                 stack=True,
+                 stack_ratios=[2,3],
+                 Omega=None,
+                 To1=None,
+                 Po1=None):
 
-      Args:
-          span_percent (int, optional): _description_. Defaults to 50.
-          Omega (_type_, optional): _description_. Defaults to None.
-          To1 (_type_, optional): _description_. Defaults to None.
-          Po1 (_type_, optional): _description_. Defaults to None.
-      """
       
       self.get_non_dim_geometry(Omega=Omega,
                                 To1=To1,
@@ -2054,137 +1989,154 @@ class turbine:
       
       nb, h, c, ps, ss = get_coordinates()  
       
-      # Plot x_rt and x_r 2D plots
-      jmid = int(span_percent/100*len(ps[0]))
-
-      fig1, ax1 = plt.subplots()
-      for irow in range(2):
-         tex = [0,0]
-         tert = [0,0]
-         for i,side in enumerate([ps, ss]):
-            sectmid = side[irow][jmid]
-            x, r, t = sectmid.T
-            rt = r*t
-            ax1.plot(x, rt, '-b')
-            tex[i] = x[-1]
-            tert[i] = rt[-1]
-         ax1.plot(tex,tert,'-b')
-
-      ax1.axis('equal')
-      plt.savefig('turbine_design/Blade_shapes/blades_x_rt.pdf')
+      blades_subfolder_path = '/'.join((self.package_path, 'Blade_shapes'))
       
-      fig2, ax2 = plt.subplots()
-      ax2.plot(h[:,0],h[:,1],'-b')
-      ax2.plot(c[:,0],c[:,1],'-b')
-      for irow in range(2):
-         xle = []
-         rle = []
-         xte = []
-         rte = []
-         for j in range(len(ps[0])):
-            sect = ps[irow][j]
-            x, r, t = sect.T
-            xle.append(x[0])
-            rle.append(r[0])
-            xte.append(x[-1])
-            rte.append(r[-1])
+      if dimensions in [2,'2D','2d',2.0,'two']:
+         # Plot x_rt and x_r 2D plots
+         jmid = int(span_percent/100*len(ps[0]))
          
-         ax2.plot(xle,rle,'-b')
-         ax2.plot(xte,rte,'-b')
-         ax2.plot([xle[0],xte[-1]],
-                  [rle[0],rte[-1]],
-                  '--b')
-         ax2.plot([xle[-1],xte[0]],
-                  [rle[-1],rte[0]],
-                  '--b')
-
-
-      ax2.axis('equal')
-      plt.savefig('turbine_design/Blade_shapes/blades_x_r.pdf')
-      
-   def get_blade_3D(self,
-                    Omega=None,
-                    To1=None,
-                    Po1=None):
-      """_summary_
-
-      Args:
-          Omega (_type_, optional): _description_. Defaults to None.
-          To1 (_type_, optional): _description_. Defaults to None.
-          Po1 (_type_, optional): _description_. Defaults to None.
-      """
-      
-      self.get_non_dim_geometry(Omega=Omega,
-                                To1=To1,
-                                Po1=Po1)
-      
-      nb, h, c, ps, ss = get_coordinates()
-      
-      for irow in [0,1]:
-         vertices = np.array([]).reshape(0,3)
-         faces = np.array([],dtype=np.int64).reshape(0,3)
-         ri_len = len(ps[irow])
-         for ri in range(ri_len):
-               
-            sect_ps = ps[irow][ri]
-            x_ps, r_ps, t_ps = sect_ps.T
-            rt_ps = r_ps*t_ps
-            sect_ss = ss[irow][ri]
-            x_ss, r_ss, t_ss = sect_ss.T
-            rt_ss = r_ss*t_ss
-            x = np.concatenate((x_ps, np.flip(x_ss)), axis=None)
-            rt = np.concatenate((rt_ps, np.flip(rt_ss)), axis=None)
-            r = np.concatenate((r_ps, np.flip(r_ss)), axis=None)
-            vertices_i = np.column_stack((x,rt,r))
-            vertices = np.vstack([vertices,vertices_i])
-            n = len(x)
+         if stack==True:
+            fig, (ax2,ax1) = plt.subplots(2,1,
+                                          sharex=True,
+                                          height_ratios=stack_ratios)
+            fig.set_figwidth(4)
+            fig.set_figheight(6)
+         else:
+            fig1, ax1 = plt.subplots()
+            fig2, ax2 = plt.subplots()
             
-            if ri==0:
-               # THIS SECTION IS CORRECT!! DO NOT CHANGE
-               faces_i = [0]*(n-1)
-               for i in range(n-1):    
-                     faces_i[i] = [int(i+1),
-                                 int(n-1-i),
-                                 int(i)]
-
-               faces_i = np.array(faces_i,dtype=np.int64)
-               faces = np.vstack([faces,faces_i])
+         for irow in range(2):
+            tex = [0,0]
+            tert = [0,0]
+            for i,side in enumerate([ps, ss]):
+               sectmid = side[irow][jmid]
+               x, r, t = sectmid.T
+               rt = r*t
+               ax1.plot(x, rt, '-b')
+               tex[i] = x[-1]
+               tert[i] = rt[-1]
+            ax1.plot(tex,tert,'-b')
+                    
+         ax1.set_xlabel('$x$')
+         ax1.set_ylabel('$r\\theta$')
+         
+         ax2.plot(h[:,0],h[:,1],'-b')
+         ax2.plot(c[:,0],c[:,1],'-b')
+         for irow in range(2):
+            xle = []
+            rle = []
+            xte = []
+            rte = []
+            for j in range(len(ps[0])):
+               sect = ps[irow][j]
+               x, r, t = sect.T
+               xle.append(x[0])
+               rle.append(r[0])
+               xte.append(x[-1])
+               rte.append(r[-1])
+            
+            ax2.plot(xle,rle,'-b')
+            ax2.plot(xte,rte,'-b')
+            ax2.plot([xle[0],xte[-1]],
+                     [rle[0],rte[-1]],
+                     '--b')
+            ax2.plot([xle[-1],xte[0]],
+                     [rle[-1],rte[0]],
+                     '--b')
+         
+         ax2.set_ylabel('$r$')
+         
+         ax1.axis('equal')
+         ax2.axis('equal')
+         
+         
+         
+         if stack==True:
+            fig.tight_layout()
+            plt.show()
+            fig.savefig(f'{blades_subfolder_path}/blades.pdf')
+         else:
+            fig1.tight_layout()
+            fig2.tight_layout()
+            fig1.savefig(f'{blades_subfolder_path}/blades_x_rt.pdf')
+            fig2.savefig(f'{blades_subfolder_path}/blades_x_r.pdf')
+         
+         
+      elif dimensions in [3,'3D','3d',3.0,'three']:
+         
+         for irow in [0,1]:
+            vertices = np.array([]).reshape(0,3)
+            faces = np.array([],dtype=np.int64).reshape(0,3)
+            ri_len = len(ps[irow])
+            
+            for ri in range(ri_len):
+                  
+               sect_ps = ps[irow][ri]
+               x_ps, r_ps, t_ps = sect_ps.T
+               rt_ps = r_ps*t_ps
+               sect_ss = ss[irow][ri]
+               x_ss, r_ss, t_ss = sect_ss.T
+               rt_ss = r_ss*t_ss
+               x = np.concatenate((x_ps, np.flip(x_ss)), axis=None)
+               rt = np.concatenate((rt_ps, np.flip(rt_ss)), axis=None)
+               r = np.concatenate((r_ps, np.flip(r_ss)), axis=None)
+               vertices_i = np.column_stack((x,rt,r))
+               vertices = np.vstack([vertices,vertices_i])
+               n = len(x)
                
-            elif ri==ri_len-1:
-               # THIS SECTION IS CORRECT!! DO NOT CHANGE
-               faces_i = [0]*(n-1)
-               for i in range(n*ri,n*(ri+1)-1):    
-                     faces_i[i-n*ri] = [int(i+1),
-                                       int(n*ri-1-i),
-                                       int(i)]
+               if ri==0:
+                  # THIS SECTION IS CORRECT!! DO NOT CHANGE
+                  faces_i = [0]*(n-1)
+                  for i in range(n-1):    
+                        faces_i[i] = [int(i+1),
+                                    int(n-1-i),
+                                    int(i)]
 
-               faces_i = np.array(faces_i,dtype=np.int64)
-               faces = np.vstack([faces,faces_i])
-               
-            else:
-               # THIS SECTION IS CORRECT!! DO NOT CHANGE
-               faces_i = [0]*(n-1)*2
-               for i in range(n*ri,n*(ri+1)-1):    
-                     faces_i[i-n*ri] = [int(i),
-                                       int(i+1-n),
-                                       int(i+1)]
-                     faces_i[i-n*(ri-1)-1] = [int(i),
-                                             int(i-n),
-                                             int(i+1-n)]    
+                  faces_i = np.array(faces_i,dtype=np.int64)
+                  faces = np.vstack([faces,faces_i])
+                  
+               elif ri==ri_len-1:
+                  # THIS SECTION IS CORRECT!! DO NOT CHANGE
+                  faces_i = [0]*(n-1)
+                  for i in range(n*ri,n*(ri+1)-1):    
+                        faces_i[i-n*ri] = [int(i+1),
+                                          int(n*ri-1-i),
+                                          int(i)]
 
-               faces_i = np.array(faces_i,dtype=np.int64)
-               faces = np.vstack([faces,faces_i])
+                  faces_i = np.array(faces_i,dtype=np.int64)
+                  faces = np.vstack([faces,faces_i])
+                  
+               else:
+                  # THIS SECTION IS CORRECT!! DO NOT CHANGE
+                  faces_i = [0]*(n-1)*2
+                  for i in range(n*ri,n*(ri+1)-1):    
+                        faces_i[i-n*ri] = [int(i),
+                                          int(i+1-n),
+                                          int(i+1)]
+                        faces_i[i-n*(ri-1)-1] = [int(i),
+                                                int(i-n),
+                                                int(i+1-n)]    
 
-         # Create the mesh
-         turbine_blade = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
-         for i, f in enumerate(faces):
-            for j in range(3):
-               turbine_blade.vectors[i][j] = vertices[f[j],:]
+                  faces_i = np.array(faces_i,dtype=np.int64)
+                  faces = np.vstack([faces,faces_i])
 
-         # Write the mesh to file "cube.stl"
-         if irow == 0:
-            blade='stator'
-         elif irow == 1:
-            blade='rotor'
+            # Create the mesh
+            turbine_blade = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
+            for i, f in enumerate(faces):
+               for j in range(3):
+                  turbine_blade.vectors[i][j] = vertices[f[j],:]
 
-         turbine_blade.save(f'turbine_design/Blade_shapes/turbine_{blade}_blade.stl')
+            # Write the mesh to file "cube.stl"
+            if irow == 0:
+               blade='stator'
+            elif irow == 1:
+               blade='rotor'
+
+            turbine_blade.save(f'{blades_subfolder_path}/turbine_{blade}_blade.stl')
+      
+      else:
+         sys.exit('dimensions must be 2 or 3')
+      
+   def draw_triangles(self):
+      
+      pass

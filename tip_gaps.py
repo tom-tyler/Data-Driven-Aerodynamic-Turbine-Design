@@ -3,18 +3,18 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
-factor=3
-df = tools.read_in_large_dataset('2D_tip_gap',state_retention_statistics=True,factor=factor)
-lower_factor = 1 - factor/100
-upper_factor = 1 + factor/100
-val=0.81
-df = df[df["phi"] < upper_factor*val]
-df = df[df["phi"] > lower_factor*val]
-val=1.78
-df = df[df["psi"] < upper_factor*val]
-df = df[df["psi"] > lower_factor*val]
-print(df.shape)
-np.mean(df['eta_lost'])
+# factor=3
+# df = tools.read_in_large_dataset('2D_tip_gap',state_retention_statistics=True,factor=factor)
+# lower_factor = 1 - factor/100
+# upper_factor = 1 + factor/100
+# val=0.81
+# df = df[df["phi"] < upper_factor*val]
+# df = df[df["phi"] > lower_factor*val]
+# val=1.78
+# df = df[df["psi"] < upper_factor*val]
+# df = df[df["psi"] > lower_factor*val]
+# print(df.shape)
+# np.mean(df['eta_lost'])
 
 #for psi=1.78,phi=0.65
 tau1=[0.0,0.035]
@@ -39,10 +39,10 @@ eta_3_opt = 100-eta_lost3_opt*100
 deta3_opt = eta_3_opt - eta_3_opt[0]
 
 #for psi=1.78,phi=0.81   #v2
-tau4=[0.0,0.005,0.02,0.035,0.05]
-eta_lost4=np.array([np.mean(df['eta_lost']),0.06496,0.08324,0.10248,0.11728])
-eta_4 = 100-eta_lost4*100
-deta4 = eta_4 - eta_4[0]
+# tau4=[0.0,0.005,0.02,0.035,0.05]
+# eta_lost4=np.array([np.mean(df['eta_lost']),0.06496,0.08324,0.10248,0.11728])
+# eta_4 = 100-eta_lost4*100
+# deta4 = eta_4 - eta_4[0]
 
 #for psi=1.78,phi=0.95
 tau5=[0.0,0.02,0.035,0.05]
@@ -66,7 +66,7 @@ eta_lost6_opt=np.array([0.054438,0.0635177437988126,0.080058863401812,0.09744813
 eta_6_opt = 100-eta_lost6_opt*100
 deta6_opt = eta_6_opt - eta_6_opt[0]
 
-plt.suptitle('Effect of tip gaps [$\\psi$=1.78, $C_0$=0.65, $M_2$=0.67, $\\Lambda$=0.50]')
+plt.suptitle('$\\psi$=1.78, $C_0$=0.65, $M_2$=0.67, $\\Lambda$=0.50')
 plt.plot(np.array(tau1)*100,deta1,label='$\\phi$=0.65',marker='x',color='seagreen')
 # plt.plot(tau4,deta4,label='$\\phi$=0.81',marker='x',color='royalblue')
 plt.plot(np.array(tau5)*100,deta5,label='$\\phi$=0.95',marker='x',color='darkviolet')
@@ -80,7 +80,7 @@ plt.ylim(top=0)
 plt.grid()
 plt.show()
 
-plt.suptitle('Effect of tip gaps [$\\phi$=0.81, $C_0$=0.65, $M_2$=0.67, $\\Lambda$=0.50]')
+plt.suptitle('$\\phi$=0.81, $C_0$=0.65, $M_2$=0.67, $\\Lambda$=0.50')
 plt.plot(np.array(tau3)*100,deta3,label='$\\psi$=1.20',marker='x',color='cornflowerblue')
 plt.plot(np.array(tau6)*100,deta6,label='$\\psi$=1.50',marker='x',color='darkorange')
 # plt.plot(tau4,deta4,label='$\\psi$=1.78',marker='x')
