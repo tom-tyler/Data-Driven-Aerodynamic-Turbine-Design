@@ -2,11 +2,7 @@ import os
 import pandas as pd
 import sys
 import pkg_resources
-# import pkgutil
-# import importlib.resources
 from pathlib import Path
-
-# from . import Data
 
 
 def read_in_data(dataset='4D',
