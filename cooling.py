@@ -1,20 +1,6 @@
-# from turbine_design.data_tools import read_in_data
 import matplotlib.pyplot as plt
-import pandas as pd
 import numpy as np
-
-# factor=3
-# df = read_in_data('2D_tip_gap',state_retention_statistics=True,factor=factor)
-# lower_factor = 1 - factor/100
-# upper_factor = 1 + factor/100
-# val=0.81
-# df = df[df["phi"] < upper_factor*val]
-# df = df[df["phi"] > lower_factor*val]
-# val=1.78
-# df = df[df["psi"] < upper_factor*val]
-# df = df[df["psi"] > lower_factor*val]
-# print(df.shape)
-# np.mean(df['eta_lost'])
+from scipy.optimize import curve_fit
 
 #for psi=1.78,phi=0.65
 fc1_opt=[0.0,0.015,0.030,0.045,0.060,0.075]
@@ -61,26 +47,66 @@ eta_lost6_opt=np.array([0.054438,
 eta_6_opt = 100-eta_lost6_opt*100
 deta6_opt = eta_6_opt - eta_6_opt[0]
 
+x1=np.array(fc1_opt)*100
+y1=deta1_opt
+
+def fit_func(x, a):
+    return a * x
+
+params = curve_fit(fit_func, x1, y1)
+[a1] = params[0]
+
+print(a1)
+
+x2 = np.array(fc5_opt)*100
+y2 = deta5_opt
+
+params = curve_fit(fit_func, x2, y2)
+[a2] = params[0]
+
+print(a2)
+plt.plot(x1, a1*x1,color='gray',label='Line of best fit')
+plt.plot(x2, a2*x2,color='gray')
 plt.suptitle('$\\psi$=1.78, $C_0$=0.65, $M_2$=0.67, $\\Lambda$=0.50')
-plt.plot(np.array(fc1_opt)*100,deta1_opt,label='$\\phi$=0.65',marker='x',linestyle='--',color='seagreen')
-plt.plot(np.array(fc5_opt)*100,deta5_opt,label='$\\phi$=0.95',marker='x',linestyle='--',color='darkviolet')
+plt.plot(x1,y1,label='$\\phi$=0.65',marker='x',linestyle='--',color='seagreen')
+plt.plot(x2,y2,label='$\\phi$=0.95',marker='x',linestyle='--',color='darkviolet')
 plt.ylabel('$\\Delta \\eta$ (%)')
 plt.xlabel('$f_{\\mathrm{c,stator}} $ (%)')
-plt.legend()
 plt.xlim(0)
 plt.ylim(top=0.1)
 plt.grid()
+
+plt.legend()
 plt.show()
 
+x1=np.array(fc3_opt)*100
+y1=deta3_opt
+
+params = curve_fit(fit_func, x1, y1)
+[a1] = params[0]
+
+print(a1)
+
+x2 = np.array(fc6_opt)*100
+y2 = deta6_opt
+
+params = curve_fit(fit_func, x2, y2)
+[a2] = params[0]
+
+print(a2)
+plt.plot(x1, a1*x1,color='gray',label='Line of best fit')
+plt.plot(x2, a2*x2,color='gray')
 plt.suptitle('$\\phi$=0.81, $C_0$=0.65, $M_2$=0.67, $\\Lambda$=0.50')
-plt.plot(np.array(fc3_opt)*100,deta3_opt,label='$\\psi$=1.20',marker='x',linestyle='--',color='cornflowerblue')
-plt.plot(np.array(fc6_opt)*100,deta6_opt,label='$\\psi$=1.50',marker='x',linestyle='--',color='darkorange')
+plt.plot(x1,y1,label='$\\psi$=1.20',marker='x',linestyle='--',color='cornflowerblue')
+plt.plot(x2,y2,label='$\\psi$=1.50',marker='x',linestyle='--',color='darkorange')
 plt.ylabel('$\\Delta \\eta$ (%)')
 plt.xlabel('$f_{\\mathrm{c,stator}} $ (%)')
-plt.legend()
 plt.xlim(0)
 plt.ylim(top=0)
 plt.grid()
+
+plt.legend()
 plt.show()
+
 
 

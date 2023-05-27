@@ -14,6 +14,11 @@ import json
 from .get_shape import get_coordinates
 from stl import mesh
 import pkg_resources
+from tkinter import filedialog
+import tkinter as tk
+
+import warnings
+warnings.filterwarnings("ignore")
 
 def to_latex(variable):
    if variable == "phi":
@@ -526,7 +531,8 @@ class turbine_GPR:
                  show_min=False,
                  plot_actual_data=False,
                  plot_actual_data_filter_factor=5,
-                 show_actual_with_model=True
+                 show_actual_with_model=True,
+                 fix_eta_lost_colors=False
                  ):
       """_summary_
 
@@ -565,7 +571,8 @@ class turbine_GPR:
       color_limits = np.array([self.min_train_output,
                       np.mean([self.min_train_output,self.max_train_output]),
                       self.max_train_output])
-      # color_limits = np.array([0.05,0.07,0.09])
+      if fix_eta_lost_colors==True:
+         color_limits = np.array([0.05,0.07,0.09])
 
       if self.output_key in ['eta']:
          cmap_colors = ["red","orange","green"]
@@ -717,13 +724,20 @@ class turbine_GPR:
                               color='blue'
                               )
             
-            y_range = np.amax(self.upper) - np.amin(self.lower)
+            
             axis.set_xlim(limit_dict[plot_key1][0],
                         limit_dict[plot_key1][1],
                         auto=True)
-            axis.set_ylim(bottom=np.amin(self.lower)-0.1*y_range,
-                           top=np.amax(self.upper)+0.1*y_range,
-                           auto=True)
+            if CI_percent==0:
+               y_range = np.amax(self.mean_prediction) - np.amin(self.mean_prediction)
+               axis.set_ylim(bottom=np.amin(self.mean_prediction)-0.1*y_range,
+                              top=np.amax(self.mean_prediction)+0.1*y_range,
+                              auto=True)
+            else:
+               y_range = np.amax(self.upper) - np.amin(self.lower)
+               axis.set_ylim(bottom=np.amin(self.lower)-0.1*y_range,
+                              top=np.amax(self.upper)+0.1*y_range,
+                              auto=True)
             
          if plotting_grid_value==[0,0]:
             if legend_outside == True:
@@ -772,6 +786,39 @@ class turbine_GPR:
                                                 marker='x',
                                                 color='blue'
                                                 )
+         # num_size_marker=250
+         # blade_col = 'black'#'royalblue'
+         # blade_points_plot = axis.scatter(x=[0.6],
+         #                                        y=[1.3],
+         #                                        marker='$\\left( \\mathrm{c} \\right)$',
+         #                                        color=blade_col,#'crimson',
+         #                                        s=num_size_marker
+         #                                        )
+         
+         # blade_points_plot = axis.scatter(x=[1.0],
+         #                                        y=[1.3],
+         #                                        marker='$\\left( \\mathrm{d} \\right)$',
+         #                                        color=blade_col,#'cornflowerblue',
+         #                                        s=num_size_marker
+         #                                        )
+         # blade_points_plot = axis.scatter(x=[1.0],
+         #                                        y=[2.1],
+         #                                        marker='$\\left( \\mathrm{b} \\right)$',
+         #                                        color=blade_col,#'darkorange',
+         #                                        s=num_size_marker
+         #                                        )
+         # blade_points_plot = axis.scatter(x=[0.6],
+         #                                        y=[2.1],
+         #                                        marker='$\\left( \\mathrm{a} \\right)$',
+         #                                        color=blade_col,#'seagreen',
+         #                                        s=num_size_marker
+         #                                        )
+         # blade_points_plot = axis.scatter(x=[],
+         #                                        y=[],
+         #                                        marker='$\\left( \\; \\; \\right)$',
+         #                                        color=blade_col,
+         #                                        s=num_size_marker
+         #                                        )
          
          if contour_type=='line':
             predicted_plot = axis.contour(X1, X2, mean_prediction_grid,levels=contour_levels,cmap=output_cmap,norm=cmap_norm)
@@ -877,7 +924,8 @@ class turbine_GPR:
                      plot_errorbars=True,
                      score_variable='R2',
                      legend_outside=False,
-                     equal_axis=False
+                     equal_axis=False,
+                     show=True
                      ):
       """_summary_
 
@@ -979,7 +1027,10 @@ class turbine_GPR:
          fig.tight_layout()
          fig.set_figwidth(6.5)
          fig.set_figheight(4.5)
-         plt.show()
+         if show==True:
+            plt.show()
+         else:
+            return fig,ax
       
    def plot(self,
             x1=None,
@@ -1003,7 +1054,8 @@ class turbine_GPR:
             plot_actual_data_filter_factor=5,
             show_actual_with_model=True,
             optimum_plot=False,
-            show=True
+            show=True,
+            fix_eta_lost_colors=False
             ):
       """_summary_
 
@@ -1062,9 +1114,10 @@ class turbine_GPR:
                                sharey=True
                                )
       grid_counter=0
+      print(f'plot [{grid_counter}/{num_rows*num_columns}]')
       for indices, axis in np.ndenumerate(axes):
          grid_counter+=1
-         print(f'plot [{grid_counter}/{num_rows*num_columns}]')
+         
          
          if (num_columns == 1) and (num_rows > 1):
             i = np.squeeze(indices)
@@ -1081,7 +1134,7 @@ class turbine_GPR:
          
          for var in grid_constants:
             if (var in gridvars) and (grid_keys[0]==var):
-               constant_dict[var] = gridvars[var][i]
+               constant_dict[var] = gridvars[var][num_rows-1-i]
 
             elif (var in gridvars) and (grid_keys[1]==var):
                constant_dict[var] = gridvars[var][j]
@@ -1100,7 +1153,8 @@ class turbine_GPR:
                               num_points=num_points,
                               axis=axis,
                               plotting_grid_value=[i,j],
-                              legend_outside=legend_outside)
+                              legend_outside=legend_outside,
+                              grid_height=num_rows)
          else:
             
             self.plot_vars(x1=x1,
@@ -1122,21 +1176,35 @@ class turbine_GPR:
                            show_min=show_min,
                            plot_actual_data=plot_actual_data,
                            plot_actual_data_filter_factor=plot_actual_data_filter_factor,
-                           show_actual_with_model=show_actual_with_model
+                           show_actual_with_model=show_actual_with_model,
+                           fix_eta_lost_colors=fix_eta_lost_colors
                            )
             if grid_counter==1:
-               global_min = np.amin(self.lower)
-               global_max = np.amax(self.upper)
-            else:
-               if global_min > np.amin(self.lower):
+               if CI_percent==0:
+                  global_min = np.amin(self.mean_prediction)
+                  global_max = np.amax(self.mean_prediction)
+               else:
                   global_min = np.amin(self.lower)
-               if global_max < np.amax(self.upper):
                   global_max = np.amax(self.upper)
+            else:
+               if CI_percent==0:
+                  if global_min > np.amin(self.mean_prediction):
+                     global_min = np.amin(self.mean_prediction)
+                  if global_max < np.amax(self.mean_prediction):
+                     global_max = np.amax(self.mean_prediction)
+               else:
+                  if global_min > np.amin(self.lower):
+                     global_min = np.amin(self.lower)
+                  if global_max < np.amax(self.upper):
+                     global_max = np.amax(self.upper)
+                     
             if x1==None or x2==None:
                y_range = global_max - global_min
                axis.set_ylim(bottom=global_min-0.05*y_range,
                               top=global_max+0.05*y_range,
                               auto=True)
+               
+         print(f'plot [{grid_counter}/{num_rows*num_columns}]')
 
       if (num_columns>1) or (num_rows>1):
          if with_arrows==True:
@@ -1144,6 +1212,13 @@ class turbine_GPR:
                fig.supxlabel(to_latex(grid_keys[1]) +" $\\rightarrow $")
             if num_rows >1:
                fig.supylabel(to_latex(grid_keys[0]) +" $\\rightarrow $")
+         elif with_arrows=='custom':
+            fig.supxlabel('               '+to_latex(grid_keys[1])+'='+f'{gridvars[grid_keys[1]][0]:.1f}'+'                                    ' +
+                          to_latex(grid_keys[1])+'='+f'{gridvars[grid_keys[1]][1]:.1f}'+'                                    ' +
+                          to_latex(grid_keys[1])+'='+f'{gridvars[grid_keys[1]][2]:.1f}')
+            fig.supylabel('              '+to_latex(grid_keys[0])+'='+f'{gridvars[grid_keys[0]][0]:.1f}'+'               ' +
+                          to_latex(grid_keys[0])+'='+f'{gridvars[grid_keys[0]][1]:.1f}'+'               ' +
+                          to_latex(grid_keys[0])+'='+f'{gridvars[grid_keys[0]][2]:.1f}')
          else:
             if num_columns >1:
                fig.supxlabel(to_latex(grid_keys[1]))
@@ -1188,7 +1263,8 @@ class turbine_GPR:
                     num_points=50,
                     axis=None,
                     plotting_grid_value=[0,0],
-                    legend_outside = False):
+                    legend_outside = False,
+                    grid_height=1):
       """_summary_
 
       Args:
@@ -1219,19 +1295,39 @@ class turbine_GPR:
       
       plot_title = ''
       
-      # filter by factor% error
-      lower_factor = 1 - plot_actual_data_filter_factor/100
-      upper_factor = 1 + plot_actual_data_filter_factor/100
+      ## filter by factor% error
+      # lower_factor = 1 - plot_actual_data_filter_factor/100
+      # upper_factor = 1 + plot_actual_data_filter_factor/100
       
       input_data_copy = self.input_array_train.copy()
       output_data_copy = self.output_array_train.copy()
       actual_data_df_datum = pd.concat([input_data_copy,output_data_copy],axis=1)
       
-      vary_var_values = np.linspace(np.min(actual_data_df_datum[vary_var]),np.max(actual_data_df_datum[vary_var]),num_points)
-      opt_values = np.zeros(num_points)
+      # vary_range = np.max(actual_data_df_datum[vary_var]) - np.min(actual_data_df_datum[vary_var])
+      # opt_range = np.max(actual_data_df_datum[opt_var]) - np.min(actual_data_df_datum[opt_var])
+      
+      # vary_mean = np.mean(actual_data_df_datum[vary_var])
+      # opt_mean = np.mean(actual_data_df_datum[opt_var])
+      
+      extrapolation_border_vary = 10
+      extrapolation_border_opt = 0
+      
+      # vary_min = vary_mean - 0.5*(vary_range*extrapolation_border)
+      # vary_max = vary_mean + 0.5*(vary_range*extrapolation_border)
+      # opt_min = opt_mean - 0.5*(opt_range*extrapolation_border)
+      # opt_max = opt_mean + 0.5*(opt_range*extrapolation_border)
+      
+      vary_min = np.percentile(actual_data_df_datum[vary_var],extrapolation_border_vary)
+      vary_max = np.percentile(actual_data_df_datum[vary_var],100-extrapolation_border_vary)
+      opt_min = np.percentile(actual_data_df_datum[opt_var],extrapolation_border_opt)
+      opt_max = np.percentile(actual_data_df_datum[opt_var],100-extrapolation_border_opt)
+      
+      vary_var_values = np.linspace(vary_min,vary_max,num_points)
+      # opt_values = np.zeros(num_points)
       opt_values_GPR = np.zeros(num_points)
       plot_dataframe = pd.DataFrame({})
-      plot_dataframe[opt_var] = np.linspace(np.min(actual_data_df_datum[opt_var]),np.max(actual_data_df_datum[opt_var]),num_points)
+      # plot_dataframe[opt_var] = np.linspace(np.min(actual_data_df_datum[opt_var]),np.max(actual_data_df_datum[opt_var]),num_points)
+      plot_dataframe[opt_var] = np.linspace(opt_min,opt_max,num_points)
       
       constant_value = {}
       
@@ -1252,71 +1348,79 @@ class turbine_GPR:
                
       for constant_key in constants_check:
          plot_dataframe[constant_key] = constant_value[constant_key]*np.ones(num_points)
-         val = constant_value[constant_key]
+         # val = constant_value[constant_key]
 
-         actual_data_df_datum = actual_data_df_datum[actual_data_df_datum[constant_key] < upper_factor*val]
-         actual_data_df_datum = actual_data_df_datum[actual_data_df_datum[constant_key] > lower_factor*val]
+         # actual_data_df_datum = actual_data_df_datum[actual_data_df_datum[constant_key] < upper_factor*val]
+         # actual_data_df_datum = actual_data_df_datum[actual_data_df_datum[constant_key] > lower_factor*val]
          
          plot_title += f'{to_latex(constant_key)} = {constant_value[constant_key]:.3f}'
          plot_title += ' '*title_variable_spacing
             
       for i,vary_var_val in enumerate(vary_var_values):
          
-         actual_data_df = actual_data_df_datum.copy()
+         # actual_data_df = actual_data_df_datum.copy()
 
          # vary var
          plot_dataframe[vary_var] = vary_var_val*np.ones(num_points)
 
-         actual_data_df = actual_data_df[actual_data_df[vary_var] < upper_factor*vary_var_val]
-         actual_data_df = actual_data_df[actual_data_df[vary_var] > lower_factor*vary_var_val]
+         # actual_data_df = actual_data_df[actual_data_df[vary_var] < upper_factor*vary_var_val]
+         # actual_data_df = actual_data_df[actual_data_df[vary_var] > lower_factor*vary_var_val]
          
-         if actual_data_df.shape[0] >= 5:
+         # if actual_data_df.shape[0] >= 5:
 
-            poly_degree = 3
+         #    poly_degree = 3
                
-            coefs = np.polynomial.polynomial.polyfit(x=actual_data_df[opt_var],
-                                                      y=actual_data_df[self.output_key],
-                                                      deg=poly_degree)
+         #    coefs = np.polynomial.polynomial.polyfit(x=actual_data_df[opt_var],
+         #                                              y=actual_data_df[self.output_key],
+         #                                              deg=poly_degree)
 
-            fit_function = np.polynomial.polynomial.Polynomial(coefs)    # instead of np.poly1d
+         #    fit_function = np.polynomial.polynomial.Polynomial(coefs)    # instead of np.poly1d
 
-            x_actual_fit = np.linspace(np.min(actual_data_df[opt_var]),np.max(actual_data_df[opt_var]),num_points)
-            y_actual_fit = fit_function(x_actual_fit)
+         #    x_actual_fit = np.linspace(np.min(actual_data_df[opt_var]),np.max(actual_data_df[opt_var]),num_points)
+         #    y_actual_fit = fit_function(x_actual_fit)
             
             
-            y_min = np.amin(y_actual_fit)
-            opt_val = x_actual_fit[np.where(y_actual_fit == y_min)][0]
-            opt_values[i] = opt_val
+         #    y_min = np.amin(y_actual_fit)
+         #    opt_val = x_actual_fit[np.where(y_actual_fit == y_min)][0]
+         #    opt_values[i] = opt_val
             
          self.predict(plot_dataframe)
          min_i = np.squeeze(self.min_output_indices)
          opt_val_GPR = plot_dataframe[opt_var][min_i]
          opt_values_GPR[i] = opt_val_GPR
          
-      axis.scatter(vary_var_values[opt_values !=0],
-                   opt_values[opt_values !=0],
-                   marker='x',
-                   color='red',
-                   label=f'CFD datapoints (margin={plot_actual_data_filter_factor}%)')
+      # axis.scatter(vary_var_values[opt_values !=0],
+      #              opt_values[opt_values !=0],
+      #              marker='x',
+      #              color='red',
+      #              label=f'CFD datapoints (margin={plot_actual_data_filter_factor}%)')
 
       axis.plot(vary_var_values,
                 opt_values_GPR,
                 color='darkblue',
                 label='GPR model')
-      axis.set_xlabel(to_latex(vary_var))
-      axis.set_ylabel(to_latex(opt_var)+ '$_{\\mathrm{optimum}} $')
       
-      if plotting_grid_value==[0,0]:
-         if legend_outside == True:
-            leg = axis.legend(loc='upper left',
-                              bbox_to_anchor=(1.02,1.0),
-                              borderaxespad=0,
-                              frameon=True,
-                              ncol=1,
-                              prop={'size': 10})
-         else:
-            leg = axis.legend()
-         leg.set_draggable(state=True)
+      axis.set_xlim(vary_min,vary_max)
+      
+      if plotting_grid_value[0] == (grid_height-1):
+         axis.set_xlabel(to_latex(vary_var))
+               
+      if plotting_grid_value[1] == 0:
+         axis.set_ylabel(to_latex(opt_var)+ '$_{\\mathrm{optimum}} $')
+
+      axis.grid(linestyle = '--', linewidth = 0.5)
+      
+      # if plotting_grid_value==[0,0]:
+      #    if legend_outside == True:
+      #       leg = axis.legend(loc='upper left',
+      #                         bbox_to_anchor=(1.02,1.0),
+      #                         borderaxespad=0,
+      #                         frameon=True,
+      #                         ncol=1,
+      #                         prop={'size': 10})
+      #    else:
+      #       leg = axis.legend()
+      #    leg.set_draggable(state=True)
       
       # axis.scatter(actual_data_df[opt_var],
       #             actual_data_df[self.output_key],
@@ -1329,7 +1433,8 @@ class turbine_GPR:
       #             zorder=1e3)
       
       if self.fit_dimensions>2:
-         axis.set_title(plot_title,size=10)
+         # axis.set_title(plot_title,size=10)
+         pass
       
       if plot_now == True:
          fig.tight_layout()
@@ -1730,6 +1835,8 @@ class turbine:
       self.T_To1 = T_To1
       self.mdot_mdot1 = mdot_mdot1
       self.Lam = Lam
+      
+      self.get_s_cx()
 
    def free_vortex_vane(self,rh,rc,rm):
       """Evaluate vane flow angles assuming a free vortex.
@@ -1980,8 +2087,13 @@ class turbine:
                  stack_ratios=[2,3],
                  Omega=None,
                  To1=None,
-                 Po1=None):
+                 Po1=None,
+                 show=True,
+                 ax1=None,
+                 col=None):
 
+      if col==None:
+         col='-b'
       
       self.get_non_dim_geometry(Omega=Omega,
                                 To1=To1,
@@ -2002,7 +2114,10 @@ class turbine:
             fig.set_figwidth(4)
             fig.set_figheight(6)
          else:
-            fig1, ax1 = plt.subplots()
+            if ax1==None:
+               fig1, ax1 = plt.subplots()
+            else:
+               fig1, ax1dash = plt.subplots()
             fig2, ax2 = plt.subplots()
             
          for irow in range(2):
@@ -2012,13 +2127,13 @@ class turbine:
                sectmid = side[irow][jmid]
                x, r, t = sectmid.T
                rt = r*t
-               ax1.plot(x, rt, '-b')
+               ax1.plot(x, rt, col)
                tex[i] = x[-1]
                tert[i] = rt[-1]
-            ax1.plot(tex,tert,'-b')
+            ax1.plot(tex,tert,col)
                     
-         ax1.set_xlabel('$x$')
-         ax1.set_ylabel('$r\\theta$')
+         ax1.set_xlabel('$\\frac{x}{C_{\\mathrm{x}}}$',size=14)
+         ax1.set_ylabel('$\\frac{r\\theta}{C_{\\mathrm{x}}}$',size=14)
          
          ax2.plot(h[:,0],h[:,1],'-b')
          ax2.plot(c[:,0],c[:,1],'-b')
@@ -2044,7 +2159,7 @@ class turbine:
                      [rle[-1],rte[0]],
                      '--b')
          
-         ax2.set_ylabel('$r$')
+         ax2.set_ylabel('$\\frac{r}{C_{\\mathrm{x}}}$',size=14)
          
          ax1.axis('equal')
          ax2.axis('equal')
@@ -2053,16 +2168,43 @@ class turbine:
          
          if stack==True:
             fig.tight_layout()
-            plt.show()
+            if show==True:
+               plt.show()
+            else:
+               return fig,(ax2,ax1)
+            
             fig.savefig(f'{blades_subfolder_path}/blades.pdf')
          else:
+            
+            fig1.set_figheight(3)
+            fig1.set_figwidth(4)
             fig1.tight_layout()
+            
             fig2.tight_layout()
-            fig1.savefig(f'{blades_subfolder_path}/blades_x_rt.pdf')
+            if show==True:
+               plt.show()
+            else:
+               return (fig1,fig2),(ax1,ax2)
+            
+            if ax1==None:
+               pass
+            else:
+               fig1.tight_layout()
+               fig1.savefig(f'{blades_subfolder_path}/blades_x_rt.pdf')
             fig2.savefig(f'{blades_subfolder_path}/blades_x_r.pdf')
+            
+            
          
          
       elif dimensions in [3,'3D','3d',3.0,'three']:
+         
+         print('Choose file directory')
+         
+
+         root = tk.Tk()
+         chosen_directory = filedialog.askdirectory(parent=root,
+                                                    title="Browse File")
+         root.destroy()
          
          for irow in [0,1]:
             vertices = np.array([]).reshape(0,3)
@@ -2132,7 +2274,7 @@ class turbine:
             elif irow == 1:
                blade='rotor'
 
-            turbine_blade.save(f'{blades_subfolder_path}/turbine_{blade}_blade.stl')
+            turbine_blade.save(f'{chosen_directory}/turbine_{blade}_blade.stl')
       
       else:
          sys.exit('dimensions must be 2 or 3')

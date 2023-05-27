@@ -3,6 +3,8 @@ import pandas as pd
 import sys
 import pkg_resources
 from pathlib import Path
+from random import randint
+
 
 
 def read_in_data(dataset='4D',
@@ -88,7 +90,7 @@ def read_in_data(dataset='4D',
                   "M2", 
                   "Co", 
                   "eta_lost"]
-         df['runid'] = 0
+         df['runid'] = randint(10000000000,100000000000)
          df['Yp_stator'] = 0 
          df['Yp_rotor'] = 0 
          df['zeta_stator'] = 0

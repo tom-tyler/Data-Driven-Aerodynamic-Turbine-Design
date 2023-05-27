@@ -5,21 +5,61 @@ import numpy as np
 import pandas as pd
 import os
 
+# model = TD.turbine_GPR('s_cx_rotor_5D')
+# model.plot('Lambda',
+#            'M2',
+#            gridvars={'psi':(1.2,1.6,2.0),
+#                      'phi':(0.5,0.8,1.1)},
+#            constants={'Co':0.66},
+#            CI_percent=0,
+#            show_min=True,
+#            optimum_plot=True,
+#            with_arrows='custom',
+#            num_points=300)
+
+# model.plot('phi','psi',
+#            rotate_grid=True,
+#            gridvars={'M2':(0.55,0.7,0.85),
+#                      'Co':(0.45,0.55,0.65)},
+#            constants={'Lambda':0.5},
+#            contour_step=0.1,
+#            num_points=100,
+#            title_variable_spacing=2)
+
+# data = tools.read_in_large_dataset('5D')
+
+# datatr,datate = tools.split_data(data)
+
+# model = TD.turbine_GPR('s_cx_rotor_5D')
+
+# model.fit(datatr,
+#           variables=['phi','psi','Co','M2','Lambda'],
+#           output_key='s_cx_rotor',
+#           model_name='s_cx_rotor_5D')
+
+# print(model.optimised_kernel)
+
+# model.plot_accuracy(datate,
+#                     line_error_percent=10,
+#                     legend_outside=False,
+#                     identify_outliers=True,
+#                     equal_axis=True)
+
 # data = tools.read_in_data()
 
 # data = tools.read_in_large_dataset('bonus',state_retention_statistics=True,factor=3)
 
 # print(data[['phi','psi','Co','Lambda','M2','eta_lost']])
-turb_1 = TD.turbine(phi = 0.6,
-                 psi = 1.4,
-                 M2  = 0.5,
-                 Co  = 0.65)
+# turb_1 = TD.turbine(phi = 0.6,
+#                  psi = 1.4,
+#                  M2  = 0.5,
+#                  Co  = 0.65)
 
-turb_1.get_dimensional(Omega = 314,
-                       Po1   = 160000,
-                       To1   = 1800)
+# turb_1.get_dimensional(Omega = 314,
+#                        Po1   = 160000,
+#                        To1   = 1800)
 
-turb_1.get_blade("2D")
+# turb_1.get_blade("2D")
 
 # turb_1.get_blade("3D")
 
@@ -37,22 +77,22 @@ turb_1.get_blade("2D")
 # turb.get_blade(3)
 
 
-# import numpy as np
-# from sklearn.metrics import r2_score 
-# n = 100
-# X1,X2 = np.meshgrid(np.linspace(0.5,1.1,n),np.linspace(1.2,2.2,n))
-# X1_vector = X1.ravel() #vector of "all" x coordinates from meshgrid
-# X2_vector = X2.ravel() #vector of "all" y coordinates from meshgrid
+
+n = 100
+X1,X2 = np.meshgrid(np.linspace(0.5,1.1,n),np.linspace(1.2,2.2,n))
+X1_vector = X1.ravel() #vector of "all" x coordinates from meshgrid
+X2_vector = X2.ravel() #vector of "all" y coordinates from meshgrid
          
 
-# turb = TD.turbine(X1_vector,
-#                   X2_vector,
-#                   0.7*np.ones(len(X1_vector)),
-#                   0.65*np.ones(len(X1_vector)))
+turb = TD.turbine(X1_vector,
+                  X2_vector,
+                  0.7*np.ones(len(X1_vector)),
+                  0.65*np.ones(len(X1_vector)))
 
 # turb.get_nondim()
 
-# output = turb.Yp_rotor.reshape(n,n)
+pitch_to_chord = turb.s_cx_stator.reshape(n,n)
+eta_lost = turb.eta_lost.reshape(n,n)
 
 
 # cplot = plt.contour(X1,X2,output)
@@ -60,8 +100,9 @@ turb_1.get_blade("2D")
 # plt.xlabel('phi')
 # plt.ylabel('psi')
 # plt.title('Yp_rotor')
+plt.plot(pitch_to_chord,eta_lost)
 
-# plt.show()
+plt.show()
 
 # turb.get_non_dim_geometry()
 # n = 100
@@ -119,32 +160,25 @@ turb_1.get_blade("2D")
 
 # datatr,datate = tools.split_data(data)
 
-# model = TD.turbine_GPR('eta_lost_5D')
 
-# model.fit(datatr,
-#           variables=['phi','psi','Co','M2','Lambda'],
-#           output_key='eta_lost',
-#           model_name='eta_lost_5D')
 
-# print(model.optimised_kernel)
 
-# model.plot_accuracy(datate,
-#                     line_error_percent=10,
-#                     legend_outside=True,
-#                     identify_outliers=True)
 
 # fig,axes = model.plot(x1='phi',x2='psi',
 #            CI_percent=0,
 #            constants={'M2':0.67,
 #                       'Co':0.65,
 #                       'Lambda':0.50},
-#            num_points=500,
+#            num_points=200,
 #            contour_step=0.0025,
-#            show=False)
+#            show=False,
+#            contour_type='continuous')
 
-# axes.scatter([0.65,0.95,0.81,0.81,0.81],[1.78,1.78,1.78,1.20,1.50],marker='x',color='magenta')
-# axes.set_xlim(0.6,1.0)
-# axes.set_ylim(1.0,2.0)
+# axes.scatter([0.65,0.95,0.81,0.81,0.81],[1.78,1.78,1.78,1.20,1.50],marker='x',color='crimson',s=100,zorder=30,label='Design points')
+# # axes.set_xlim(0.6,1.0)
+# # axes.set_ylim(1.0,2.0)
+# leg = fig.legend()
+# leg.set_draggable(True)
 # plt.show()
 
 # eta_model = model
