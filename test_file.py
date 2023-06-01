@@ -5,14 +5,56 @@ import numpy as np
 import pandas as pd
 import os
 
-# model = TD.turbine_GPR('s_cx_rotor_5D')
+model = TD.turbine_GPR('eta_lost_5D')
+
+# fig,ax = model.plot('phi',
+#            constants={'psi':1.8,
+#                       'Co':0.65,
+#                       'Lambda':0.5,
+#                       'M2':0.70},
+#            limit_dict={'phi':(0.4,1.2),
+#                        'psi':(1.0,2.4),
+#                        'M2':(0.5,0.95),
+#                        'Co':(0.4,0.8),
+#                        'Lambda':(0.4,0.6)},
+#            num_points=300,
+#            show_min=True,
+#            show=False)
+
+# fig.set_figwidth(4)
+# fig.set_figheight(4)
+# fig.tight_layout()
+# plt.show()
+
+model.plot('phi',
+           'M2',
+           optimum_plot=True,
+           constants={'psi':1.8,
+                      'Co':0.65,
+                      'Lambda':0.5},
+           limit_dict={'phi':(0.4,1.2),
+                       'psi':(1.0,2.4),
+                       'M2':(0.5,0.95),
+                       'Co':(0.4,0.8),
+                       'Lambda':(0.4,0.6)},
+           num_points=1500)
+
+# data = tools.read_in_large_dataset('4D')
+
+# datatr,datate = tools.split_data(data)
+
+# model = TD.turbine_GPR('Yp_stator_model_phi_psi_M2_Co')
+
+# model.plot_accuracy(datate)
+
+# model = TD.turbine_GPR('eta_lost_5D')
 # model.plot('Lambda',
 #            'M2',
-#            gridvars={'psi':(1.2,1.6,2.0),
-#                      'phi':(0.5,0.8,1.1)},
+#            rotate_grid=True,
+#            gridvars={'phi':(0.5,0.8,1.1),
+#                      'psi':(1.2,1.6,2.0)},
 #            constants={'Co':0.66},
 #            CI_percent=0,
-#            show_min=True,
 #            optimum_plot=True,
 #            with_arrows='custom',
 #            num_points=300)
@@ -72,37 +114,37 @@ import os
 #                   M2=0.9,
 #                   Co=0.65)
 
-# turb.get_blade(2,stack_ratios=[5,4])
+# turb.get_blade(2,stack_ratios=[7,8])
 
 # turb.get_blade(3)
 
 
 
-n = 100
-X1,X2 = np.meshgrid(np.linspace(0.5,1.1,n),np.linspace(1.2,2.2,n))
-X1_vector = X1.ravel() #vector of "all" x coordinates from meshgrid
-X2_vector = X2.ravel() #vector of "all" y coordinates from meshgrid
+# n = 100
+# X1,X2 = np.meshgrid(np.linspace(0.5,1.1,n),np.linspace(1.2,2.2,n))
+# X1_vector = X1.ravel() #vector of "all" x coordinates from meshgrid
+# X2_vector = X2.ravel() #vector of "all" y coordinates from meshgrid
          
 
-turb = TD.turbine(X1_vector,
-                  X2_vector,
-                  0.7*np.ones(len(X1_vector)),
-                  0.65*np.ones(len(X1_vector)))
+# turb = TD.turbine(X1_vector,
+#                   X2_vector,
+#                   0.7*np.ones(len(X1_vector)),
+#                   0.65*np.ones(len(X1_vector)))
 
-# turb.get_nondim()
+# # turb.get_nondim()
 
-pitch_to_chord = turb.s_cx_stator.reshape(n,n)
-eta_lost = turb.eta_lost.reshape(n,n)
+# pitch_to_chord = turb.s_cx_stator.reshape(n,n)
+# eta_lost = turb.eta_lost.reshape(n,n)
 
 
-# cplot = plt.contour(X1,X2,output)
-# plt.clabel(cplot, inline=1, fontsize=14)
-# plt.xlabel('phi')
-# plt.ylabel('psi')
-# plt.title('Yp_rotor')
-plt.plot(pitch_to_chord,eta_lost)
+# # cplot = plt.contour(X1,X2,output)
+# # plt.clabel(cplot, inline=1, fontsize=14)
+# # plt.xlabel('phi')
+# # plt.ylabel('psi')
+# # plt.title('Yp_rotor')
+# plt.plot(pitch_to_chord,eta_lost)
 
-plt.show()
+# plt.show()
 
 # turb.get_non_dim_geometry()
 # n = 100
@@ -115,7 +157,7 @@ plt.show()
 #                   0.7*np.ones(len(co_vector)),
 #                   co_vector)
 
-# turb.dim_from_omega(314,1800,160000)
+# turb.get_dimensional(314,1800,160000)
 
 # no_blades = turb.num_blades_stator
 # eta = turb.eta
@@ -149,7 +191,7 @@ plt.show()
 
 # ax.axvline(co_vector[i],0.314,ymax=0.958,linewidth=1, color='r',dashes=(5, 2, 1, 2))
 # ax.axhline(no_opt,xmin=0,xmax=co_vector[i],linewidth=1, color='r',dashes=(5, 2, 1, 2))
-# ax.text(0.52,no_opt,f'{int(no_opt)} blades',size=12, color='r',
+# ax.text(0.52,no_opt+0.4,f'{int(no_opt)} blades',size=12, color='r',
 #         horizontalalignment='left')
 
 # plt.show()

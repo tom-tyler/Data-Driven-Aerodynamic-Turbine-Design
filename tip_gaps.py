@@ -102,6 +102,7 @@ for plot in [(np.array(tau1_comb)*100,deta1_comb),
 
     params = curve_fit(fit_func, plot[0], plot[1])
     [a] = params[0]
+    print(a)
 
     # if counter == 0:
     #     plt.plot(plot[0], a*np.array(plot[0]),color='gray',label='Line of best fit')
@@ -129,6 +130,7 @@ for plot in [(np.array(tau3_comb)*100,deta3_comb),
              (np.array(tau4)*100,deta4)]:
     params = curve_fit(fit_func, plot[0], plot[1])
     [a] = params[0]
+    print(a)
     # if counter == 0:
     #     plt.plot(plot[0], a*plot[0],color='gray',label='Line of best fit')
     # else:

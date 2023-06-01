@@ -627,7 +627,6 @@ class turbine_GPR:
          sys.exit("Constants specified are incorrect")
          
       else:
-         # format of constants is {'M2':0.7,'Co':0.6, ...}
          for constant_key in constants:
             if (constants[constant_key] == 'mean'):
                constant_value[constant_key] = np.mean(self.input_array_train[constant_key])
@@ -641,9 +640,9 @@ class turbine_GPR:
       if dimensions == 2:
 
          X1,X2 = np.meshgrid(plot_dataframe[plot_key1],
-                             plot_dataframe[plot_key2]) # creates two matrices which vary across in x and y
-         X1_vector = X1.ravel() #vector of "all" x coordinates from meshgrid
-         X2_vector = X2.ravel() #vector of "all" y coordinates from meshgrid
+                             plot_dataframe[plot_key2]) 
+         X1_vector = X1.ravel() 
+         X2_vector = X2.ravel() 
          plot_dataframe = pd.DataFrame({})
          plot_dataframe[plot_key1] = X1_vector
          plot_dataframe[plot_key2] = X2_vector
@@ -674,14 +673,32 @@ class turbine_GPR:
                          label='Training data points')
 
          if show_max == True:
+            
             max_i = np.squeeze(self.max_output_indices)
-            axis.text(plot_dataframe[plot_key1][max_i], self.mean_prediction[max_i], f'{self.max_output:.3g}', size=12, color='darkblue')
-            axis.scatter(plot_dataframe[plot_key1][max_i], self.mean_prediction[max_i],marker='x',color='darkblue')
+            axis.text(plot_dataframe[plot_key1][max_i],
+                      self.mean_prediction[max_i],
+                      f'{self.max_output:.3g}',
+                      size=12,
+                      color='darkblue')
+            
+            axis.scatter(plot_dataframe[plot_key1][max_i],
+                         self.mean_prediction[max_i],
+                         marker='x',
+                         color='darkblue')
 
          if show_min == True:
+            
             min_i = np.squeeze(self.min_output_indices)
-            axis.text(plot_dataframe[plot_key1][min_i], self.mean_prediction[min_i], f'{self.min_output:.3g}', size=12, color='darkblue')
-            axis.scatter(plot_dataframe[plot_key1][min_i], self.mean_prediction[min_i],marker='x',color='darkblue')
+            axis.text(plot_dataframe[plot_key1][min_i]-0.07,
+                      self.mean_prediction[min_i]-0.0016,
+                      f'{self.min_output:.3g}',
+                      size=12,
+                      color='darkblue')
+            
+            axis.scatter(plot_dataframe[plot_key1][min_i],
+                         self.mean_prediction[min_i],
+                         marker='x',
+                         color='darkblue')
 
          if plot_actual_data==True:
                
@@ -905,8 +922,8 @@ class turbine_GPR:
       else:
          sys.exit('Somehow wrong number of dimensions')
       
-      if self.fit_dimensions>2:
-         axis.set_title(plot_title,size=10)
+      # if self.fit_dimensions>2:
+      #    axis.set_title(plot_title,size=10)
       
       if plot_now == True:
          fig.tight_layout()
@@ -970,8 +987,8 @@ class turbine_GPR:
                   value_string += newline
                value_string += f'{to_latex(col)}={row[col]:.3f}'
                value_string += ' '*title_variable_spacing                 
-               
-            ax.scatter(row['actual_output'], row['predicted_output'],color='blue',marker=f'${row_index}$',s=160,label=fr'$ runID={row["runid"]:.0f} $',linewidths=0.1)
+            
+            ax.scatter(row['actual_output'], row['predicted_output'],color='blue',marker=f'${row_index}$',s=160,label=fr'$ runID={row["runid"]:.0f} $',linewidths=0.1,zorder=500)
       
       limits_array = np.linspace(actual_values.min(),actual_values.max(),1000)
       upper_limits_array = (1+line_error_percent/100)*limits_array
@@ -1309,7 +1326,7 @@ class turbine_GPR:
       # vary_mean = np.mean(actual_data_df_datum[vary_var])
       # opt_mean = np.mean(actual_data_df_datum[opt_var])
       
-      extrapolation_border_vary = 10
+      extrapolation_border_vary = 0
       extrapolation_border_opt = 0
       
       # vary_min = vary_mean - 0.5*(vary_range*extrapolation_border)
@@ -1756,7 +1773,7 @@ class turbine:
       Al = self.get_Al()
       loss_ratio = self.get_loss_rat()
       eta_lost = self.get_eta_lost()
-      self.get_Yp()
+      self.Yp = self.get_Yp()
       self.eta = 100-100*eta_lost
       
       zeta = self.get_zeta() #zeta rotor assumed=1.0
