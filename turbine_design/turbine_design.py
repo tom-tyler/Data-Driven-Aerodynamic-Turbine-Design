@@ -532,7 +532,8 @@ class turbine_GPR:
                  plot_actual_data=False,
                  plot_actual_data_filter_factor=5,
                  show_actual_with_model=True,
-                 fix_eta_lost_colors=False
+                 fix_eta_lost_colors=False,
+                 show_title=True
                  ):
       """_summary_
 
@@ -803,39 +804,6 @@ class turbine_GPR:
                                                 marker='x',
                                                 color='blue'
                                                 )
-         # num_size_marker=250
-         # blade_col = 'black'#'royalblue'
-         # blade_points_plot = axis.scatter(x=[0.6],
-         #                                        y=[1.3],
-         #                                        marker='$\\left( \\mathrm{c} \\right)$',
-         #                                        color=blade_col,#'crimson',
-         #                                        s=num_size_marker
-         #                                        )
-         
-         # blade_points_plot = axis.scatter(x=[1.0],
-         #                                        y=[1.3],
-         #                                        marker='$\\left( \\mathrm{d} \\right)$',
-         #                                        color=blade_col,#'cornflowerblue',
-         #                                        s=num_size_marker
-         #                                        )
-         # blade_points_plot = axis.scatter(x=[1.0],
-         #                                        y=[2.1],
-         #                                        marker='$\\left( \\mathrm{b} \\right)$',
-         #                                        color=blade_col,#'darkorange',
-         #                                        s=num_size_marker
-         #                                        )
-         # blade_points_plot = axis.scatter(x=[0.6],
-         #                                        y=[2.1],
-         #                                        marker='$\\left( \\mathrm{a} \\right)$',
-         #                                        color=blade_col,#'seagreen',
-         #                                        s=num_size_marker
-         #                                        )
-         # blade_points_plot = axis.scatter(x=[],
-         #                                        y=[],
-         #                                        marker='$\\left( \\; \\; \\right)$',
-         #                                        color=blade_col,
-         #                                        s=num_size_marker
-         #                                        )
          
          if contour_type=='line':
             predicted_plot = axis.contour(X1, X2, mean_prediction_grid,levels=contour_levels,cmap=output_cmap,norm=cmap_norm)
@@ -922,8 +890,9 @@ class turbine_GPR:
       else:
          sys.exit('Somehow wrong number of dimensions')
       
-      # if self.fit_dimensions>2:
-      #    axis.set_title(plot_title,size=10)
+      if self.fit_dimensions>2:
+         if show_title==True:
+            axis.set_title(plot_title,size=10)
       
       if plot_now == True:
          fig.tight_layout()
@@ -1052,8 +1021,8 @@ class turbine_GPR:
    def plot(self,
             x1=None,
             x2=None,
-            constants='mean',          # form: {'M':0.5,'Co':0.5}
-            gridvars={},               # form: {'M':[0.5,0.6,0.7],'Co:[0.6,0.7]}
+            constants='mean',         
+            gridvars={},              
             rotate_grid=False,
             limit_dict=None,
             num_points=100,
@@ -1281,7 +1250,8 @@ class turbine_GPR:
                     axis=None,
                     plotting_grid_value=[0,0],
                     legend_outside = False,
-                    grid_height=1):
+                    grid_height=1,
+                    show_title=True):
       """_summary_
 
       Args:
@@ -1356,7 +1326,6 @@ class turbine_GPR:
          sys.exit("Constants specified are incorrect")
          
       else:
-         # format of constants is {'M2':0.7,'Co':0.6, ...}
          for constant_key in constants:
             if (constants[constant_key] == 'mean'):
                constant_value[constant_key] = np.mean(self.input_array_train[constant_key])
@@ -1450,8 +1419,8 @@ class turbine_GPR:
       #             zorder=1e3)
       
       if self.fit_dimensions>2:
-         # axis.set_title(plot_title,size=10)
-         pass
+         if show_title==True:
+            axis.set_title(plot_title,size=10)
       
       if plot_now == True:
          fig.tight_layout()
@@ -1505,10 +1474,8 @@ class turbine:
       
       self.Lambda=0.5
       
-      #geom
       self.Rle_stator,self.Rle_rotor = [0.04,0.04]
       
-      #datum dimensional
       self.To1 = 1600.0
       self.Po1 = 1600000.0
       self.Omega = 314.159
@@ -1919,7 +1886,7 @@ class turbine:
       Q1 = compflow.mcpTo_APo_from_Ma(self.Ma[0], self.ga)
       
       if Omega==None and mdot!=None:
-         Ax1 = np.sqrt(cpTo1) * mdot1 / (Q1 * Po1 * np.cos(np.radians(self.Al[0])))
+         Ax1 = np.sqrt(cpTo1) * mdot / (Q1 * Po1 * np.cos(np.radians(self.Al[0])))
          Dr_rm = 2.0 * (1.0 - self.htr) / (1.0 + self.htr)
          
          rm = np.sqrt(Ax1 * self.Ax_Ax1[1] / (2.0 * np.pi * Dr_rm * self.Ax_Ax1[0])) 
@@ -1949,7 +1916,7 @@ class turbine:
          Dr = rm * Dr_rm * np.array(self.Ax_Ax1) / self.Ax_Ax1[1]
 
          Ax1 = 2.0 * np.pi * rm * Dr[0]
-         mdot1 = Q1 * Po1 * Ax1 * np.cos(np.radians(self.Al[0])) / np.sqrt(cpTo1)
+         mdot = Q1 * Po1 * Ax1 * np.cos(np.radians(self.Al[0])) / np.sqrt(cpTo1)
       
       else:
          sys.exit('must specify either mdot or Omega, but not both')
@@ -1966,7 +1933,7 @@ class turbine:
       self.rh = rm - Dr / 2.0
       self.rc = rm + Dr / 2.0
       self.Ax1 = Ax1
-      self.mdot1 = mdot1
+      self.mdot = mdot
       
       self.span = span
       self.chord_x = cx
@@ -2118,7 +2085,15 @@ class turbine:
       
       nb, h, c, ps, ss = get_coordinates()  
       
-      blades_subfolder_path = '/'.join((self.package_path, 'Blade_shapes'))
+      print('Choose file directory')
+         
+
+      root = tk.Tk()
+      blades_subfolder_path = filedialog.askdirectory(parent=root,
+                                                   title="Browse File")
+      root.destroy()
+      
+      # blades_subfolder_path = '/'.join((chosen_directory, 'Blade_shapes'))
       
       if dimensions in [2,'2D','2d',2.0,'two']:
          # Plot x_rt and x_r 2D plots
@@ -2215,14 +2190,6 @@ class turbine:
          
       elif dimensions in [3,'3D','3d',3.0,'three']:
          
-         print('Choose file directory')
-         
-
-         root = tk.Tk()
-         chosen_directory = filedialog.askdirectory(parent=root,
-                                                    title="Browse File")
-         root.destroy()
-         
          for irow in [0,1]:
             vertices = np.array([]).reshape(0,3)
             faces = np.array([],dtype=np.int64).reshape(0,3)
@@ -2244,7 +2211,6 @@ class turbine:
                n = len(x)
                
                if ri==0:
-                  # THIS SECTION IS CORRECT!! DO NOT CHANGE
                   faces_i = [0]*(n-1)
                   for i in range(n-1):    
                         faces_i[i] = [int(i+1),
@@ -2255,7 +2221,6 @@ class turbine:
                   faces = np.vstack([faces,faces_i])
                   
                elif ri==ri_len-1:
-                  # THIS SECTION IS CORRECT!! DO NOT CHANGE
                   faces_i = [0]*(n-1)
                   for i in range(n*ri,n*(ri+1)-1):    
                         faces_i[i-n*ri] = [int(i+1),
@@ -2266,7 +2231,6 @@ class turbine:
                   faces = np.vstack([faces,faces_i])
                   
                else:
-                  # THIS SECTION IS CORRECT!! DO NOT CHANGE
                   faces_i = [0]*(n-1)*2
                   for i in range(n*ri,n*(ri+1)-1):    
                         faces_i[i-n*ri] = [int(i),
@@ -2285,17 +2249,13 @@ class turbine:
                for j in range(3):
                   turbine_blade.vectors[i][j] = vertices[f[j],:]
 
-            # Write the mesh to file "cube.stl"
             if irow == 0:
                blade='stator'
             elif irow == 1:
                blade='rotor'
 
-            turbine_blade.save(f'{chosen_directory}/turbine_{blade}_blade.stl')
+            turbine_blade.save(f'{blades_subfolder_path}/turbine_{blade}_blade.stl')
       
       else:
          sys.exit('dimensions must be 2 or 3')
       
-   def draw_triangles(self):
-      
-      pass
